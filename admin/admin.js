@@ -110,7 +110,7 @@ const filters = (options, current) => `<div class="filters" data-filters>${optio
    ========================================================== */
 const main = $("[data-main]");
 const views = {};
-let state = { orderStatus: "", bookingStatus: "" };
+let state = { orderStatus: "", bookingStatus: "", customerTab: "profiles" };
 
 /* ---------- Resumen ---------- */
 views.resumen = async () => {
@@ -119,6 +119,8 @@ views.resumen = async () => {
     <div class="page-head"><div><p class="eyebrow">Hoy</p><h1>Resumen</h1></div></div>
     ${s.payments_configured ? "" : '<p class="notice">Stripe no está configurado: la tienda y las reservas en grupo no aceptan pagos todavía. Ponlo en <a href="#ajustes">Ajustes</a>.</p>'}
     ${s.packlink_configured ? "" : '<p class="notice">Packlink PRO no está configurado: se usa la tarifa plana de envío. Puedes configurarlo en <a href="#ajustes">Ajustes</a>.</p>'}
+    ${s.legal_missing.length ? '<p class="notice">Faltan los datos del titular (nombre o razón social, NIF, domicilio y email) que salen en el aviso legal, la privacidad y las condiciones de venta. La ley obliga a mostrarlos: rellénalos en <a href="#ajustes">Ajustes → Datos legales</a>.</p>' : ""}
+    ${s.legacy_customers ? `<p class="notice">Hay ${s.legacy_customers} ${s.legacy_customers === 1 ? "cliente guardado" : "clientes guardados"} de antes de pedir permiso para crear perfiles. Revísalo en <a href="#clientes">Clientes</a>.</p>` : ""}
     <div class="cards">
       <a class="card" href="#pedidos"><span class="eyebrow">Pedidos por enviar</span><p class="card__num">${s.orders_to_ship}</p></a>
       <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
@@ -154,7 +156,7 @@ async function openOrder(id) {
   const o = await api("GET", `/admin/orders/${id}`);
   const s = o.shipping;
   const body = openDrawer(`Pedido ${o.reference}`, `
-    <div class="row">${badge(o.status)}<span class="muted">${fmtDate(o.created_at)}</span></div>
+    <div class="row">${badge(o.status)}<span class="muted">${fmtDate(o.created_at)}</span>${o.privacy_blocked ? '<span class="badge" title="El cliente pidió borrar sus datos: solo se conservan los necesarios para la factura">Datos bloqueados · RGPD</span>' : ""}</div>
     <h3>Productos</h3>
     <div class="table-wrap"><table><tbody>${o.items.map((i) => `<tr><td>${i.quantity} × ${esc(i.title)}${i.discount_percent ? ` <span class="badge">-${i.discount_percent} %</span>` : ""}</td><td class="num">${money(i.line_total_cents)}</td></tr>`).join("")}
       <tr><td class="muted">Envío · ${esc(s.service_name)}</td><td class="num">${money(o.shipping_cents)}</td></tr>
@@ -464,7 +466,7 @@ views.reservas = async () => {
 function bookingForm(b) {
   const isPrivate = !b.session_id;
   const body = openDrawer(`Reserva ${b.reference}`, `
-    <div class="row">${badge(b.status)}<span class="muted">creada ${fmtDate(b.created_at)}</span></div>
+    <div class="row">${badge(b.status)}<span class="muted">creada ${fmtDate(b.created_at)}</span>${b.privacy_blocked ? '<span class="badge">Datos bloqueados · RGPD</span>' : ""}</div>
     <h3>${esc(b.class_title)}</h3>
     <dl><dt>Cliente</dt><dd>${esc(b.customer.name)}</dd><dt>Email</dt><dd><a href="mailto:${esc(b.customer.email)}">${esc(b.customer.email)}</a></dd><dt>Teléfono</dt><dd>${esc(b.customer.phone) || "—"}</dd>
       <dt>Plazas</dt><dd>${b.seats}</dd><dt>Importe</dt><dd>${money(b.total_cents)} ${b.paid_at ? "· pagado" : isPrivate ? "· se cobra en el estudio o por enlace" : ""}</dd>
@@ -554,16 +556,122 @@ views.galeria = async () => {
   });
 };
 
-/* ---------- Clientes ---------- */
-views.clientes = async () => {
-  const list = await api("GET", "/admin/customers");
-  main.innerHTML = `
-    <div class="page-head"><div><p class="eyebrow">Contactos</p><h1>Clientes</h1><p>${list.length} personas han comprado o reservado.</p></div></div>
-    <div class="table-wrap">${list.length ? `<table><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th class="num">Pedidos</th><th class="num">Reservas</th><th>Desde</th></tr></thead>
-      <tbody>${list.map((c) => `<tr><td>${esc(c.name)}</td><td><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td><td>${esc(c.phone)}</td><td>${esc(c.city)}</td>
-        <td class="num">${c.orders}</td><td class="num">${c.bookings}</td><td>${fmtDate(c.created_at, false)}</td></tr>`).join("")}</tbody></table>`
-      : '<p class="empty">Todavía no hay clientes.</p>'}</div>`;
+/* ---------- Clientes y privacidad (RGPD) ---------- */
+const CONSENT_LABEL = { terms: "Condiciones y privacidad", marketing: "Comunicaciones comerciales", profile: "Guardar perfil" };
+const SOURCE_LABEL = { checkout: "compra", booking: "reserva", private_booking: "solicitud de clase privada", panel: "panel", privacy_request: "Mis datos", unsubscribe_link: "enlace de baja", web: "web" };
+const REQUEST_LABEL = { export: "Copia de datos", delete: "Borrado", unsubscribe: "Baja de comunicaciones" };
+
+// Descarga un archivo generado en el navegador (CSV de marketing, JSON de un cliente)
+function downloadFile(name, content, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+const csv = (rows) => "﻿" + rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+const eraseSummary = (r) => {
+  const kept = r.orders_kept + r.bookings_kept;
+  return "Datos borrados." + (kept ? ` Se conservan bloqueados ${kept} pedidos/reservas pagados (facturas, 6 años).` : "");
 };
+
+views.clientes = async () => {
+  const tab = state.customerTab || "profiles";
+  const stats = await api("GET", "/admin/stats");
+  const tabs = filters([["profiles", "Perfiles"], ["marketing", "Comunicaciones comerciales"], ["requests", "Solicitudes de privacidad"]], tab);
+  const head = `
+    <div class="page-head"><div><p class="eyebrow">Contactos</p><h1>Clientes</h1>
+      <p>Solo aparecen las personas que han pedido guardar su perfil o que aceptaron recibir comunicaciones comerciales. Quien no marca ninguna casilla queda solo en sus pedidos y reservas.</p></div></div>
+    ${stats.legacy_customers ? `<div class="notice"><p>Hay ${stats.legacy_customers} ${stats.legacy_customers === 1 ? "cliente creado" : "clientes creados"} antes de pedir permiso para guardar perfiles. Sus pedidos y reservas conservan los datos necesarios, así que puedes borrarlos sin perder nada.</p>
+      <p style="margin-top:.6rem"><button class="btn btn--ghost" type="button" data-purge>Borrar esos ${stats.legacy_customers} registros</button></p></div>` : ""}
+    ${tabs}`;
+
+  if (tab === "requests") {
+    const list = await api("GET", "/admin/privacy-requests");
+    main.innerHTML = `${head}
+      <p class="muted" style="margin-bottom:1rem">Desde la página <a href="../mis-datos.html" target="_blank" rel="noopener">Mis datos</a> de la web cualquier persona puede pedir una copia de sus datos, borrarlos o darse de baja. Se atienden solas al confirmar el enlace del email; aquí queda constancia.</p>
+      <form class="row" data-erase-form style="margin-bottom:1.5rem;align-items:flex-end">
+        ${field("Borrar los datos de un email", '<input type="email" name="email" placeholder="persona@email.com" required>', "Para solicitudes que te lleguen por teléfono, email o en el taller.")}
+        <button class="btn btn--danger" type="submit">Borrar datos</button>
+      </form>
+      <div class="table-wrap">${list.length ? `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Email</th><th>Estado</th><th>Resultado</th></tr></thead>
+        <tbody>${list.map((q) => `<tr><td>${fmtDate(q.created_at)}</td><td>${REQUEST_LABEL[q.type] || esc(q.type)}${q.source === "panel" ? ' <span class="muted">· panel</span>' : ""}</td><td>${esc(q.email)}</td>
+          <td>${q.status === "done" ? '<span class="badge badge--ok">Atendida</span>' : q.status === "expired" ? '<span class="badge">Sin confirmar</span>' : '<span class="badge badge--warn">Esperando confirmación</span>'}</td><td>${esc(q.result)}</td></tr>`).join("")}</tbody></table>`
+        : '<p class="empty">Todavía no hay solicitudes.</p>'}</div>`;
+    const form = $("[data-erase-form]");
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = form.elements.email.value.trim();
+      if (!confirm(`¿Borrar los datos de ${email}? No se puede deshacer. Los pedidos pagados se conservan bloqueados por obligación legal.`)) return;
+      submitting(form, async () => { toast(eraseSummary(await api("POST", "/admin/customers/erase", { email }))); views.clientes(); });
+    });
+  } else {
+    const list = await api("GET", `/admin/customers?filter=${tab}`);
+    const isMk = tab === "marketing";
+    main.innerHTML = `${head}
+      ${isMk ? `<div class="row" style="margin-bottom:1rem;justify-content:space-between"><p class="muted">${list.length} ${list.length === 1 ? "persona ha aceptado" : "personas han aceptado"} recibir comunicaciones comerciales. Envía solo a esta lista e incluye siempre el enlace de baja.</p>
+        <button class="btn btn--ghost" type="button" data-export-mk ${list.length ? "" : "disabled"}>Exportar CSV</button></div>` : `<p class="muted" style="margin-bottom:1rem">${list.length} ${list.length === 1 ? "perfil guardado" : "perfiles guardados"}.</p>`}
+      <div class="table-wrap">${list.length ? `<table><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th>Comunicaciones</th><th class="num">Pedidos</th><th class="num">Reservas</th><th>Desde</th></tr></thead>
+        <tbody>${list.map((c) => `<tr class="is-clickable" data-id="${c.id}"><td>${esc(c.name)}${c.has_profile ? "" : ' <span class="muted">· sin perfil</span>'}</td><td>${esc(c.email)}</td><td>${esc(c.phone)}</td><td>${esc(c.city)}</td>
+          <td>${c.marketing_opt_in ? '<span class="badge badge--ok">Sí</span>' : '<span class="badge">No</span>'}</td><td class="num">${c.orders}</td><td class="num">${c.bookings}</td><td>${fmtDate(c.created_at, false)}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="empty">${isMk ? "Nadie ha aceptado todavía recibir comunicaciones." : "Todavía no hay perfiles guardados."}</p>`}</div>`;
+    $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openCustomer(tr.dataset.id)));
+    $("[data-export-mk]")?.addEventListener("click", async () => {
+      try {
+        const rows = await api("GET", "/admin/marketing");
+        downloadFile(`comunicaciones-${new Date().toISOString().slice(0, 10)}.csv`,
+          csv([["Nombre", "Email", "Alta", "Enlace de baja"], ...rows.map((r) => [r.name, r.email, r.since, r.unsubscribe_url])]), "text/csv;charset=utf-8");
+      } catch (e) { fail(e); }
+    });
+  }
+  $("[data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.customerTab = b.dataset.value; views.clientes().catch(fail); } });
+  $("[data-purge]")?.addEventListener("click", async () => {
+    if (!confirm("¿Borrar los clientes creados antes de pedir permiso? Sus pedidos y reservas no se tocan.")) return;
+    try { const r = await api("POST", "/admin/customers/purge-legacy"); toast(`${r.deleted} registros borrados`); views.clientes(); } catch (e) { fail(e); }
+  });
+};
+
+async function openCustomer(id) {
+  const c = await api("GET", `/admin/customers/${id}`);
+  const body = openDrawer(c.name || c.email, `
+    <dl><dt>Email</dt><dd><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></dd><dt>Teléfono</dt><dd>${esc(c.phone) || "—"}</dd>
+      <dt>Dirección</dt><dd>${c.street ? `${esc(c.street)}<br>${esc(c.postal_code)} ${esc(c.city)} (${esc(c.country)})` : "—"}</dd>
+      <dt>Perfil</dt><dd>${c.has_profile ? `Guardado con su permiso · ${fmtDate(c.created_at, false)}` : "No pidió guardar perfil (solo comunicaciones)"}</dd></dl>
+    <h3>Comunicaciones comerciales</h3>
+    <form data-mk-form>${toggle("marketing_opt_in", c.marketing_opt_in, "Acepta recibir comunicaciones")}</form>
+    <p class="muted" style="font-size:.82rem;margin-top:.4rem">Actívalo solo si esta persona te lo ha pedido (y mejor por escrito).${c.has_profile ? "" : " Como no tiene perfil, al desactivarlo se borra de la lista."}</p>
+    <h3>Pedidos</h3>
+    ${c.order_list.length ? `<div class="table-wrap"><table><tbody>${c.order_list.map((o) => `<tr><td>${esc(o.reference)}<br><span class="muted">${fmtDate(o.created_at, false)}</span></td><td>${badge(o.status)}</td><td class="num">${money(o.total_cents)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted">Sin pedidos.</p>'}
+    <h3>Reservas</h3>
+    ${c.booking_list.length ? `<div class="table-wrap"><table><tbody>${c.booking_list.map((b) => `<tr><td>${esc(b.class_title)}<br><span class="muted">${esc(b.reference)}</span></td><td>${badge(b.status)}</td><td class="num">${money(b.total_cents)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted">Sin reservas.</p>'}
+    <h3>Consentimientos</h3>
+    ${c.consents.length ? `<div class="table-wrap"><table><tbody>${c.consents.map((k) => `<tr><td>${CONSENT_LABEL[k.purpose] || esc(k.purpose)}<br><span class="muted">${SOURCE_LABEL[k.source] || esc(k.source)} · textos ${esc(k.text_version)}</span></td>
+      <td>${k.granted ? '<span class="badge badge--ok">Acepta</span>' : '<span class="badge badge--bad">Retira</span>'}</td><td>${fmtDate(k.created_at)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted">Sin registros.</p>'}
+    <h3>Derechos de esta persona</h3>
+    <div class="row">
+      <button class="btn btn--ghost" type="button" data-export>Exportar sus datos (JSON)</button>
+      <button class="btn btn--danger" type="button" data-erase>Borrar sus datos</button>
+    </div>
+    <p class="muted" style="font-size:.82rem;margin-top:1rem">Borrar elimina el perfil y la suscripción y anonimiza lo no pagado. Los pedidos y reservas pagados se conservan bloqueados (sin teléfono ni notas) durante 6 años por obligación legal y luego se anonimizan solos.</p>`);
+  $("[data-mk-form] input", body).addEventListener("change", async (e) => {
+    const on = e.target.checked;
+    if (on && !confirm("¿Esta persona te ha pedido recibir comunicaciones comerciales? Queda registrado como alta desde el panel.")) { e.target.checked = false; return; }
+    try {
+      const r = await api("PATCH", `/admin/customers/${id}`, { marketing_opt_in: on });
+      toast(on ? "Alta en comunicaciones guardada" : "Baja guardada");
+      if (r.deleted) closeDrawer(); else openCustomer(id);
+      views.clientes();
+    } catch (err) { e.target.checked = !on; fail(err); }
+  });
+  $("[data-export]", body).addEventListener("click", async () => {
+    try { downloadFile(`datos-${c.email}.json`, JSON.stringify(await api("GET", `/admin/customers/${id}/export`), null, 2), "application/json"); } catch (e) { fail(e); }
+  });
+  $("[data-erase]", body).addEventListener("click", async () => {
+    if (!confirm(`¿Borrar los datos de ${c.email}? No se puede deshacer.`)) return;
+    try { toast(eraseSummary(await api("DELETE", `/admin/customers/${id}`))); closeDrawer(); views.clientes(); } catch (e) { fail(e); }
+  });
+}
 
 /* ---------- Cuenta ---------- */
 /* ---------- Ajustes: Stripe, Packlink, envíos y emails ---------- */
@@ -604,6 +712,21 @@ views.ajustes = async () => {
           ${field("Facebook", input("SITE_FACEBOOK", v.SITE_FACEBOOK, 'type="url" placeholder="https://www.facebook.com/…"'), "Opcional")}
           ${field("TikTok", input("SITE_TIKTOK", v.SITE_TIKTOK, 'type="url" placeholder="https://www.tiktok.com/@…"'), "Opcional")}
         </div>
+      </section>
+
+      <section class="stack">
+        <h2 class="settings__title">Datos legales y analítica</h2>
+        <p class="muted">Los datos del titular salen en el <a href="../aviso-legal.html" target="_blank" rel="noopener">aviso legal</a>, la <a href="../privacidad.html" target="_blank" rel="noopener">política de privacidad</a> y las <a href="../condiciones.html" target="_blank" rel="noopener">condiciones de venta</a>. La ley (LSSI) obliga a mostrarlos: mientras falten, esas páginas enseñan el hueco marcado.</p>
+        <div class="grid-2">
+          ${field("Nombre o razón social", input("LEGAL_OWNER", v.LEGAL_OWNER, 'placeholder="Nombre Apellidos o Empresa S.L."'), "Autónomo: tu nombre completo")}
+          ${field("NIF / CIF", input("LEGAL_TAX_ID", v.LEGAL_TAX_ID, 'placeholder="12345678Z"'))}
+        </div>
+        ${field("Domicilio fiscal o del taller", input("LEGAL_ADDRESS", v.LEGAL_ADDRESS, 'placeholder="Calle del Barro 12, 28012 Madrid"'))}
+        <div class="grid-2">
+          ${field("Email para privacidad y reclamaciones", input("LEGAL_EMAIL", v.LEGAL_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'), "Si lo dejas vacío se usa el email de contacto")}
+          ${field("Datos registrales", input("LEGAL_REGISTRY", v.LEGAL_REGISTRY, 'placeholder="Registro Mercantil de Madrid, tomo…"'), "Solo si eres sociedad. Opcional")}
+        </div>
+        ${field("ID de Google Analytics 4", input("GA_MEASUREMENT_ID", v.GA_MEASUREMENT_ID, 'placeholder="G-XXXXXXXXXX" spellcheck="false"'), 'En Google Analytics → Administrar → Flujos de datos. Solo se carga a los visitantes que acepten las cookies analíticas. Pon la retención de datos en 14 meses.')}
       </section>
 
       <section class="stack">
