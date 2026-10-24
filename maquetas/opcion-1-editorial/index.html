@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Charria Ceramics · Opción 1 · Editorial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Cabecera fija: se invierte sobre fondos oscuros con mix-blend-mode -->
+  <header class="header">
+    <nav class="header__nav header__nav--left">
+      <a href="#tienda">Tienda</a>
+      <a href="#clases">Clases</a>
+      <a href="#privadas">Privadas</a>
+      <a href="#galeria">Galería</a>
+    </nav>
+    <a href="#top" class="header__logo">Charria</a>
+    <nav class="header__nav header__nav--right">
+      <a href="#privadas">Reservar</a>
+      <button class="cart-btn" type="button">Cesta (<span data-cart-count>0</span>)</button>
+    </nav>
+  </header>
+
+  <main id="top">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero__media">
+        <img src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=2000&q=80" alt="Jarrones de cerámica artesanal sobre fondo neutro">
+      </div>
+      <h1 class="hero__title" data-split>Charria</h1>
+      <p class="hero__sub">Cerámica hecha a mano · Estudio y tienda</p>
+      <span class="hero__scroll">Desliza</span>
+    </section>
+
+    <!-- MANIFIESTO -->
+    <section class="intro">
+      <p class="eyebrow">El estudio</p>
+      <p class="intro__text" data-reveal-words>
+        Piezas modeladas a mano, una a una, con barro de la tierra y esmaltes que nacen del fuego.
+        Objetos para vivir despacio.
+      </p>
+    </section>
+
+    <!-- 1. TIENDA -->
+    <section class="shop" id="tienda">
+      <div class="section-head">
+        <span class="section-head__num">01</span>
+        <h2 class="section-head__title" data-split>Tienda</h2>
+        <a href="#" class="link-line">Ver toda la colección</a>
+      </div>
+
+      <div class="shop__columns">
+        <div class="shop__col" data-speed="-40">
+          <article class="product">
+            <div class="product__img"><img src="https://images.unsplash.com/photo-1610701596007-11502861dcfa?auto=format&fit=crop&w=900&q=80" alt="Cuencos de gres"></div>
+            <div class="product__info"><h3>Cuenco Arena</h3><span>38 €</span></div>
+            <button class="product__add" data-add>Añadir</button>
+          </article>
+          <article class="product">
+            <div class="product__img"><img src="https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=900&q=80" alt="Jarrón de cerámica"></div>
+            <div class="product__info"><h3>Jarrón Duna</h3><span>72 €</span></div>
+            <button class="product__add" data-add>Añadir</button>
+          </article>
+        </div>
+        <div class="shop__col shop__col--offset" data-speed="40">
+          <article class="product product--tall">
+            <div class="product__img"><img src="https://images.unsplash.com/photo-1612196808214-b8e1d6145a8c?auto=format&fit=crop&w=900&q=80" alt="Taza de cerámica esmaltada"></div>
+            <div class="product__info"><h3>Taza Niebla</h3><span>26 €</span></div>
+            <button class="product__add" data-add>Añadir</button>
+          </article>
+          <article class="product">
+            <div class="product__img"><img src="https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?auto=format&fit=crop&w=900&q=80" alt="Plato de cerámica"></div>
+            <div class="product__info"><h3>Plato Sal</h3><span>32 €</span></div>
+            <button class="product__add" data-add>Añadir</button>
+          </article>
+        </div>
+        <div class="shop__col" data-speed="-20">
+          <article class="product">
+            <div class="product__img"><img src="https://images.unsplash.com/photo-1594732832278-abd644401426?auto=format&fit=crop&w=900&q=80" alt="Set de cerámica"></div>
+            <div class="product__info"><h3>Set Alba</h3><span>110 €</span></div>
+            <button class="product__add" data-add>Añadir</button>
+          </article>
+          <article class="product product--tall">
+            <div class="product__img"><img src="https://images.unsplash.com/photo-1590422749897-47036da0b0ff?auto=format&fit=crop&w=900&q=80" alt="Florero de barro"></div>
+            <div class="product__info"><h3>Florero Ocre</h3><span>54 €</span></div>
+            <button class="product__add" data-add>Añadir</button>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. CLASES GRUPALES: lista editorial con imagen flotante al hover -->
+    <section class="classes" id="clases">
+      <div class="section-head">
+        <span class="section-head__num">02</span>
+        <h2 class="section-head__title" data-split>Clases en grupo</h2>
+        <p class="section-head__desc">Grupos reducidos de máximo seis personas. Barro, herramientas y dos cocciones incluidas.</p>
+      </div>
+
+      <ul class="class-list">
+        <li class="class-row" data-img="https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=700&q=80">
+          <span class="class-row__date">Sáb 08 Nov</span>
+          <span class="class-row__name">Iniciación al torno</span>
+          <span class="class-row__meta">10:00 · 3 h · 4 plazas</span>
+          <span class="class-row__price">65 €</span>
+          <button class="btn-text" data-book="Iniciación al torno · Sáb 08 Nov">Reservar</button>
+        </li>
+        <li class="class-row" data-img="https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?auto=format&fit=crop&w=700&q=80">
+          <span class="class-row__date">Jue 13 Nov</span>
+          <span class="class-row__name">Modelado a mano: pellizco y churro</span>
+          <span class="class-row__meta">18:30 · 2,5 h · 2 plazas</span>
+          <span class="class-row__price">55 €</span>
+          <button class="btn-text" data-book="Modelado a mano · Jue 13 Nov">Reservar</button>
+        </li>
+        <li class="class-row" data-img="https://images.unsplash.com/photo-1556011284-54aa6466d402?auto=format&fit=crop&w=700&q=80">
+          <span class="class-row__date">Sáb 22 Nov</span>
+          <span class="class-row__name">Esmaltes y color</span>
+          <span class="class-row__meta">11:00 · 3 h · 6 plazas</span>
+          <span class="class-row__price">70 €</span>
+          <button class="btn-text" data-book="Esmaltes y color · Sáb 22 Nov">Reservar</button>
+        </li>
+        <li class="class-row" data-img="https://images.unsplash.com/photo-1525974160448-038dacadcc71?auto=format&fit=crop&w=700&q=80">
+          <span class="class-row__date">Mensual</span>
+          <span class="class-row__name">Curso trimestral de torno</span>
+          <span class="class-row__meta">Martes · 12 sesiones</span>
+          <span class="class-row__price">390 €</span>
+          <button class="btn-text" data-book="Curso trimestral de torno">Reservar</button>
+        </li>
+      </ul>
+      <div class="class-float" aria-hidden="true"><img src="" alt=""></div>
+    </section>
+
+    <!-- 3. CLASES PRIVADAS 1 a 1: imagen fija + formulario -->
+    <section class="private" id="privadas">
+      <div class="private__media">
+        <img src="https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?auto=format&fit=crop&w=1400&q=80" alt="Manos modelando barro en el torno">
+      </div>
+      <div class="private__content">
+        <span class="section-head__num">03</span>
+        <h2 class="section-head__title" data-split>Clase privada</h2>
+        <p class="private__lead">Una sesión solo para ti (o para dos). Ritmo propio, proyecto propio y toda la atención del taller.</p>
+
+        <form class="form" data-form>
+          <label class="form__field">
+            <span>Modalidad</span>
+            <select name="tipo">
+              <option>1 persona · 2 h · 90 €</option>
+              <option>2 personas · 2 h · 150 €</option>
+              <option>Pack 4 sesiones · 320 €</option>
+            </select>
+          </label>
+          <label class="form__field">
+            <span>Fecha preferida</span>
+            <input type="date" name="fecha" required>
+          </label>
+          <label class="form__field">
+            <span>Franja</span>
+            <select name="franja"><option>Mañana</option><option>Tarde</option></select>
+          </label>
+          <label class="form__field">
+            <span>Nombre</span>
+            <input type="text" name="nombre" placeholder="Tu nombre" required>
+          </label>
+          <label class="form__field">
+            <span>Email</span>
+            <input type="email" name="email" placeholder="tu@email.com" required>
+          </label>
+          <button class="btn" type="submit">Solicitar reserva</button>
+          <p class="form__ok" hidden>Gracias. Te escribiremos en menos de 24 h para confirmar.</p>
+        </form>
+      </div>
+    </section>
+
+    <!-- 4. GALERÍA: scroll horizontal fijado -->
+    <section class="gallery" id="galeria">
+      <div class="gallery__pin">
+        <div class="gallery__head">
+          <span class="section-head__num">04</span>
+          <h2 class="section-head__title" data-split>Galería</h2>
+          <p class="section-head__desc">Obra única y series de autor.</p>
+        </div>
+        <div class="gallery__track">
+          <figure class="art art--a"><img src="https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=1000&q=80" alt="Escultura de cerámica"><figcaption>Serie Raíz, 2025</figcaption></figure>
+          <figure class="art art--b"><img src="https://images.unsplash.com/photo-1610701596061-2ecf227e85b2?auto=format&fit=crop&w=1000&q=80" alt="Cuencos apilados"><figcaption>Silencio blanco</figcaption></figure>
+          <figure class="art art--c"><img src="https://images.unsplash.com/photo-1603204077779-bed963ea7d0e?auto=format&fit=crop&w=1000&q=80" alt="Vasija de barro"><figcaption>Vasija nº 7</figcaption></figure>
+          <figure class="art art--a"><img src="https://images.unsplash.com/photo-1631125915902-d8abe9225ff2?auto=format&fit=crop&w=1000&q=80" alt="Cerámica sobre mesa"><figcaption>Mesa de taller</figcaption></figure>
+          <figure class="art art--b"><img src="https://images.unsplash.com/photo-1607344645866-009c320b63e0?auto=format&fit=crop&w=1000&q=80" alt="Piezas de cerámica"><figcaption>Tierra cocida</figcaption></figure>
+          <figure class="art art--c"><img src="https://images.unsplash.com/photo-1571950484368-7b15b0a5ad46?auto=format&fit=crop&w=1000&q=80" alt="Detalle de esmalte"><figcaption>Ceniza, 2024</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p class="footer__big" data-split>Hecho a mano, con calma.</p>
+    <div class="footer__cols">
+      <div><span class="eyebrow">Estudio</span><p>Calle del Barro 12<br>Madrid</p></div>
+      <div><span class="eyebrow">Horario</span><p>Mar–Sáb · 10:00–20:00</p></div>
+      <div><span class="eyebrow">Síguenos</span><p><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p></div>
+    </div>
+  </footer>
+
+  <!-- Modal de reserva grupal -->
+  <div class="modal" data-modal hidden>
+    <div class="modal__box">
+      <button class="modal__close" data-close aria-label="Cerrar">×</button>
+      <p class="eyebrow">Reserva</p>
+      <h3 class="modal__title" data-modal-title>Clase</h3>
+      <form class="form" data-form>
+        <label class="form__field"><span>Plazas</span><select><option>1</option><option>2</option><option>3</option></select></label>
+        <label class="form__field"><span>Nombre</span><input type="text" required></label>
+        <label class="form__field"><span>Email</span><input type="email" required></label>
+        <button class="btn" type="submit">Confirmar</button>
+        <p class="form__ok" hidden>Plaza reservada. Recibirás un email de confirmación.</p>
+      </form>
+    </div>
+  </div>
+
+  <div class="cursor" aria-hidden="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
