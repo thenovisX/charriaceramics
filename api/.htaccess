@@ -1,0 +1,10 @@
+# Todas las peticiones a /api/* van a index.php
+Options -Indexes
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Apache no pasa la cabecera Authorization a PHP por defecto
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>

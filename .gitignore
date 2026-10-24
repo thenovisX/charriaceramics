@@ -1,0 +1,8 @@
+.env
+backend/.env
+backend/storage/logs/*
+!backend/storage/logs/.gitkeep
+uploads/*
+!uploads/.htaccess
+!uploads/.gitkeep
+.DS_Store

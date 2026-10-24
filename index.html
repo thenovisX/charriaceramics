@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -132,7 +132,7 @@
         <h2 class="section-head__title" data-split>Clase privada</h2>
         <p class="private__lead">Una sesión solo para ti (o para dos). Ritmo propio, proyecto propio y toda la atención del taller.</p>
 
-        <form class="form" data-form>
+        <form class="form" data-private-form>
           <label class="form__field">
             <span>Modalidad</span>
             <select name="tipo">
@@ -158,7 +158,7 @@
             <input type="email" name="email" placeholder="tu@email.com" required>
           </label>
           <button class="btn-primary" type="submit">Solicitar reserva</button>
-          <p class="form__ok" hidden>Gracias. Te escribiremos en menos de 24 h para confirmar.</p>
+          <p class="form__ok" hidden></p>
         </form>
       </div>
     </section>
@@ -201,11 +201,13 @@
       <p class="eyebrow">Reserva</p>
       <h3 class="modal__title" data-modal-title>Clase</h3>
       <form class="form" data-form>
-        <label class="form__field"><span>Plazas</span><select><option>1</option><option>2</option><option>3</option></select></label>
-        <label class="form__field"><span>Nombre</span><input type="text" required></label>
-        <label class="form__field"><span>Email</span><input type="email" required></label>
-        <button class="btn-primary" type="submit">Confirmar</button>
-        <p class="form__ok" hidden>Plaza reservada. Recibirás un email de confirmación.</p>
+        <label class="form__field"><span>Plazas</span><select name="seats"><option>1</option><option>2</option><option>3</option></select></label>
+        <label class="form__field"><span>Nombre</span><input type="text" name="name" autocomplete="name" required></label>
+        <label class="form__field"><span>Email</span><input type="email" name="email" autocomplete="email" required></label>
+        <label class="form__field"><span>Teléfono (opcional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+        <button class="btn-primary" type="submit">Reservar y pagar</button>
+        <p class="form__note">El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.</p>
+        <p class="form__ok" hidden></p>
       </form>
     </div>
   </div>
@@ -217,7 +219,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
-  <script src="data.js?v=7"></script>
-  <script src="script.js?v=7"></script>
+  <script src="data.js?v=8"></script>
+  <script src="script.js?v=9"></script>
+  <script src="cart.js?v=8"></script>
 </body>
 </html>
