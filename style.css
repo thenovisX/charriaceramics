@@ -743,3 +743,16 @@ html.cart-open { overflow: hidden; }
 .cart__form input, .cart__form select { width: 100%; min-width: 0; }
 .cart__two > * { min-width: 0; }
 .form__field[hidden] { display: none; }
+
+/* ---------- Página 404 ---------- */
+.notfound { position: relative; overflow: hidden; }
+.notfound .page-head__title, .notfound .page-head__desc { position: relative; z-index: 1; }
+.notfound__links { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4rem; }
+.notfound__link { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .2em; color: var(--ink); text-underline-offset: 4px; }
+.notfound__link:hover { color: var(--clay); }
+/* Número gigante de fondo, como un sello en la base de la pieza */
+.notfound__code {
+  position: absolute; right: var(--side); bottom: -0.12em; z-index: 0; pointer-events: none;
+  font-family: var(--serif); font-size: clamp(9rem, 4rem + 30vw, 34rem); line-height: 1; letter-spacing: -0.04em;
+  color: var(--paper); user-select: none;
+}

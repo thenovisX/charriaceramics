@@ -3,6 +3,8 @@
 # ==========================================================
 Options -Indexes
 DirectoryIndex index.html
+# Página propia para direcciones que no existen (la API sigue respondiendo JSON)
+ErrorDocument 404 /404.html
 
 # Nada que empiece por punto (.env, .git, .htaccess...) es accesible
 <IfModule mod_rewrite.c>
