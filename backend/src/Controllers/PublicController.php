@@ -8,6 +8,7 @@ use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Catalog;
+use Charria\Services\AppSettings;
 use Charria\Services\Installer;
 use Charria\Services\Mailer;
 use Charria\Services\Packlink;
@@ -29,6 +30,12 @@ final class PublicController
             'packlink' => Packlink::isConfigured(),
             'time' => date('c'),
         ]);
+    }
+
+    /** GET /site — dirección, horario, teléfono, email y redes que se editan en Panel → Ajustes */
+    public function site(Request $r): Response
+    {
+        return Response::json(AppSettings::publicSite());
     }
 
     /** GET /products?category=Jarrones */

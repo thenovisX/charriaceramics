@@ -235,6 +235,14 @@ Estado del servicio.
 { "data": { "ok": true, "database": true, "payments": true, "packlink": false, "time": "2026-10-24T20:12:45+02:00" } }
 ```
 
+#### `GET /site`
+Datos de contacto que se editan en **Panel → Ajustes → Datos de la web**. Lo que no se ha rellenado viene a `null` y la web deja el texto del HTML.
+```json
+{ "data": { "address": "Calle del Barro 12", "city": "28012 Madrid", "hours": "Mar–Sáb · 10:00–20:00\nDom y Lun · cerrado",
+  "email": "hola@charriaceramics.com", "phone": "+34 600 000 000", "whatsapp": null,
+  "instagram": "https://www.instagram.com/ch.ceramics/", "facebook": null, "tiktok": null, "maps_url": null } }
+```
+
 #### `GET /products` · `GET /products?category=Jarrones`
 Productos visibles, del más nuevo al más antiguo.
 ```json
@@ -499,7 +507,7 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **Reservas**: próximas reservas, solicitudes privadas (confirmar con fecha acordada o cancelar) y notas internas.
 - **Galería**: subir obras con validación, editar textos, ocultar/publicar, ordenar y borrar.
 - **Clientes**.
-- **Ajustes**: claves de Stripe (con la URL y los eventos del webhook para copiar, modo prueba/real y botón de prueba), API key y remitente de Packlink, opciones de envío y emails.
+- **Ajustes**: **datos de la web** (dirección, ciudad, horario, email, teléfono, WhatsApp, Instagram, Facebook, TikTok y enlace de Google Maps, que salen en el pie, el menú del móvil y Contacto); claves de Stripe (con la URL y los eventos del webhook para copiar, modo prueba/real y botón de prueba), API key y remitente de Packlink, opciones de envío y emails.
 - **Cuenta**: cambiar contraseña, cerrar sesión.
 
 ## Desarrollo local y tests
@@ -520,7 +528,7 @@ php -S 127.0.0.1:8099 -t backend/tests backend/tests/mock-stripe.php &
 php -S 127.0.0.1:8000 backend/dev-router.php &
 php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test http://127.0.0.1:8099 admin@email contraseña
 ```
-Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos y cierre de sesión (55 comprobaciones). El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
+Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos y cierre de sesión (57 comprobaciones). El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
 
 Con Live Server (sin PHP) la web sigue funcionando con `data.js`; la cesta muestra “precios orientativos” y no deja pagar.
 

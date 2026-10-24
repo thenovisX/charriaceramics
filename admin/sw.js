@@ -6,7 +6,7 @@
    se piden al servidor y no se guardan en el móvil.
    ========================================================== */
 const CACHE = "charria-panel-v1";
-const SHELL = ["./", "index.html", "admin.css?v=4", "admin.js?v=4", "manifest.webmanifest", "icons/icon-192.png"];
+const SHELL = ["./", "index.html", "admin.css?v=5", "admin.js?v=5", "manifest.webmanifest", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

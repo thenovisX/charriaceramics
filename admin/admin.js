@@ -584,6 +584,29 @@ views.ajustes = async () => {
     <div class="page-head"><div><p class="eyebrow">Configuración</p><h1>Ajustes</h1></div></div>
     <form class="stack settings" data-form style="max-width:640px">
       <section class="stack">
+        <h2 class="settings__title">Datos de la web</h2>
+        <p class="muted">Salen en el pie de todas las páginas, en el menú del móvil y en Contacto. Lo que dejes vacío se queda como está ahora en la web.</p>
+        ${field("Dirección del estudio", input("SITE_ADDRESS", v.SITE_ADDRESS, 'placeholder="Calle del Barro 12"'))}
+        <div class="grid-2">
+          ${field("Código postal y ciudad", input("SITE_CITY", v.SITE_CITY, 'placeholder="28012 Madrid"'))}
+          ${field("Enlace de Google Maps", input("SITE_MAPS_URL", v.SITE_MAPS_URL, 'type="url" placeholder="https://maps.app.goo.gl/…"'), "Opcional: la dirección se podrá pulsar")}
+        </div>
+        ${field("Horario", `<textarea name="SITE_HOURS" rows="3" maxlength="500" placeholder="Mar–Sáb · 10:00–20:00&#10;Dom y Lun · cerrado">${esc(v.SITE_HOURS || "")}</textarea>`, "Una línea por cada franja. En el pie sale solo la primera.")}
+        <div class="grid-2">
+          ${field("Email de contacto", input("SITE_EMAIL", v.SITE_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'))}
+          ${field("Teléfono", input("SITE_PHONE", v.SITE_PHONE, 'type="tel" placeholder="+34 600 000 000"'))}
+        </div>
+        <div class="grid-2">
+          ${field("WhatsApp", input("SITE_WHATSAPP", v.SITE_WHATSAPP, 'type="tel" placeholder="+34 600 000 000"'), "Opcional")}
+          ${field("Instagram", input("SITE_INSTAGRAM", v.SITE_INSTAGRAM, 'type="url" placeholder="https://www.instagram.com/ch.ceramics/"'))}
+        </div>
+        <div class="grid-2">
+          ${field("Facebook", input("SITE_FACEBOOK", v.SITE_FACEBOOK, 'type="url" placeholder="https://www.facebook.com/…"'), "Opcional")}
+          ${field("TikTok", input("SITE_TIKTOK", v.SITE_TIKTOK, 'type="url" placeholder="https://www.tiktok.com/@…"'), "Opcional")}
+        </div>
+      </section>
+
+      <section class="stack">
         <h2 class="settings__title">Stripe · pagos ${mode}</h2>
         <p class="muted">En <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe → Desarrolladores → Claves de API</a> copia la <strong>clave secreta</strong> (sk_test_… para probar, sk_live_… para cobrar de verdad).</p>
         ${secret("STRIPE_SECRET_KEY", "Clave secreta", "sk_live_…")}

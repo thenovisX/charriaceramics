@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Apache sirve esta página en cualquier ruta que no exista: todo se resuelve desde la raíz -->
-  <base href="/">
   <title>Página no encontrada · Charria Ceramics</title>
   <meta name="robots" content="noindex">
-  <meta name="description" content="Esta página no existe en Charria Ceramics.">
+  <!-- La 404 se sirve en cualquier ruta (/lo/que/sea): todas las rutas relativas parten de la raíz -->
+  <base href="/">
   <meta name="theme-color" content="#f5f1ea">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -44,17 +43,25 @@
 
   <main id="top">
 
-    <section class="page-head thanks notfound">
-      <p class="eyebrow">Error 404</p>
-      <h1 class="page-head__title" data-split>Se rompió<br><em>en el horno</em></h1>
-      <div class="page-head__desc">
-        <p>La página que buscas no existe o ha cambiado de sitio. Pasa a veces: no todas las piezas sobreviven a la cocción.</p>
-        <div class="notfound__links">
-          <a class="btn-primary" href="index.html">Volver al inicio</a>
-          <a class="notfound__link" href="productos.html">o mira la tienda</a>
-        </div>
+    <section class="notfound" aria-labelledby="notfound-title">
+      <p class="eyebrow">Error 404 · Página no encontrada</p>
+      <div class="notfound__code" aria-hidden="true">
+        <span>4</span>
+        <span class="notfound__bowl">
+          <svg viewBox="0 0 100 100" fill="none">
+            <circle cx="50" cy="50" r="44" stroke="currentColor" stroke-width="7"/>
+            <path class="notfound__crack" d="M51 2 L47 8 L52 13" stroke="var(--ivory)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="notfound__crack notfound__crack--fine" d="M52 13 L48 22 L54 30 L49 41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span>4</span>
       </div>
-      <p class="notfound__code" aria-hidden="true">404</p>
+      <h1 class="notfound__title" id="notfound-title">Esta pieza se <em>quedó</em> en el horno</h1>
+      <p class="notfound__desc">La página que buscas no existe o ha cambiado de sitio. Puede que la dirección esté mal escrita, o que esa pieza ya se haya vendido.</p>
+      <div class="notfound__actions">
+        <a href="index.html" class="btn-primary">Volver al inicio</a>
+        <a href="productos.html" class="btn-primary btn-primary--ghost">Ver la tienda</a>
+      </div>
     </section>
 
   </main>
@@ -76,7 +83,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="data.js?v=8"></script>
-  <script src="script.js?v=10"></script>
+  <script src="script.js?v=11"></script>
   <script src="cart.js?v=8"></script>
 </body>
 </html>
