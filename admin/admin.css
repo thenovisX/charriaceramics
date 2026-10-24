@@ -127,7 +127,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: 0; lin
 
 /* ---------- Tarjetas y tablas ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
-.card { padding: 1.3rem; border: 1px solid var(--line); border-radius: 10px; background: #fffdf9; }
+.card { padding: 1.3rem; border: 1px solid var(--line); border-radius: 10px; background: #fffdf9; text-decoration: none; }
+.card .eyebrow { display: block; line-height: 1.5; }
+a.card:hover { border-color: var(--ink); }
 .card__num { font-family: var(--serif); font-size: 2.1rem; line-height: 1.1; margin-top: .4rem; }
 .notice { padding: 1rem 1.2rem; border-radius: 8px; background: #f6ead4; color: #5d4217; margin-bottom: 1rem; font-size: .9rem; }
 .notice--ok { background: #e3eadf; color: #2f4529; }
