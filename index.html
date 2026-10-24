@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -24,8 +24,8 @@
     </nav>
     <a href="#top" class="header__logo">Charria <span>Ceramics</span></a>
     <nav class="header__nav header__nav--right">
-      <a href="#contacto">Contacto</a>
       <button class="cart-btn" type="button">Cesta (<span data-cart-count>0</span>)</button>
+      <a href="contacto.html">Contacto</a>
       <button class="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
     </nav>
   </header>
@@ -36,7 +36,7 @@
     <a href="#clases"><small>02</small><span>Clases en grupo</span></a>
     <a href="#privadas"><small>03</small><span>Clase privada</span></a>
     <a href="galeria.html"><small>04</small><span>Galería</span></a>
-    <a href="#contacto"><small>05</small><span>Contacto</span></a>
+    <a href="contacto.html"><small>05</small><span>Contacto</span></a>
     <p class="mobile-menu__foot"><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p>
   </nav>
 
@@ -70,6 +70,11 @@
       </div>
 
       <div class="shop__columns" data-latest-products></div>
+      <div class="shop__ui" aria-hidden="true">
+        <span data-shelf-count>01 / 05</span>
+        <span class="shop__bar"><span data-shelf-bar></span></span>
+        <span>Desliza</span>
+      </div>
 
       <div class="shop__more">
         <a href="productos.html" class="btn-primary">Ver todos los productos</a>
@@ -177,46 +182,6 @@
       </div>
     </section>
 
-    <!-- 5. CONTACTO -->
-    <section class="contact" id="contacto" aria-labelledby="contacto-title">
-      <div class="contact__info">
-        <span class="section-head__num">05</span>
-        <h2 class="section-head__title" id="contacto-title" data-split>Contacto</h2>
-        <p class="contact__lead">¿Un encargo, una pieza para regalar o una duda sobre las clases? Escríbenos o pásate por el estudio.</p>
-        <address class="contact__details">
-          <div><span class="eyebrow">Estudio y tienda</span><p>Calle del Barro 12<br>28012 Madrid</p></div>
-          <div><span class="eyebrow">Horario</span><p>Mar–Sáb · 10:00–20:00<br>Dom y Lun · cerrado</p></div>
-          <div><span class="eyebrow">Escríbenos</span><p><a href="mailto:hola@charriaceramics.com">hola@charriaceramics.com</a><br><a href="tel:+34600000000">+34 600 000 000</a></p></div>
-        </address>
-      </div>
-
-      <form class="form contact__form" data-form>
-        <label class="form__field">
-          <span>Nombre</span>
-          <input type="text" name="nombre" placeholder="Tu nombre" autocomplete="name" required>
-        </label>
-        <label class="form__field">
-          <span>Email</span>
-          <input type="email" name="email" placeholder="tu@email.com" autocomplete="email" required>
-        </label>
-        <label class="form__field">
-          <span>Motivo</span>
-          <select name="motivo">
-            <option>Consulta general</option>
-            <option>Encargo personalizado</option>
-            <option>Clases y talleres</option>
-            <option>Pedido de la tienda</option>
-          </select>
-        </label>
-        <label class="form__field">
-          <span>Mensaje</span>
-          <textarea name="mensaje" rows="4" placeholder="Cuéntanos" required></textarea>
-        </label>
-        <button class="btn-primary" type="submit">Enviar mensaje</button>
-        <p class="form__ok" hidden>Gracias. Te responderemos en menos de 24 h.</p>
-      </form>
-    </section>
-
   </main>
 
   <footer class="footer">
@@ -252,7 +217,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
-  <script src="data.js?v=5"></script>
-  <script src="script.js?v=6"></script>
+  <script src="data.js?v=7"></script>
+  <script src="script.js?v=7"></script>
 </body>
 </html>
