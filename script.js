@@ -1,5 +1,5 @@
 /* ==========================================================
-   Charria Ceramics · Opción 1 · Editorial
+   Charria Ceramics · Editorial
    Lenis (scroll suave) + GSAP/ScrollTrigger + SplitType
    ========================================================== */
 
