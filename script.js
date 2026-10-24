@@ -11,6 +11,7 @@ document.querySelectorAll("img").forEach((img) => {
 const hasGsap = typeof window.gsap !== "undefined" && typeof window.ScrollTrigger !== "undefined";
 // Escritorio = pantalla ancha con ratón; en tablet y móvil se simplifican los efectos
 const DESKTOP = "(min-width: 1025px)";
+const NOT_PHONE = "(min-width: 601px)";
 const hasMouse = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
 /* ---------- Menú móvil / tablet ---------- */
@@ -65,23 +66,26 @@ if (hasGsap) {
   gsap.from(".hero__sub, .hero__scroll", { opacity: 0, y: 20, duration: 1, delay: 1, stagger: 0.15 });
 
   // Zoom lento de la imagen del hero al hacer scroll
-  gsap.to(".hero__media img", {
-    scale: 1, yPercent: 12, ease: "none",
-    scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true },
-  });
-  gsap.to(".hero__title", {
-    yPercent: -40, ease: "none",
-    scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true },
-  });
-
-  // Manifiesto: palabras que se encienden con el scroll
+  // En móvil las fotos se ven enteras: sin zoom ni parallax que las recorte
   const intro = split(document.querySelector("[data-reveal-words]"), "words");
-  if (intro) {
-    gsap.fromTo(intro.words, { opacity: 0.12 }, {
-      opacity: 1, stagger: 0.1, ease: "none",
-      scrollTrigger: { trigger: ".intro", start: "top 75%", end: "bottom 45%", scrub: true },
+  gsap.matchMedia().add(NOT_PHONE, () => {
+    gsap.to(".hero__media img", {
+      scale: 1, yPercent: 12, ease: "none",
+      scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true },
     });
-  }
+    gsap.to(".hero__title", {
+      yPercent: -40, ease: "none",
+      scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true },
+    });
+
+    // Manifiesto: palabras que se encienden con el scroll
+    if (intro) {
+      gsap.fromTo(intro.words, { opacity: 0.12 }, {
+        opacity: 1, stagger: 0.1, ease: "none",
+        scrollTrigger: { trigger: ".intro", start: "top 75%", end: "bottom 45%", scrub: true },
+      });
+    }
+  });
 
   // Títulos de sección
   document.querySelectorAll(".section-head__title, .footer__big").forEach((el) => {
@@ -131,9 +135,11 @@ if (hasGsap) {
   });
 
   // Imagen de la clase privada
-  gsap.to(".private__media img", {
-    scale: 1, ease: "none",
-    scrollTrigger: { trigger: ".private", start: "top bottom", end: "bottom top", scrub: true },
+  gsap.matchMedia().add(NOT_PHONE, () => {
+    gsap.to(".private__media img", {
+      scale: 1, ease: "none",
+      scrollTrigger: { trigger: ".private", start: "top bottom", end: "bottom top", scrub: true },
+    });
   });
 
   window.addEventListener("load", () => ScrollTrigger.refresh());
