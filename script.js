@@ -513,7 +513,7 @@ function initPage() {
         "main .eyebrow", "main .section-head__desc", ".intro__text",
         ".shop__ui", ".shop__more", ".class-row", ".private__lead",
         "main .form__field", "main .form .btn-primary", ".gallery .btn-primary", ".gallery__ui",
-        ".contact__lead", ".contact__details > div", ".footer__cols > div", ".footer__legal",
+        ".contact__lead", ".contact__details > div", ".footer__cols > div", ".footer__legal", ".footer__credit",
         ".page-head__desc", ".filters", ".ed-item figcaption",
       ].join(", "));
       gsap.set(items, { autoAlpha: 0, y: 18 });
