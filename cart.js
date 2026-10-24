@@ -15,6 +15,11 @@
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const money = (cents) => (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR", minimumFractionDigits: cents % 100 ? 2 : 0 });
   const button = (btn, text, icon) => (window.setButton ? window.setButton(btn, text, icon) : (btn.textContent = text));
+  // Casillas de consentimiento (RGPD): separadas y sin marcar. Las reservas tienen las mismas en index.html.
+  const CONSENT_CHECKS = () => `
+    <label class="check"><input type="checkbox" name="terms"><span>He leído y acepto las <a href="condiciones.html" target="_blank">condiciones de venta</a> y la <a href="privacidad.html" target="_blank">política de privacidad</a>.</span></label>
+    <label class="check"><input type="checkbox" name="marketing"><span>Quiero recibir por email novedades, piezas nuevas, talleres y ofertas de Charria Ceramics.<small>Opcional. Puedes darte de baja cuando quieras.</small></span></label>
+    <label class="check"><input type="checkbox" name="profile"><span>Guardar mis datos y crear mi perfil de cliente para próximas compras.<small>Opcional. Si no lo marcas, solo guardamos lo necesario para este pedido.</small></span></label>`;
 
   async function post(path, body) {
     const res = await fetch(`${API}/${path}`, {
@@ -214,12 +219,17 @@
             </select></label>
           </div>
         </fieldset>
+        <fieldset class="checks"><legend class="eyebrow">Antes de pagar</legend>
+          ${CONSENT_CHECKS()}
+          <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar el pedido y su factura; los reciben Stripe (pago) y, si eliges envío, Packlink y el transportista. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
+        </fieldset>
         <p class="cart-line__error" data-checkout-error hidden></p>
       </form>`;
     $("[data-back]", body).addEventListener("click", renderItems);
     const form = $("[data-checkout]", body);
     if (!ship.selected) ship.selected = saved.option || "";
     form.addEventListener("input", (e) => {
+      if (e.target.type === "checkbox") { e.target.closest(".check")?.classList.remove("is-invalid"); return; } // las casillas no se recuerdan
       saved[e.target.name] = e.target.value;
       try { sessionStorage.setItem("charria-checkout", JSON.stringify(saved)); } catch { /* */ }
     });
@@ -312,6 +322,11 @@
       f[missing[0]].focus();
       return showError(form, "Revisa los campos marcados.");
     }
+    if (!f.terms.checked) {
+      f.terms.closest(".check").classList.add("is-invalid");
+      f.terms.focus();
+      return showError(form, "Para pagar tienes que aceptar las condiciones de venta y la política de privacidad.");
+    }
     const btn = $("[data-pay]", foot);
     btn.disabled = true;
     button(btn, "Preparando el pago…", "arrow");
@@ -321,10 +336,11 @@
         customer: { name: f.name.value, email: f.email.value, phone: f.phone.value },
         shipping: { option_id: ship.selected },
         address: isPickup ? undefined : { street: f.street.value, postal_code: f.postal_code.value, city: f.city.value, country: f.country.value },
+        consents: { terms: f.terms.checked, profile: f.profile.checked, marketing: f.marketing.checked },
       });
       window.location.href = res.checkout_url;
     } catch (e) {
-      Object.keys(e.fields || {}).forEach((k) => f[k.split(".").pop()]?.closest(".form__field")?.classList.add("is-invalid"));
+      Object.keys(e.fields || {}).forEach((k) => f[k.split(".").pop()]?.closest(".form__field, .check")?.classList.add("is-invalid"));
       showError(form, e.message);
       if (e.status === 409) { quote = null; setTimeout(renderItems, 1800); }
       btn.disabled = false;

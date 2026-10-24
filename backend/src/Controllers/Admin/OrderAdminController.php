@@ -7,8 +7,10 @@ use Charria\Database;
 use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
+use Charria\Services\AppSettings;
 use Charria\Services\Fulfillment;
 use Charria\Services\Packlink;
+use Charria\Services\Privacy;
 use Charria\Services\Stripe;
 use Charria\Validator;
 
@@ -39,6 +41,7 @@ final class OrderAdminController
                 'packlink_error' => $o['packlink_error'],
             ],
             'stripe_payment_intent' => $o['stripe_payment_intent'],
+            'privacy_blocked' => !empty($o['privacy_blocked_at']),
             'paid_at' => $o['paid_at'],
             'created_at' => $o['created_at'],
         ];
@@ -119,24 +122,11 @@ final class OrderAdminController
         return $this->show($r);
     }
 
-    public function customers(Request $r): Response
-    {
-        $rows = Database::get()->all(
-            "SELECT c.*,
-                (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.status IN ('paid','shipped')) AS orders,
-                (SELECT COUNT(*) FROM bookings b WHERE b.customer_id = c.id AND b.status IN ('confirmed','requested')) AS bookings
-             FROM customers c ORDER BY c.created_at DESC LIMIT 1000"
-        );
-        return Response::json(array_map(static fn ($c) => [
-            'id' => (int) $c['id'], 'name' => $c['name'], 'email' => $c['email'], 'phone' => $c['phone'],
-            'city' => $c['city'], 'orders' => (int) $c['orders'], 'bookings' => (int) $c['bookings'], 'created_at' => $c['created_at'],
-        ], $rows));
-    }
-
     /** GET /admin/stats — números para la portada del panel */
     public function stats(Request $r): Response
     {
         $db = Database::get();
+        Privacy::anonymizeExpired(); // plazos de conservación, aunque no haya cron
         return Response::json([
             'orders_to_ship' => (int) $db->value("SELECT COUNT(*) FROM orders WHERE status = 'paid' AND shipping_method = 'delivery'"),
             'orders_to_collect' => (int) $db->value("SELECT COUNT(*) FROM orders WHERE status = 'paid' AND shipping_method = 'pickup'"),
@@ -148,6 +138,8 @@ final class OrderAdminController
                 $db->all('SELECT id, title, stock FROM products WHERE is_active = 1 AND sold_out = 0 AND stock <= 1 ORDER BY stock, title')),
             'payments_configured' => Stripe::isConfigured(),
             'packlink_configured' => Packlink::isConfigured(),
+            'legal_missing' => AppSettings::legalMissing(),
+            'legacy_customers' => (int) $db->value('SELECT COUNT(*) FROM customers WHERE has_profile = 0 AND marketing_opt_in = 0'),
         ]);
     }
 }

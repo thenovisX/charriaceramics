@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Condiciones de venta y de las clases · Charria Ceramics</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="description" content="Condiciones de compra de la tienda online de Charria Ceramics, envíos, derecho de desistimiento de 14 días, garantía y condiciones de las clases y talleres.">
+  <meta name="theme-color" content="#f5f1ea">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=12">
+</head>
+<body>
+
+  <!-- Cabecera fija: se invierte sobre fondos oscuros con mix-blend-mode -->
+  <header class="header">
+    <nav class="header__nav header__nav--left">
+      <a href="productos.html">Tienda</a>
+      <a href="index.html#clases">Clases</a>
+      <a href="index.html#privadas">Privadas</a>
+      <a href="galeria.html">Galería</a>
+    </nav>
+    <a href="index.html" class="header__logo">Charria <span>Ceramics</span></a>
+    <nav class="header__nav header__nav--right">
+      <button class="cart-btn" type="button">Cesta (<span data-cart-count>0</span>)</button>
+      <a href="contacto.html">Contacto</a>
+      <button class="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
+    </nav>
+  </header>
+
+  <!-- Menú para móvil y tablet -->
+  <nav class="mobile-menu" data-mobile-menu aria-hidden="true">
+    <a href="productos.html"><small>01</small><span>Tienda</span></a>
+    <a href="index.html#clases"><small>02</small><span>Clases en grupo</span></a>
+    <a href="index.html#privadas"><small>03</small><span>Clase privada</span></a>
+    <a href="galeria.html"><small>04</small><span>Galería</span></a>
+    <a href="contacto.html"><small>05</small><span>Contacto</span></a>
+    <p class="mobile-menu__foot"><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p>
+  </nav>
+
+  <main id="top">
+
+    <section class="page-head">
+      <p class="eyebrow">Información legal · Consumidores</p>
+      <h1 class="page-head__title" data-split>Condiciones</h1>
+      <p class="page-head__desc">Cómo funciona una compra o una reserva, tu derecho de desistimiento de 14 días y la garantía.</p>
+    </section>
+
+    <div class="legal">
+      <nav class="legal__toc" aria-label="Contenido de la página">
+        <a href="#vendedor">Quiénes somos</a>
+        <a href="#general">Aspectos generales</a>
+        <a href="#compra">Cómo se compra</a>
+        <a href="#piezas">Piezas hechas a mano</a>
+        <a href="#precios">Precios y pago</a>
+        <a href="#envios">Envíos y entrega</a>
+        <a href="#desistimiento">Desistimiento (14 días)</a>
+        <a href="#formulario">Formulario de desistimiento</a>
+        <a href="#garantia">Garantía</a>
+        <a href="#clases">Clases y talleres</a>
+        <a href="#reclamaciones">Atención y reclamaciones</a>
+      </nav>
+      <article class="legal__body">
+        <p class="legal__meta">Última actualización: 24 de octubre de 2026 · Versión 2026-10-24</p>
+
+        <h2 id="vendedor">Quiénes somos</h2>
+        <div class="legal__box">
+          <dl>
+            <dt>Vendedor</dt><dd><span data-legal="owner">[Nombre o razón social]</span> (Charria Ceramics)</dd>
+            <dt>NIF / CIF</dt><dd><span data-legal="tax_id">[NIF o CIF]</span></dd>
+            <dt>Domicilio</dt><dd><span data-legal="address">[Domicilio completo]</span></dd>
+            <dt>Email</dt><dd><a data-legal="email">[Email de contacto]</a></dd>
+            <dt data-legal-optional="phone" hidden>Teléfono</dt><dd data-legal-optional="phone" hidden><span data-legal="phone"></span></dd>
+          </dl>
+        </div>
+
+        <h2 id="general">Aspectos generales</h2>
+        <p>Estas condiciones regulan las compras de piezas en la tienda online y las reservas de clases y talleres hechas en esta web, conforme al Real Decreto Legislativo 1/2007 (Ley General para la Defensa de los Consumidores y Usuarios) y a la Ley 34/2002 (LSSI-CE). Antes de pagar tendrás que aceptarlas marcando la casilla correspondiente.</p>
+        <p>El contrato se formaliza en español. Guardamos una copia de cada pedido y reserva, y te enviamos la confirmación por email; si la necesitas otra vez, pídenosla. Podemos actualizar estas condiciones, pero a cada compra se le aplican las que estaban publicadas el día que la hiciste.</p>
+
+        <h2 id="compra">Cómo se compra</h2>
+        <ol>
+          <li>Añade las piezas a la cesta. Puedes cambiar cantidades o quitar piezas en cualquier momento.</li>
+          <li>Pulsa «Tramitar pedido», escribe tus datos y elige recogida en el taller o envío a domicilio. Verás el coste del envío y el total antes de pagar.</li>
+          <li>Revisa los datos (puedes volver atrás para corregir cualquier error), acepta estas condiciones y la política de privacidad, y pulsa «Pagar».</li>
+          <li>Pagas en la página segura de Stripe. Cuando el pago se confirma, el pedido queda cerrado y te enviamos un email con el resumen.</li>
+        </ol>
+        <p>Mientras pagas, las piezas quedan reservadas para ti unos 30 minutos. Si no se completa el pago, vuelven a estar disponibles.</p>
+
+        <h2 id="piezas">Piezas hechas a mano</h2>
+        <p>Cada pieza se modela, esmalta y cuece a mano en nuestro taller. Las pequeñas diferencias de forma, tamaño, color, textura del esmalte o marcas del proceso son propias de la cerámica artesanal y no se consideran defectos. Las fotografías muestran la pieza o una muy parecida; el color puede variar algo según tu pantalla.</p>
+        <p>Indicamos en cada ficha si una pieza es apta para alimentos, lavavajillas o microondas cuando lo es. Si tienes dudas sobre el uso de una pieza, pregúntanos antes de comprar.</p>
+
+        <h2 id="precios">Precios y pago</h2>
+        <p>Los precios están en euros e incluyen el IVA. Los gastos de envío se muestran aparte antes de pagar. El precio que se cobra es siempre el que calcula la tienda en el momento de la compra, aunque la página llevara un rato abierta.</p>
+        <p>El pago se hace con tarjeta u otros medios que ofrezca Stripe en su página segura. No vemos ni guardamos los datos de tu tarjeta. Si necesitas factura completa (con tus datos fiscales), pídenosla por email indicando el número de pedido.</p>
+
+        <h2 id="envios">Envíos y entrega</h2>
+        <ul>
+          <li><strong>Recogida en el taller:</strong> gratis. Te avisaremos por email cuando esté lista.</li>
+          <li><strong>Envío a domicilio:</strong> gestionamos los envíos con Packlink y la empresa de transporte que elijas al pagar. Verás el precio y el plazo estimado antes de pagar. Embalamos cada pieza con cuidado para que llegue entera.</li>
+        </ul>
+        <p>Entregaremos el pedido en el plazo indicado y, como máximo, en 30 días naturales desde la compra. Si por algún motivo no pudiéramos hacerlo (por ejemplo, porque una pieza se ha roto en el taller), te avisaremos y podrás elegir esperar o recibir la devolución completa de lo pagado.</p>
+        <p>La pieza viaja bajo nuestra responsabilidad hasta que la recibes. Si llega dañada, te pedimos que nos avises cuanto antes (idealmente en las 48 horas siguientes) con fotos del paquete y de la pieza, para gestionarlo con el transportista y enviarte otra o devolverte el dinero. Esto no limita tus derechos de garantía.</p>
+
+        <h2 id="desistimiento">Derecho de desistimiento: 14 días</h2>
+        <p>Si eres consumidor, puedes desistir de la compra de piezas, sin dar ningún motivo, en un plazo de <strong>14 días naturales desde el día en que recibes el pedido</strong> (o recoges la última pieza, si llega en varias entregas).</p>
+        <h3>Cómo ejercerlo</h3>
+        <p>Comunícanoslo antes de que acabe el plazo con una declaración clara, por ejemplo un email a <a data-legal="email">[email]</a> con tu nombre, el número de pedido y las piezas que devuelves. Puedes usar el <a href="#formulario">formulario de desistimiento</a> de abajo, aunque no es obligatorio. Te confirmaremos la recepción por email.</p>
+        <h3>Devolución de las piezas</h3>
+        <p>Envíanos o tráenos las piezas al domicilio indicado arriba, sin demoras indebidas y como máximo 14 días naturales después de comunicarnos el desistimiento. <strong>Los gastos de devolución corren de tu cuenta.</strong> Embálalas bien: eres responsable de la pérdida de valor que resulte de una manipulación distinta a la necesaria para comprobar la pieza o de un embalaje inadecuado.</p>
+        <h3>Reembolso</h3>
+        <p>Te devolveremos todo lo que pagaste, incluido el envío estándar (si elegiste un envío más caro, la diferencia no se reembolsa), en un máximo de 14 días naturales desde que nos comuniques tu decisión, con el mismo medio de pago que usaste. Podemos esperar a recibir las piezas, o a que nos muestres el justificante de que las has enviado, antes de hacer el reembolso.</p>
+        <h3>Excepciones</h3>
+        <p>No hay derecho de desistimiento en los <strong>encargos personalizados</strong> (piezas hechas según tus especificaciones o claramente personalizadas, por ejemplo con un nombre o un diseño a medida), según el artículo 103 c) de la Ley General para la Defensa de los Consumidores y Usuarios. Para las clases y talleres, consulta el apartado <a href="#clases">Clases y talleres</a>.</p>
+
+        <h2 id="formulario">Modelo de formulario de desistimiento</h2>
+        <p>(Solo tienes que rellenarlo y enviarlo si quieres desistir del contrato.)</p>
+        <div class="legal__box">
+          <p>A la atención de <span data-legal="owner">[Nombre o razón social]</span>, <span data-legal="address">[Domicilio completo]</span>, <a data-legal="email">[email]</a>:</p>
+          <p>Por la presente le comunico que desisto de mi contrato de venta de los siguientes bienes: ……………………</p>
+          <p>Pedido el / recibido el: ……………………<br>Número de pedido: ……………………<br>Nombre del consumidor: ……………………<br>Dirección del consumidor: ……………………<br>Firma (solo si se envía en papel): ……………………<br>Fecha: ……………………</p>
+        </div>
+
+        <h2 id="garantia">Garantía</h2>
+        <p>Todas las piezas tienen la garantía legal de <strong>3 años</strong> desde la entrega (artículo 120 de la Ley General para la Defensa de los Consumidores y Usuarios). Si una pieza tiene un defecto de fabricación (una grieta que no se veía, un esmalte que se desprende…), escríbenos con fotos y te ofreceremos repararla, cambiarla o, si no es posible, rebajar el precio o devolverte el dinero. Recuerda que las variaciones propias del trabajo a mano y el desgaste por uso, golpes o caídas no son defectos.</p>
+
+        <h2 id="clases">Clases y talleres</h2>
+        <h3>Reserva y pago</h3>
+        <p>Las clases en grupo se reservan y pagan en la web. Tu plaza queda guardada mientras pagas (unos 30 minutos) y se confirma cuando el pago se completa; te enviaremos un email de confirmación. Las clases privadas se solicitan con un formulario: te escribiremos para confirmar la fecha y la forma de pago.</p>
+        <h3>Desistimiento en las clases</h3>
+        <p>Las clases y talleres son servicios de ocio con una fecha concreta, por lo que <strong>no tienen derecho de desistimiento de 14 días</strong> (artículo 103 l) de la Ley General para la Defensa de los Consumidores y Usuarios). En su lugar se aplica esta política de cambios y cancelaciones:</p>
+        <ul>
+          <li><strong>Hasta 72 horas antes</strong> de la clase: puedes cambiar la fecha (si hay plazas) o cancelar y te devolvemos el importe completo.</li>
+          <li><strong>Con menos de 72 horas</strong>: puedes pasar tu plaza a otra persona o cambiar a otra fecha si quedan plazas, pero no se devuelve el importe.</li>
+          <li>En los <strong>cursos de varias sesiones</strong>, las sesiones a las que no vengas no se devuelven; si hay hueco, intentaremos que las recuperes en otro grupo.</li>
+          <li>Si somos nosotros quienes cancelamos o cambiamos una clase (por ejemplo, por no llegar al mínimo de participantes o por causa de fuerza mayor), te ofreceremos otra fecha o la devolución completa, como prefieras.</li>
+        </ul>
+        <p>Para cambiar o cancelar, escríbenos a <a data-legal="email">[email]</a> indicando la referencia de tu reserva.</p>
+        <h3>Durante la clase</h3>
+        <ul>
+          <li>Incluye los materiales, el uso del taller y la cocción de las piezas, salvo que la descripción de la clase diga otra cosa.</li>
+          <li>Las piezas necesitan secarse y cocerse: estarán listas para recoger en unas 3–4 semanas. Te avisaremos. Si no se recogen en los 3 meses siguientes al aviso, no podremos seguir guardándolas.</li>
+          <li>Ven con ropa que se pueda manchar. Si tienes alguna alergia, lesión o necesidad especial, cuéntanoslo al reservar para adaptar la clase.</li>
+          <li>Los menores de 16 años deben venir acompañados o con autorización de su padre, madre o tutor, que es quien hace la reserva.</li>
+          <li>A veces hacemos fotos del taller para la web y las redes. Nunca publicaremos una imagen en la que se te reconozca sin tu permiso.</li>
+        </ul>
+
+        <h2 id="reclamaciones">Atención al cliente y reclamaciones</h2>
+        <p>Para cualquier duda, incidencia o reclamación, escríbenos a <a data-legal="email">[email]</a> o ven al taller; respondemos lo antes posible y, como máximo, en un mes. Tienes a tu disposición hojas de reclamaciones oficiales (pídelas por email o en el taller) y puedes acudir a los servicios de consumo de tu ayuntamiento o comunidad autónoma. En este momento no estamos adheridos a ningún sistema de arbitraje o resolución alternativa de litigios de consumo.</p>
+        <p>Estas condiciones se rigen por la ley española. Si eres consumidor, serán competentes los juzgados y tribunales de tu domicilio.</p>
+      </article>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <p class="footer__big" data-split>Hecho a mano, con calma.</p>
+    <div class="footer__cols">
+      <div><span class="eyebrow">Estudio</span><p>Calle del Barro 12<br>Madrid</p></div>
+      <div><span class="eyebrow">Horario</span><p>Mar–Sáb · 10:00–20:00</p></div>
+      <div><span class="eyebrow">Síguenos</span><p><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p></div>
+    </div>
+    <div class="footer__bottom">
+      <nav class="footer__links" aria-label="Información legal">
+        <a href="aviso-legal.html">Aviso legal</a>
+        <a href="privacidad.html">Privacidad</a>
+        <a href="cookies.html">Cookies</a>
+        <a href="condiciones.html" aria-current="page">Condiciones de venta</a>
+        <a href="mis-datos.html">Mis datos</a>
+        <button type="button" data-cookie-settings>Configurar cookies</button>
+      </nav>
+      <p class="footer__legal">© 2026 Charria Ceramics · Madrid</p>
+      <p class="footer__credit">Diseño y desarrollo · <a href="https://thenovis.com" target="_blank" rel="noopener">The Novis</a></p>
+    </div>
+  </footer>
+
+  <div class="cursor" aria-hidden="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
+  <script src="data.js?v=8"></script>
+  <script src="script.js?v=13"></script>
+  <script src="cart.js?v=9"></script>
+  <script src="consent.js?v=1"></script>
+</body>
+</html>

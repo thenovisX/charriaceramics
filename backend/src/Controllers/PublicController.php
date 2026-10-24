@@ -94,7 +94,7 @@ final class PublicController
         return Response::json($quote);
     }
 
-    /** POST /contact { name, email, reason, message } → email al estudio (no se guarda en la BD) */
+    /** POST /contact { name, email, reason, message, consents: {privacy: true} } → email al estudio (no se guarda en la BD) */
     public function contact(Request $r): Response
     {
         RateLimiter::hit('contact:' . $r->ip, 5, 3600);
@@ -103,6 +103,9 @@ final class PublicController
         $email = $v->email('email', true);
         $reason = $v->string('reason', false, 80) ?? 'Consulta general';
         $message = $v->string('message', true, 5000, 5);
+        if (!$v->nested('consents', static fn (Validator $c) => $c->bool('privacy') ?? false, false)) {
+            $v->addError('consents.privacy', 'Para enviar el mensaje tienes que aceptar la política de privacidad');
+        }
         $v->check();
         Mailer::admin("Web · $reason · $name", "$message\n\n— $name <$email>");
         return Response::created(['sent' => true]);

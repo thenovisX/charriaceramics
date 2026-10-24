@@ -137,6 +137,24 @@ function renderSite() {
     const write = [SITE.email && link(`mailto:${SITE.email}`, SITE.email, false), SITE.phone && link(`tel:${digits(SITE.phone)}`, SITE.phone, false)].filter(Boolean);
     if (write.length) setCol(details, "Escríbenos", write.join("<br>"));
   }
+  renderLegal();
+}
+
+/* Páginas legales: datos del titular de Panel → Ajustes → Datos legales.
+   Lo que falte se queda marcado con el texto entre corchetes para que se vea. */
+function renderLegal() {
+  const values = {
+    owner: SITE.legal_owner, tax_id: SITE.legal_tax_id, address: SITE.legal_address,
+    email: SITE.legal_email || SITE.email, phone: SITE.phone, registry: SITE.legal_registry, site: location.origin,
+  };
+  $$("[data-legal]").forEach((el) => {
+    const value = values[el.dataset.legal];
+    if (!value) { el.classList.add("is-missing"); return; }
+    el.textContent = value;
+    el.classList.remove("is-missing");
+    if (el.tagName === "A") el.href = el.dataset.legal === "email" ? `mailto:${value}` : value;
+  });
+  $$("[data-legal-optional]").forEach((el) => { el.hidden = !values[el.dataset.legalOptional]; });
 }
 
 function renderContent() {
@@ -256,6 +274,7 @@ const ICONS = {
   arrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 8h12M9 3l5 5-5 5"/></svg>',
   plus: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 2v12M2 8h12"/></svg>',
   check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 8.5l3.5 3.5 7.5-8"/></svg>',
+  close: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>',
 };
 const setButton = (btn, text, icon = btn.dataset.icon || "arrow") => {
   btn.innerHTML = `<span class="btn-primary__label"><span data-text="${text}">${text}</span></span><span class="btn-primary__icon" aria-hidden="true">${ICONS[icon]}</span>`;
@@ -653,6 +672,8 @@ function initPage() {
   if (lenis) {
     document.addEventListener("cart:open", () => lenis.stop());
     document.addEventListener("cart:close", () => lenis.start());
+    document.addEventListener("consent:open", () => lenis.stop());
+    document.addEventListener("consent:close", () => lenis.start());
   }
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-add]");
@@ -677,6 +698,15 @@ function initPage() {
     ok.textContent = text;
     ok.classList.toggle("form__ok--error", isError);
     ok.hidden = false;
+  };
+  // Casillas de consentimiento (RGPD): la obligatoria se comprueba antes de enviar
+  const consentsOf = (f) => ({ terms: !!f.terms?.checked, marketing: !!f.marketing?.checked, profile: !!f.profile?.checked });
+  const requireCheck = (input, message) => {
+    if (input.checked) return;
+    input.closest(".check").classList.add("is-invalid");
+    input.addEventListener("change", () => input.closest(".check").classList.remove("is-invalid"), { once: true });
+    input.focus();
+    throw Object.assign(new Error(message), { status: 422 });
   };
   const sendForm = (form, fn) => form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -721,6 +751,7 @@ function initPage() {
           dateField.hidden = true;
         }
         setSession(btn.dataset.book, btn.dataset.seats);
+        $$(".check input", form).forEach((c) => { c.checked = false; c.closest(".check").classList.remove("is-invalid"); });
         $(".form__ok", modal).hidden = true;
         modal.hidden = false;
         lenis && lenis.stop();
@@ -733,9 +764,11 @@ function initPage() {
     window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
     sendForm(form, async (f) => {
       if (!CLASSES) throw new Error();
+      requireCheck(f.terms, "Para reservar tienes que aceptar las condiciones de las clases y la política de privacidad.");
       const res = await apiPost("bookings", {
         session_id: Number(form.dataset.session), seats: Number(f.seats.value),
         customer: { name: f.name.value, email: f.email.value, phone: f.phone.value },
+        consents: consentsOf(f),
       });
       formMessage(form, "Te llevamos al pago seguro…");
       window.location.href = res.checkout_url;
@@ -748,9 +781,11 @@ function initPage() {
     privateForm.elements.fecha.min = new Date().toISOString().slice(0, 10);
     sendForm(privateForm, async (f) => {
       if (!CLASSES?.private.length) throw new Error();
+      requireCheck(f.terms, "Para enviar la solicitud tienes que aceptar las condiciones de las clases y la política de privacidad.");
       await apiPost("bookings/private", {
         class_id: Number(f.tipo.value), preferred_date: f.fecha.value, preferred_slot: f.franja.value,
         customer: { name: f.nombre.value, email: f.email.value },
+        consents: consentsOf(f),
       });
       formMessage(privateForm, "Gracias. Te escribiremos en menos de 24 h para confirmar.");
       privateForm.reset();
@@ -761,7 +796,8 @@ function initPage() {
   const contactForm = $("[data-contact-form]");
   if (contactForm) {
     sendForm(contactForm, async (f) => {
-      await apiPost("contact", { name: f.nombre.value, email: f.email.value, reason: f.motivo.value, message: f.mensaje.value });
+      requireCheck(f.privacy, "Para enviar el mensaje tienes que aceptar la política de privacidad.");
+      await apiPost("contact", { name: f.nombre.value, email: f.email.value, reason: f.motivo.value, message: f.mensaje.value, consents: { privacy: true } });
       formMessage(contactForm, "Gracias. Te responderemos en menos de 24 h.");
       contactForm.reset();
     });

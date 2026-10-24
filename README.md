@@ -7,6 +7,7 @@ Web editorial de Charria Ceramics (HTML/CSS/JS) con un **backend API REST en PHP
 - **Reservas de clases** en grupo (con plazas por horario y pago online) y solicitudes de **clase privada**.
 - **Galería** gestionada desde el panel, con validación de formato, peso y proporciones.
 - **Panel de administración** (`/admin`) con login seguro: productos, stock, descuentos, interruptor “Agotado”, clases, horarios, precios, reservas, pedidos, galería y clientes.
+- **RGPD, LOPDGDD y LSSI**: páginas legales, aviso de cookies con Google Analytics solo con permiso, casillas de consentimiento, perfiles de cliente opcionales, derecho de supresión y exportación (ver [Privacidad y RGPD](#privacidad-y-rgpd)).
 - La API está separada del frontend: cualquier otra web puede reutilizarla (ver [Reutilizar la API](#reutilizar-la-api-en-otra-web)).
 
 Sin Composer ni dependencias: se sube tal cual a `public_html`.
@@ -21,12 +22,13 @@ Sin Composer ni dependencias: se sube tal cual a `public_html`.
 4. [Variables de entorno](#variables-de-entorno)
 5. [Cómo funciona](#cómo-funciona)
 6. [Seguridad](#seguridad)
-7. [Referencia de la API](#referencia-de-la-api)
-8. [Funciones del backend](#funciones-del-backend)
-9. [Panel de administración](#panel-de-administración)
-10. [Desarrollo local y tests](#desarrollo-local-y-tests)
-11. [Reutilizar la API en otra web](#reutilizar-la-api-en-otra-web)
-12. [Mantenimiento y preguntas frecuentes](#mantenimiento-y-preguntas-frecuentes)
+7. [Privacidad y RGPD](#privacidad-y-rgpd)
+8. [Referencia de la API](#referencia-de-la-api)
+9. [Funciones del backend](#funciones-del-backend)
+10. [Panel de administración](#panel-de-administración)
+11. [Desarrollo local y tests](#desarrollo-local-y-tests)
+12. [Reutilizar la API en otra web](#reutilizar-la-api-en-otra-web)
+13. [Mantenimiento y preguntas frecuentes](#mantenimiento-y-preguntas-frecuentes)
 
 ---
 
@@ -212,6 +214,30 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 - **Secretos**: ninguno en el repositorio. `.env` está en `.gitignore`. El instalador lo crea con permisos 600 fuera de `public_html` si puede. Las claves puestas en Ajustes se guardan cifradas (XSalsa20‑Poly1305) con la `APP_KEY` del `.env`, así que una copia de la base de datos sola no las revela, y la API nunca las devuelve.
 - **Instalador**: hace falta conocer usuario y contraseña de MySQL, y se cierra en cuanto existe un administrador.
 - **Errores**: en producción la API responde con mensajes genéricos y el detalle va a `backend/storage/logs/`.
+
+## Privacidad y RGPD
+
+> Los textos legales son una base redactada para este negocio (tienda de cerámica artesanal y clases en España). **No son asesoramiento jurídico**: conviene que los revise un profesional antes de abrir la tienda.
+
+**Páginas** (enlazadas en el pie de todas las páginas): `aviso-legal.html` (LSSI art. 10), `privacidad.html` (RGPD/LOPDGDD), `cookies.html`, `condiciones.html` (venta, desistimiento de 14 días con formulario, garantía de 3 años y condiciones de las clases) y `mis-datos.html` (copia, borrado y baja). Los datos del titular (nombre o razón social, NIF, domicilio, email, datos registrales) se rellenan en **Panel → Ajustes → Datos legales y analítica**; mientras falten, las páginas muestran el hueco marcado y el resumen del panel avisa.
+
+**Cookies** (`consent.js`): aviso al entrar con «Rechazar», «Configurar» y «Aceptar todo» (aceptar y rechazar con el mismo aspecto). Categorías: necesarias (siempre), analíticas y marketing. Hasta que se elige solo funciona lo necesario. Google Analytics 4 (ID `G-…` en el panel) se carga solo con permiso de «Analíticas», con Consent Mode; al retirarlo se borran sus cookies. La elección se guarda 12 meses en `localStorage` (`charria-consent`) y se cambia con cualquier elemento `[data-cookie-settings]` (enlace «Configurar cookies» del pie). Si añades otro servicio, súbelo a la tabla de `cookies.html`, sube `VERSION` en `consent.js` y cárgalo solo si `Consent.has("marketing")` (o escucha el evento `consent:change`).
+
+**Consentimientos** (bloque `consents` en `POST /checkout`, `/bookings` y `/bookings/private`): `terms` (condiciones + privacidad, obligatoria), `marketing` y `profile` (opcionales, sin marcar). `POST /contact` pide `consents.privacy`. Cada casilla marcada se guarda en la tabla `consents` con fecha, origen, IP, navegador y `Consents::VERSION` (súbela cuando cambies los textos legales o de las casillas).
+
+**Perfiles**: solo se crea una fila en `customers` si la persona marca «guardar mis datos» (`has_profile`) o acepta comunicaciones (`marketing_opt_in`). Si no, el pedido o la reserva guardan solo sus propios datos de contacto y entrega. Panel → Clientes: perfiles, lista de comunicaciones (exportable a CSV con enlace de baja por persona) y registro de solicitudes.
+
+**Supresión** (`Services/Privacy.php`): desde `mis-datos.html` (enlace de un solo uso enviado al email, 24 h; la acción se ejecuta al pulsar el botón, no al abrir el enlace) o desde el panel (ficha del cliente o «Borrar los datos de un email»). Borra el perfil y el alta en comunicaciones, anonimiza lo no pagado y **bloquea** (LOPDGDD art. 32) los pedidos y reservas pagados: quita teléfono y notas y los conserva 6 años por obligación fiscal y contable (`privacy_blocked_at`). `Privacy::anonymizeExpired()` (lo llaman el resumen del panel y `bin/cleanup.php`) anonimiza los pagados a los 6 años y los no pagados a los 90 días. Para enviar los enlaces hace falta el remitente de emails (Ajustes → Emails); si no está, la página pide escribir al email del titular.
+
+**Base de datos**: los cambios para instalaciones ya hechas los aplica `Services/Migrations.php` solo (tabla `schema_migrations`); no hay que hacer nada al actualizar. Si al actualizar ya había clientes, quedan sin perfil y el panel ofrece borrarlos (se crearon sin pedir permiso).
+
+| Ruta | Para qué |
+|---|---|
+| `POST /privacy/request` `{email, type: export\|delete\|unsubscribe}` | Envía el enlace de confirmación (misma respuesta haya o no datos) |
+| `POST /privacy/confirm` `{token}` | Ejecuta la solicitud: devuelve los datos, el resumen del borrado o la baja |
+| `POST /privacy/unsubscribe` `{email, signature}` | Baja directa desde el enlace firmado del CSV |
+| `GET /admin/customers?filter=profiles\|marketing` · `GET/PATCH/DELETE /admin/customers/{id}` · `GET /admin/customers/{id}/export` | Panel: clientes, alta/baja de comunicaciones, exportar y borrar |
+| `POST /admin/customers/erase {email}` · `POST /admin/customers/purge-legacy` · `GET /admin/marketing` · `GET /admin/privacy-requests` | Panel: borrar por email, limpiar clientes antiguos, lista de comunicaciones, registro |
 
 ## Referencia de la API
 

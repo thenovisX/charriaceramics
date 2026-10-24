@@ -7,6 +7,7 @@ use Charria\Database;
 use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
+use Charria\Services\Consents;
 use Charria\Services\Customers;
 use Charria\Services\Fulfillment;
 use Charria\Services\Pricing;
@@ -68,7 +69,10 @@ final class CheckoutController
     /**
      * POST /checkout
      * { items: [{product_id, quantity}], customer: {name, email, phone},
-     *   shipping: {option_id: "pickup" | "flat" | "pl:123"}, address: {street, city, postal_code, country} }
+     *   shipping: {option_id: "pickup" | "flat" | "pl:123"}, address: {street, city, postal_code, country},
+     *   consents: {terms: true, marketing: bool, profile: bool} }
+     * Sin "profile" ni "marketing" no se crea perfil de cliente: el pedido guarda
+     * solo los datos necesarios para enviarlo y facturarlo.
      */
     public function checkout(Request $r): Response
     {
@@ -83,6 +87,7 @@ final class CheckoutController
         $isPickup = $optionId === 'pickup';
         $customer = Customers::validate($v, !$isPickup);
         $address = $isPickup ? ['street' => '', 'city' => '', 'postal_code' => '', 'country' => 'ES'] : self::address($v, true);
+        $consents = Consents::validate($v);
         $v->check();
 
         // 1) Envío: se recalcula en el servidor y se busca la opción elegida
@@ -98,12 +103,12 @@ final class CheckoutController
         // 2) Pedido: precios y stock leídos con bloqueo para que nadie se lleve la misma pieza a la vez
         $db = Database::get();
         $hold = Settings::holdMinutes();
-        $order = $db->transaction(static function (Database $db) use ($merged, $customer, $address, $option, $hold) {
+        $order = $db->transaction(static function (Database $db) use ($merged, $customer, $address, $option, $hold, $consents, $r) {
             $quote = Pricing::quote($merged, true);
             if ($quote['errors']) {
                 throw new HttpError(409, 'cart_unavailable', $quote['errors'][0]['message'], ['items' => $quote['errors']]);
             }
-            $customerId = Customers::upsert($customer + $address);
+            $customerId = Customers::fromConsents($customer + $address, $consents);
             $reference = Settings::reference('CH');
             $total = $quote['items_total_cents'] + $option['price_cents'];
             $orderId = $db->insert('orders', [
@@ -140,6 +145,7 @@ final class CheckoutController
                     'line_total_cents' => $line['line_total_cents'],
                 ]);
             }
+            Consents::recordAll($customer['email'], $consents, 'checkout', $r, ['customer_id' => $customerId, 'order_id' => $orderId]);
             return ['id' => $orderId, 'reference' => $reference, 'total' => $total, 'quote' => $quote];
         });
 

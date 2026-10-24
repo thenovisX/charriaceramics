@@ -107,8 +107,16 @@ call('PUT', "$base/admin/settings", ['values' => ['SHIPPING_FLAT_NAME' => '']], 
 check('datos de la web: rechaza enlace sin https', $s === 422 && isset($j['error']['fields']['SITE_INSTAGRAM']), $j);
 call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '+34 600 111 222', 'SITE_HOURS' => "Mar–Sáb 10–20\nDom cerrado"]], $token);
 [$s, $j] = call('GET', "$base/site");
-check('datos de la web públicos en /site (sin claves secretas)', $s === 200 && $j['data']['phone'] === '+34 600 111 222' && str_contains($j['data']['hours'], "\n") && !isset($j['data']['STRIPE_SECRET_KEY']) && count($j['data']) === 10, $j);
+check('datos de la web públicos en /site (sin claves secretas)', $s === 200 && $j['data']['phone'] === '+34 600 111 222' && str_contains($j['data']['hours'], "\n") && !isset($j['data']['STRIPE_SECRET_KEY']) && count($j['data']) === 16, $j);
 call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '', 'SITE_HOURS' => '']], $token);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['LEGAL_TAX_ID' => 'hola', 'GA_MEASUREMENT_ID' => 'UA-1234']], $token);
+check('datos legales: rechaza NIF y Google Analytics no válidos', $s === 422 && isset($j['error']['fields']['LEGAL_TAX_ID'], $j['error']['fields']['GA_MEASUREMENT_ID']), $j);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['LEGAL_OWNER' => 'Ana Charria', 'LEGAL_TAX_ID' => '12345678z', 'GA_MEASUREMENT_ID' => 'g-ab12cd34']], $token);
+[, $site] = call('GET', "$base/site");
+check('datos legales y ID de Analytics públicos en /site', $s === 200 && $site['data']['legal_tax_id'] === '12345678Z' && $site['data']['ga_id'] === 'G-AB12CD34', $site);
+[, $stats] = call('GET', "$base/admin/stats", null, $token);
+check('el resumen avisa de los datos legales que faltan', in_array('LEGAL_ADDRESS', $stats['data']['legal_missing'] ?? [], true) && !in_array('LEGAL_OWNER', $stats['data']['legal_missing'], true), $stats);
+call('PUT', "$base/admin/settings", ['values' => ['LEGAL_OWNER' => '', 'LEGAL_TAX_ID' => '', 'GA_MEASUREMENT_ID' => '']], $token);
 
 echo "Productos (panel)\n";
 [$s, $j] = call('POST', "$base/admin/products", ['title' => 'Test Cuenco', 'price_cents' => 5000, 'discount_percent' => 15, 'stock' => 2, 'category' => 'Test', 'weight_grams' => 500], $token);
@@ -169,6 +177,9 @@ $checkout = [
     'address' => ['street' => 'Calle Mayor 1', 'city' => 'Barcelona', 'postal_code' => '08001', 'country' => 'ES'],
 ];
 [$s, $j] = call('POST', "$base/checkout", $checkout);
+check('sin aceptar condiciones y privacidad no se puede comprar', $s === 422 && isset($j['error']['fields']['consents.terms']), $j);
+$checkout['consents'] = ['terms' => true, 'marketing' => true, 'profile' => false];
+[$s, $j] = call('POST', "$base/checkout", $checkout);
 $ref = $j['data']['reference'] ?? '';
 check('checkout crea pedido y sesión de pago', $s === 201 && str_starts_with($j['data']['checkout_url'] ?? '', 'https://'), $j);
 check('total = 2 × 51,00 + envío 6,90', ($j['data']['total_cents'] ?? 0) === 10200 + 690, $j);
@@ -215,7 +226,7 @@ check('clase semanal: 4 horarios, mismo día y hora', $s === 201 && ($j['data'][
 check('borrar clase semanal', $s === 204);
 [$s, $j] = call('PATCH', "$base/admin/sessions/$sid", ['price_cents' => 3500], $token);
 check('cambiar precio solo de ese horario', $s === 200 && $j['data']['price_cents'] === 3500, $j);
-$booking = ['session_id' => $sid, 'seats' => 3, 'customer' => ['name' => 'Luis', 'email' => 'luis@example.com']];
+$booking = ['session_id' => $sid, 'seats' => 3, 'customer' => ['name' => 'Luis', 'email' => 'luis@example.com', 'phone' => '611111111'], 'consents' => ['terms' => true, 'profile' => true]];
 [$s, $j] = call('POST', "$base/bookings", $booking);
 check('no se reservan más plazas de las que hay', $s === 409, $j);
 $booking['seats'] = 2;
@@ -241,10 +252,61 @@ check('no se borra un horario con reservas', $s === 409, $j);
 
 [$s, $j] = call('GET', "$base/classes");
 $privateId = $j['data']['private'][0]['id'] ?? 0;
-[$s, $j] = call('POST', "$base/bookings/private", ['class_id' => $privateId, 'preferred_date' => date('Y-m-d', strtotime('+5 days')), 'preferred_slot' => 'Tarde', 'customer' => ['name' => 'Eva', 'email' => 'eva@example.com']]);
+[$s, $j] = call('POST', "$base/bookings/private", ['class_id' => $privateId, 'preferred_date' => date('Y-m-d', strtotime('+5 days')), 'preferred_slot' => 'Tarde', 'customer' => ['name' => 'Eva', 'email' => 'eva@example.com'], 'consents' => ['terms' => true]]);
 check('solicitud de clase privada', $s === 201 && $j['data']['status'] === 'requested', $j);
 [$s, $j] = call('POST', "$base/bookings/private", ['class_id' => $privateId, 'preferred_date' => '2020-01-01', 'preferred_slot' => 'Noche', 'customer' => ['name' => 'Eva', 'email' => 'no-es-email']]);
-check('validación de la solicitud privada', $s === 422 && count($j['error']['fields']) >= 3, $j);
+check('validación de la solicitud privada', $s === 422 && count($j['error']['fields']) >= 4 && isset($j['error']['fields']['consents.terms']), $j);
+
+echo "Privacidad (RGPD)\n";
+$findCustomer = static function (string $email, string $filter) use ($base, $token) {
+    [, $j] = call('GET', "$base/admin/customers?filter=$filter", null, $token);
+    return array_values(array_filter($j['data'] ?? [], static fn ($c) => $c['email'] === $email))[0] ?? null;
+};
+check('compra con marketing y sin perfil: no sale en Perfiles', $findCustomer('ana@example.com', 'profiles') === null);
+check('…pero sí en la lista de marketing', ($findCustomer('ana@example.com', 'marketing')['marketing_opt_in'] ?? false) === true);
+$luis = $findCustomer('luis@example.com', 'profiles');
+check('reserva con «guardar perfil» crea el perfil', $luis && $luis['phone'] === '611111111' && $luis['marketing_opt_in'] === false, $luis);
+check('reserva sin casillas opcionales no crea cliente', $findCustomer('eva@example.com', 'profiles') === null && $findCustomer('eva@example.com', 'marketing') === null);
+[, $j] = call('GET', "$base/admin/bookings", null, $token);
+$eva = array_values(array_filter($j['data'], static fn ($b) => $b['customer']['email'] === 'eva@example.com'))[0] ?? null;
+check('la reserva guarda su propio contacto aunque no haya perfil', $eva && $eva['customer']['name'] === 'Eva', $j);
+[$s, $j] = call('GET', "$base/admin/customers/{$luis['id']}", null, $token);
+$purposes = array_column($j['data']['consents'] ?? [], 'purpose');
+check('ficha del cliente con su reserva y consentimientos (fecha y versión)', $s === 200 && count($j['data']['booking_list']) >= 1 && array_slice($purposes, -2) === ['terms', 'profile'] && !empty($j['data']['consents'][0]['text_version']), $j);
+[$s, $j] = call('GET', "$base/admin/customers/{$luis['id']}/export", null, $token);
+check('exportar datos de un cliente', $s === 200 && $j['data']['profile']['email'] === 'luis@example.com' && count($j['data']['bookings']) >= 1, $j);
+
+[$s, $j] = call('GET', "$base/admin/marketing", null, $token);
+$ana = array_values(array_filter($j['data'] ?? [], static fn ($c) => $c['email'] === 'ana@example.com'))[0] ?? null;
+check('lista de marketing con fecha de alta y enlace de baja', $ana && $ana['since'] && str_contains($ana['unsubscribe_url'], 'firma='), $j);
+parse_str((string) parse_url($ana['unsubscribe_url'] ?? '', PHP_URL_QUERY), $q);
+[$s] = call('POST', "$base/privacy/unsubscribe", ['email' => 'ana@example.com', 'signature' => str_repeat('0', 32)]);
+check('enlace de baja con firma falsa rechazado', $s === 403);
+[$s, $j] = call('POST', "$base/privacy/unsubscribe", ['email' => $q['baja'] ?? '', 'signature' => $q['firma'] ?? '']);
+check('enlace de baja funciona y borra el contacto sin perfil', $s === 200 && $j['data']['unsubscribed'] === true && $findCustomer('ana@example.com', 'marketing') === null, $j);
+
+[$s, $j] = call('POST', "$base/privacy/request", ['email' => 'luis@example.com', 'type' => 'borrar']);
+check('solicitud de privacidad: tipo no válido', $s === 422, $j);
+[$s, $j] = call('POST', "$base/privacy/request", ['email' => 'luis@example.com', 'type' => 'delete']);
+check('solicitud de privacidad sin email configurado avisa de escribir a mano', $s === 503, $j);
+[$s] = call('POST', "$base/privacy/confirm", ['token' => str_repeat('a', 48)]);
+check('enlace de confirmación inventado no vale', $s === 410);
+
+[$s, $j] = call('DELETE', "$base/admin/customers/{$luis['id']}", null, $token);
+check('borrar cliente: perfil fuera, reserva pagada se conserva bloqueada', $s === 200 && $j['data']['profile_deleted'] && $j['data']['bookings_kept'] >= 1, $j);
+[, $j] = call('GET', "$base/admin/bookings?session_id=$sid", null, $token);
+check('…sin teléfono y marcada como bloqueada', ($j['data'][0]['customer']['phone'] ?? 'x') === '' && ($j['data'][0]['privacy_blocked'] ?? false) === true, $j);
+[$s, $j] = call('POST', "$base/admin/customers/erase", ['email' => 'eva@example.com'], $token);
+check('borrar por email: la solicitud privada sin pagar se anonimiza y cancela', $s === 200 && $j['data']['bookings_anonymized'] >= 1, $j);
+[$s, $j] = call('POST', "$base/admin/customers/erase", ['email' => 'ana@example.com'], $token);
+check('borrar por email: el pedido pagado se conserva para la factura', $s === 200 && $j['data']['orders_kept'] >= 1, $j);
+[, $j] = call('GET', "$base/admin/privacy-requests", null, $token);
+check('registro de solicitudes sin el email borrado', count($j['data'] ?? []) >= 3 && !str_contains(json_encode($j), 'eva@example.com'), $j);
+
+[$s, $j] = call('POST', "$base/contact", ['name' => 'Eva', 'email' => 'eva@example.com', 'message' => 'Hola, una duda']);
+check('contacto: pide aceptar la política de privacidad', $s === 422 && isset($j['error']['fields']['consents.privacy']), $j);
+[$s] = call('POST', "$base/contact", ['name' => 'Eva', 'email' => 'eva@example.com', 'message' => 'Hola, una duda', 'consents' => ['privacy' => true]]);
+check('contacto con la casilla marcada', $s === 201);
 
 echo "Limpieza\n";
 [$s] = call('DELETE', "$base/admin/products/$pid", null, $token);

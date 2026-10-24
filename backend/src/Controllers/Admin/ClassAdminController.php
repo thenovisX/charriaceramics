@@ -199,8 +199,7 @@ final class ClassAdminController
             $where[] = '(b.starts_at IS NULL OR b.starts_at >= CURDATE())';
         }
         $rows = Database::get()->all(
-            'SELECT b.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
-             FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id
+            'SELECT b.* FROM bookings b
              WHERE ' . implode(' AND ', $where) . ' ORDER BY COALESCE(b.starts_at, b.preferred_date, b.created_at) DESC LIMIT 500',
             $params
         );
@@ -224,8 +223,7 @@ final class ClassAdminController
         $v->check();
         $db->update('bookings', $data, 'id = :id', ['id' => $id]);
         $row = $db->one(
-            'SELECT b.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
-             FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id WHERE b.id = ?',
+            'SELECT * FROM bookings WHERE id = ?',
             [$id]
         );
         return Response::json(self::booking($row));
@@ -247,6 +245,7 @@ final class ClassAdminController
             'total_cents' => (int) $b['total_cents'],
             'notes' => (string) $b['notes'],
             'customer' => ['name' => $b['customer_name'], 'email' => $b['customer_email'], 'phone' => $b['customer_phone']],
+            'privacy_blocked' => !empty($b['privacy_blocked_at']),
             'paid_at' => $b['paid_at'],
             'created_at' => $b['created_at'],
         ];

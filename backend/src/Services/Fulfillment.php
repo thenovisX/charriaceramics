@@ -112,15 +112,15 @@ final class Fulfillment
     private static function bookingPaid(string $reference, array $session): void
     {
         $db = Database::get();
-        $booking = $db->one('SELECT b.*, c.email, c.name FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id WHERE b.reference = ?', [$reference]);
+        $booking = $db->one('SELECT * FROM bookings WHERE reference = ?', [$reference]);
         if (!$booking || !in_array($booking['status'], ['pending_payment', 'cancelled'], true)) {
             return;
         }
         $db->update('bookings', ['status' => 'confirmed', 'paid_at' => date('Y-m-d H:i:s')], 'id = :id', ['id' => $booking['id']]);
         $when = $booking['starts_at'] ? date('d/m/Y H:i', strtotime($booking['starts_at'])) : '';
         $text = "Reserva {$booking['reference']}\n{$booking['class_title']} · $when\nPlazas: {$booking['seats']}\nTotal: " . Mailer::money((int) $booking['total_cents']);
-        Mailer::send((string) $booking['email'], "Reserva confirmada · {$booking['class_title']}",
-            "Hola {$booking['name']},\n\nTu plaza está confirmada.\n\n$text\n\nNos vemos en el estudio.\nCharria Ceramics");
-        Mailer::admin("Nueva reserva {$booking['reference']}", "$text\nCliente: {$booking['name']} <{$booking['email']}>");
+        Mailer::send($booking['customer_email'], "Reserva confirmada · {$booking['class_title']}",
+            "Hola {$booking['customer_name']},\n\nTu plaza está confirmada.\n\n$text\n\nNos vemos en el estudio.\nCharria Ceramics");
+        Mailer::admin("Nueva reserva {$booking['reference']}", "$text\nCliente: {$booking['customer_name']} <{$booking['customer_email']}> {$booking['customer_phone']}");
     }
 }

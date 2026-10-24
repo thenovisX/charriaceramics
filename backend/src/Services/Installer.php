@@ -72,6 +72,7 @@ final class Installer
 
         $conn = Database::get();
         $conn->runSqlFile(BACKEND_DIR . '/database/schema.sql');
+        Migrations::run(); // por si ya había tablas de una versión anterior
         if ((int) $conn->value('SELECT COUNT(*) FROM admins') > 0) {
             throw new HttpError(409, 'already_installed', 'La web ya está instalada. Entra en el panel con tu usuario.');
         }
