@@ -18,6 +18,7 @@ use Charria\Services\Auth;
 return static function (Router $r): void {
     // ---------- Público ----------
     $r->get('/health', [PublicController::class, 'health']);
+    $r->get('/site', [PublicController::class, 'site']);
     $r->get('/products', [PublicController::class, 'products']);
     $r->get('/products/{id}', [PublicController::class, 'product']);
     $r->get('/gallery', [PublicController::class, 'gallery']);

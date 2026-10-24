@@ -103,6 +103,12 @@ check('ajustes: rechaza clave publicable y email malo', $s === 422 && isset($j['
 [$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['STRIPE_SECRET_KEY' => '', 'SHIPPING_FLAT_NAME' => 'Envío test']], $token);
 check('ajustes: secreto vacío no cambia la clave', $s === 200 && $j['data']['secrets']['STRIPE_SECRET_KEY']['set'] && $j['data']['values']['SHIPPING_FLAT_NAME'] === 'Envío test', $j);
 call('PUT', "$base/admin/settings", ['values' => ['SHIPPING_FLAT_NAME' => '']], $token);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '+34 600 111 222', 'SITE_HOURS' => "Mar–Sáb 10–20\nDom cerrado", 'SITE_INSTAGRAM' => 'instagram.com/x']], $token);
+check('datos de la web: rechaza enlace sin https', $s === 422 && isset($j['error']['fields']['SITE_INSTAGRAM']), $j);
+call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '+34 600 111 222', 'SITE_HOURS' => "Mar–Sáb 10–20\nDom cerrado"]], $token);
+[$s, $j] = call('GET', "$base/site");
+check('datos de la web públicos en /site (sin claves secretas)', $s === 200 && $j['data']['phone'] === '+34 600 111 222' && str_contains($j['data']['hours'], "\n") && !isset($j['data']['STRIPE_SECRET_KEY']) && count($j['data']) === 10, $j);
+call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '', 'SITE_HOURS' => '']], $token);
 
 echo "Productos (panel)\n";
 [$s, $j] = call('POST', "$base/admin/products", ['title' => 'Test Cuenco', 'price_cents' => 5000, 'discount_percent' => 15, 'stock' => 2, 'category' => 'Test', 'weight_grams' => 500], $token);

@@ -63,15 +63,18 @@ const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.tech
 let PRODUCTS = [];
 let GALLERY = [];
 let CLASSES = null;  // null = sin API: se quedan las clases escritas en el HTML
+let SITE = null;     // datos de contacto de Panel → Ajustes (null = se queda el HTML)
 let SLOTS = new Map(); // filas de clases: un horario suelto o todas las semanas de una clase semanal
 
 async function loadContent() {
   const wants = (sel) => !!document.querySelector(sel);
-  const [products, gallery, classes] = await Promise.all([
+  const [products, gallery, classes, site] = await Promise.all([
     wants("[data-latest-products], [data-catalog]") ? apiFetch("products").catch(() => null) : null,
     wants("[data-gallery-track], [data-ed-gallery]") ? apiFetch("gallery").catch(() => null) : null,
     wants(".class-list, [data-private-form]") ? apiFetch("classes").catch(() => null) : null,
+    apiFetch("site").catch(() => null),
   ]);
+  SITE = site;
   PRODUCTS = (products ? products.map(fromApiProduct) : (window.PRODUCTS || []).map(fromLocalProduct))
     .sort((a, b) => b.added.localeCompare(a.added));
   GALLERY = gallery ? gallery.map(fromApiGallery) : (window.GALLERY || []);
@@ -92,7 +95,52 @@ const productHTML = (p, i, tall = false) => `
     </div>
   </article>`;
 
+/* Dirección, horario, teléfono, email y redes: se editan en Panel → Ajustes → Datos de la web.
+   Lo que no esté rellenado se queda como está escrito en el HTML. */
+function renderSite() {
+  if (!SITE) return;
+  const link = (href, text, external = true) => `<a href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ""}>${esc(text)}</a>`;
+  const lines = (t) => String(t).split("\n").map((l) => l.trim()).filter(Boolean);
+  const handle = (url) => { const m = String(url).match(/instagram\.com\/([^/?#]+)/i); return m ? `@${m[1]}` : "Instagram"; };
+  const digits = (phone) => String(phone).replace(/[^\d+]/g, "");
+  const social = [
+    SITE.instagram && link(SITE.instagram, handle(SITE.instagram)),
+    SITE.facebook && link(SITE.facebook, "Facebook"),
+    SITE.tiktok && link(SITE.tiktok, "TikTok"),
+    SITE.whatsapp && link(`https://wa.me/${digits(SITE.whatsapp).replace("+", "")}`, "WhatsApp"),
+  ].filter(Boolean);
+  const place = (withZip) => {
+    const city = SITE.city ? (withZip ? SITE.city : SITE.city.replace(/^\d{4,5}\s*/, "")) : "";
+    const text = [SITE.address, city].filter(Boolean).map(esc).join("<br>");
+    return SITE.maps_url ? `<a href="${esc(SITE.maps_url)}" target="_blank" rel="noopener">${text}</a>` : text;
+  };
+  const setCol = (root, label, html) => {
+    const col = [...root.children].find((c) => c.querySelector(".eyebrow")?.textContent.trim().startsWith(label));
+    if (col && html) col.querySelector("p").innerHTML = html;
+  };
+  // Pie de todas las páginas
+  $$(".footer__cols").forEach((cols) => {
+    if (SITE.address || SITE.city) setCol(cols, "Estudio", place(false));
+    if (SITE.hours) setCol(cols, "Horario", esc(lines(SITE.hours)[0] || ""));
+    if (social.length) setCol(cols, "Síguenos", social.join("<br>"));
+  });
+  const legal = $(".footer__legal");
+  if (legal && SITE.city) legal.textContent = `© ${new Date().getFullYear()} Charria Ceramics · ${SITE.city.replace(/^\d{4,5}\s*/, "")}`;
+  // Menú del móvil
+  const menuFoot = $(".mobile-menu__foot");
+  if (menuFoot && social.length) menuFoot.innerHTML = social[0];
+  // Página de contacto
+  const details = $(".contact__details");
+  if (details) {
+    if (SITE.address || SITE.city) setCol(details, "Estudio", place(true));
+    if (SITE.hours) setCol(details, "Horario", lines(SITE.hours).map(esc).join("<br>"));
+    const write = [SITE.email && link(`mailto:${SITE.email}`, SITE.email, false), SITE.phone && link(`tel:${digits(SITE.phone)}`, SITE.phone, false)].filter(Boolean);
+    if (write.length) setCol(details, "Escríbenos", write.join("<br>"));
+  }
+}
+
 function renderContent() {
+  renderSite();
   // Portada: solo las 5 piezas más recientes, repartidas en 3 columnas con parallax
   const latest = $("[data-latest-products]");
   if (latest) {

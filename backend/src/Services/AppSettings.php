@@ -19,6 +19,17 @@ final class AppSettings
 {
     /** clave => [tipo, secreto] */
     public const KEYS = [
+        // Datos públicos de la web (pie, menú, contacto). Ver PUBLIC_KEYS.
+        'SITE_ADDRESS' => ['text', false],
+        'SITE_CITY' => ['text', false],
+        'SITE_HOURS' => ['multiline', false],
+        'SITE_EMAIL' => ['email', false],
+        'SITE_PHONE' => ['phone', false],
+        'SITE_WHATSAPP' => ['phone', false],
+        'SITE_INSTAGRAM' => ['url', false],
+        'SITE_FACEBOOK' => ['url', false],
+        'SITE_TIKTOK' => ['url', false],
+        'SITE_MAPS_URL' => ['url', false],
         'STRIPE_SECRET_KEY' => ['stripe_key', true],
         'STRIPE_WEBHOOK_SECRET' => ['webhook_secret', true],
         'PACKLINK_API_KEY' => ['packlink_key', true],
@@ -39,6 +50,24 @@ final class AppSettings
         'MAIL_FROM' => ['email', false],
         'MAIL_ADMIN' => ['email', false],
     ];
+
+    /** Claves que se pueden enseñar en la web pública (GET /site) → nombre en la respuesta. */
+    public const PUBLIC_KEYS = [
+        'SITE_ADDRESS' => 'address', 'SITE_CITY' => 'city', 'SITE_HOURS' => 'hours',
+        'SITE_EMAIL' => 'email', 'SITE_PHONE' => 'phone', 'SITE_WHATSAPP' => 'whatsapp',
+        'SITE_INSTAGRAM' => 'instagram', 'SITE_FACEBOOK' => 'facebook', 'SITE_TIKTOK' => 'tiktok',
+        'SITE_MAPS_URL' => 'maps_url',
+    ];
+
+    /** Datos de contacto para la web: solo lo que se ha rellenado en el panel (o en el .env). */
+    public static function publicSite(): array
+    {
+        $out = [];
+        foreach (self::PUBLIC_KEYS as $key => $name) {
+            $out[$name] = Env::get($key);
+        }
+        return $out;
+    }
 
     /** Carga los ajustes del panel sobre Env. Si aún no hay tabla o base de datos, no hace nada. */
     public static function boot(): void
@@ -106,7 +135,10 @@ final class AppSettings
                 continue;
             }
             [$type, $secret] = self::KEYS[$key];
-            $value = is_bool($raw) ? ($raw ? 'true' : 'false') : trim((string) $raw);
+            $value = is_bool($raw) ? ($raw ? 'true' : 'false') : trim(str_replace("\r\n", "\n", (string) $raw));
+            if ($type !== 'multiline') {
+                $value = preg_replace('/\s*\n\s*/', ' ', $value);
+            }
             if ($secret && $value === '') {
                 continue; // vacío = no cambiar
             }
@@ -169,6 +201,9 @@ final class AppSettings
             'zip' => preg_match('/^[A-Za-z0-9 -]{3,12}$/', $value) ? null : 'Código postal no válido',
             'cents' => ctype_digit($value) && (int) $value <= 100_000_00 ? null : 'Importe no válido',
             'bool' => in_array($value, ['true', 'false'], true) ? null : 'Debe ser sí o no',
+            'multiline' => mb_strlen($value) <= 500 ? null : 'Máximo 500 caracteres',
+            'phone' => preg_match('/^\+?[0-9 ().-]{6,20}$/', $value) ? null : 'Teléfono no válido (p. ej. +34 600 000 000)',
+            'url' => preg_match('#^https://[^\s<>"]{4,300}$#', $value) ? null : 'Pega el enlace completo, empezando por https://',
             default => mb_strlen($value) <= 255 ? null : 'Máximo 255 caracteres',
         };
     }
