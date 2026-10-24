@@ -8,6 +8,9 @@ fetch("../api/setup")
   .then((json) => {
     if (json.data?.installed) { show("[data-installed]"); return; }
     show("[data-setup-form]");
+    if (json.data?.missing?.length) {
+      showError(`Al servidor le falta: ${json.data.missing.join(", ")}. Actívalo en hPanel → Avanzado → Configuración de PHP y recarga esta página.`);
+    }
     form.elements["db.name"].focus();
   })
   .catch(() => {

@@ -37,6 +37,21 @@ final class Installer
         }
     }
 
+    /** Extensiones de PHP que faltan en el servidor (en Hostinger: hPanel → Avanzado → Configuración de PHP). */
+    public static function missingRequirements(): array
+    {
+        $missing = [];
+        if (PHP_VERSION_ID < 80100) {
+            $missing[] = 'PHP 8.1 o superior (ahora ' . PHP_VERSION . ')';
+        }
+        foreach (['pdo_mysql', 'curl', 'gd', 'sodium', 'mbstring', 'fileinfo', 'openssl'] as $ext) {
+            if (!extension_loaded($ext)) {
+                $missing[] = $ext;
+            }
+        }
+        return $missing;
+    }
+
     public static function install(array $db, array $admin, bool $seed, Request $request): array
     {
         if (Env::get('DB_NAME')) {
@@ -118,7 +133,7 @@ final class Installer
             'APP_URL=' . ($local ? 'http' : 'https') . '://' . $host,
             'APP_TIMEZONE=Europe/Madrid',
             'APP_DEBUG=false',
-            'APP_KEY=' . base64_encode(random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES)),
+            'APP_KEY=' . base64_encode(random_bytes(32)),
             'DB_HOST=' . $q($db['host']),
             'DB_PORT=' . $db['port'],
             'DB_NAME=' . $q($db['name']),

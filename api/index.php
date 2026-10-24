@@ -58,6 +58,7 @@ try {
         : new HttpError(500, 'server_error', Env::bool('APP_DEBUG') ? $e->getMessage() : 'Error interno. Inténtalo de nuevo en unos minutos.'));
 } catch (\Throwable $e) {
     Log::error('Unhandled', ['error' => $e->getMessage(), 'file' => $e->getFile() . ':' . $e->getLine()]);
-    $message = Env::bool('APP_DEBUG') ? $e->getMessage() : 'Error interno. Inténtalo de nuevo en unos minutos.';
+    // Sin instalar todavía no hay nada privado que proteger: se muestra el motivo real
+    $message = Env::bool('APP_DEBUG') || !Env::get('DB_NAME') ? $e->getMessage() : 'Error interno. Inténtalo de nuevo en unos minutos.';
     Response::error(new HttpError(500, 'server_error', $message));
 }

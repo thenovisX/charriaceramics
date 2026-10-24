@@ -10,6 +10,7 @@ use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Auth;
 use Charria\Services\Installer;
+use Charria\Services\Log;
 use Charria\Validator;
 
 final class AuthController
@@ -77,12 +78,25 @@ final class AuthController
         if (Installer::isInstalled()) {
             throw new HttpError(409, 'already_installed', 'La web ya está instalada. Entra en el panel con tu usuario.');
         }
-        return Response::created(Installer::install($db, $admin, $seed, $r));
+        try {
+            return Response::created(Installer::install($db, $admin, $seed, $r));
+        } catch (HttpError $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            // Antes de instalar no hay panel ni logs a mano: se enseña el motivo real para poder arreglarlo
+            Log::error('Instalación', ['error' => $e->getMessage(), 'file' => $e->getFile() . ':' . $e->getLine()]);
+            throw new HttpError(500, 'install_failed', 'No se pudo terminar la instalación: ' . $e->getMessage());
+        }
     }
 
     /** GET /setup — ¿hace falta instalar? (lo usa setup.html) */
     public function setupStatus(Request $r): Response
     {
-        return Response::json(['installed' => Installer::isInstalled(), 'configured' => Env::get('DB_NAME') !== null]);
+        return Response::json([
+            'installed' => Installer::isInstalled(),
+            'configured' => Env::get('DB_NAME') !== null,
+            'php' => PHP_VERSION,
+            'missing' => Installer::missingRequirements(),
+        ]);
     }
 }
