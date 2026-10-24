@@ -34,6 +34,8 @@ const apiFetch = async (path, options = {}) => {
     signal: options.signal || (AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined),
   });
   const json = await res.json().catch(() => null);
+  // Web recién subida sin instalar: primero el instalador
+  if (json?.error?.code === "not_installed") location.replace("admin/setup.html");
   if (!res.ok || !json) {
     const err = new Error(json?.error?.message || "No se pudo conectar. Inténtalo de nuevo en unos minutos.");
     err.status = res.status;

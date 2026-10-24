@@ -88,46 +88,40 @@ public_html/
 Requisitos: cualquier plan de Hostinger con PHP 8.1 o superior (recomendado 8.2/8.3), MySQL y SSL activado. Extensiones PHP necesarias (vienen activadas por defecto en Hostinger): `pdo_mysql`, `curl`, `gd` (con WebP), `fileinfo`, `mbstring`, `openssl`, `exif`.
 
 ### 1. Base de datos MySQL
-1. hPanel → **Bases de datos → Gestión** → crea una base de datos y un usuario (anota nombre, usuario y contraseña; Hostinger les añade un prefijo tipo `u123456789_`).
-2. No hace falta importar nada: la instalación (paso 4) crea las tablas. Si prefieres, puedes importar `backend/database/schema.sql` desde **phpMyAdmin**.
+hPanel → **Bases de datos → Gestión** → crea una base de datos y un usuario (anota nombre, usuario y contraseña; Hostinger les añade un prefijo tipo `u123456789_`). No hay que importar nada.
 
-### 2. Archivo `.env`
-1. Abre `backend/.env.example`, cópialo y rellénalo (mínimo: `APP_URL`, `DB_*` y `SETUP_TOKEN`).
-2. Súbelo con el **Administrador de archivos** a la carpeta **por encima** de `public_html` con el nombre `.env`:
-   `/home/u123456789/domains/tudominio.com/.env`
-   (Alternativa: `public_html/backend/.env`, que también está bloqueado por `.htaccess`.)
-3. `SETUP_TOKEN`: inventa una cadena larga (mínimo 16 caracteres). Solo sirve para la instalación.
+### 2. Desplegar el código
+hPanel → **Avanzado → GIT** → **Deploy** de la rama configurada en `public_html`. La configuración (`.env`) y la carpeta `uploads/` no están en git, así que los despliegues no las tocan.
 
-### 3. Desplegar el código
-El despliegue sigue siendo el de siempre: hPanel → **Avanzado → GIT** → **Deploy** de la rama configurada en `public_html`. El `.env` y la carpeta `uploads/` no están en git, así que los despliegues no los tocan.
+### 3. Instalar desde el navegador (una sola vez)
+1. Abre la web. Mientras no esté instalada, cualquier página te lleva sola a `https://tudominio.com/admin/setup.html`.
+2. Escribe el **nombre, usuario y contraseña de la base de datos** del paso 1 (en “Opciones avanzadas” el servidor es `localhost`, que es lo normal en Hostinger), y tu **nombre, email y contraseña del panel** (mínimo 10 caracteres). Deja marcado “Cargar las piezas…” para empezar con el catálogo actual.
+3. El instalador prueba la conexión (si algo está mal, marca el campo), guarda la configuración en un `.env` **por encima de `public_html`** (`/home/u123456789/domains/tudominio.com/.env`, o si el hosting no lo permite en `public_html/backend/.env`, bloqueado por `.htaccess`) con una clave `APP_KEY` aleatoria, crea las tablas y tu usuario.
+4. Desde ese momento la web abre normal y el instalador queda cerrado para siempre (responde `409` en cuanto existe un administrador).
 
-### 4. Instalar (una sola vez)
-1. Abre `https://tudominio.com/admin/setup.html`.
-2. Escribe el `SETUP_TOKEN`, tu email y una contraseña (mínimo 10 caracteres). Deja marcado “Cargar las piezas… de ejemplo” para empezar con el catálogo actual.
-3. **Borra `SETUP_TOKEN` del `.env`.** (Aunque se deje, la instalación se bloquea en cuanto existe un administrador.)
-4. Entra en `https://tudominio.com/admin/`.
+Alternativas: subir tú el `.env` (ver `backend/.env.example`) y después abrir el instalador con los mismos datos de MySQL, o por SSH `php backend/bin/create-admin.php tu@email.com "Tu nombre"`.
 
-Alternativa por SSH: `php backend/bin/create-admin.php tu@email.com "Tu nombre"`.
-
-### 5. Stripe
+### 4. Panel → Ajustes: Stripe
+Todo lo que sigue se escribe en `https://tudominio.com/admin/` → **Ajustes**. Las claves se guardan **cifradas** en la tabla `settings` (libsodium con la `APP_KEY` del `.env`, que no está en la base de datos) y nunca se vuelven a mostrar: el panel solo enseña los 4 últimos caracteres.
 1. Crea la cuenta en [dashboard.stripe.com](https://dashboard.stripe.com) y empieza en **modo de prueba**.
-2. **Desarrolladores → Claves de API** → copia la clave secreta (`sk_test_…`) en `STRIPE_SECRET_KEY`.
-3. **Desarrolladores → Webhooks → Añadir endpoint**:
-   - URL: `https://tudominio.com/api/webhooks/stripe`
-   - Eventos: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`
-   - Copia el **Signing secret** (`whsec_…`) en `STRIPE_WEBHOOK_SECRET`.
-4. Prueba una compra con la tarjeta `4242 4242 4242 4242` (cualquier fecha futura y CVC).
-5. Para cobrar de verdad: activa la cuenta, cambia a las claves `sk_live_…` y crea el webhook también en modo live (tiene otro `whsec_`).
+2. **Desarrolladores → Claves de API** → copia la **clave secreta** (`sk_test_…`) en “Clave secreta”.
+3. **Desarrolladores → Webhooks → Añadir destino**: pega la URL que muestra el panel (`https://tudominio.com/api/webhooks/stripe`) y marca los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`. Copia su **secreto de firma** (`whsec_…`) en “Secreto del webhook”.
+4. **Guardar ajustes** y **Probar conexión con Stripe**. La etiqueta indica “Modo prueba” o “Modo real”.
+5. Prueba una compra con la tarjeta `4242 4242 4242 4242` (cualquier fecha futura y CVC).
+6. Para cobrar de verdad: activa la cuenta, pon la clave `sk_live_…` y crea el webhook también en modo live (tiene otro `whsec_`).
 
-### 6. Packlink PRO (opcional, recomendado)
-1. En [pro.packlink.es](https://pro.packlink.es) → **Configuración → Integraciones / API** → genera la **API key** y ponla en `PACKLINK_API_KEY`.
-2. Rellena los datos del remitente `PACKLINK_SENDER_*` (dirección del estudio, teléfono y email).
+### 5. Panel → Ajustes: Packlink PRO (opcional, recomendado)
+1. En [pro.packlink.es](https://pro.packlink.es) → **Configuración → API** → genera la **API key** y pégala en Ajustes.
+2. Rellena el **remitente** (dirección del estudio, teléfono y email) y pulsa **Probar conexión con Packlink**.
 3. Pon peso y medidas en cada producto desde el panel para que las tarifas sean exactas.
 4. Funcionamiento: en la cesta se muestran las 4 tarifas más baratas a domicilio para el código postal del cliente. Al pagarse el pedido se crea automáticamente un **borrador de envío** en Packlink PRO con la referencia del pedido; desde Packlink eliges recogida, pagas y descargas la etiqueta. Si algo falla, el pedido sigue pagado y puedes reintentarlo desde el panel (“Crear envío en Packlink”).
-5. Sin API key se usa la tarifa plana `SHIPPING_FLAT_CENTS`, así que se puede vender desde el primer día.
+5. Sin API key se usa la tarifa plana de “Opciones de envío”, así que se puede vender desde el primer día. Ahí también eliges recogida en estudio, envío gratis desde un importe y un suplemento sobre Packlink.
 
-### 7. Emails
-Crea un buzón del dominio (hPanel → **Emails**), p. ej. `hola@tudominio.com`, y ponlo en `MAIL_FROM` y `MAIL_ADMIN`. Se envían avisos de pedido pagado, reserva confirmada, solicitud de clase privada y mensajes del formulario de contacto (con `mail()` de PHP).
+### 6. Panel → Ajustes: Emails
+Crea un buzón del dominio (hPanel → **Emails**), p. ej. `hola@tudominio.com`, y ponlo como remitente y como buzón de avisos. Se envían avisos de pedido pagado, reserva confirmada, solicitud de clase privada y mensajes del formulario de contacto (con `mail()` de PHP).
+
+### 7. Prioridad de la configuración
+Ajustes del panel → variables reales del servidor → `.env`. Todo lo de Ajustes también se puede poner en el `.env` (útil para otra web que reutilice la API); si el panel tiene un valor, manda el panel. Con “Borrar” en una clave del panel se vuelve a usar la del `.env`.
 
 ### 8. Tarea programada (opcional)
 hPanel → **Avanzado → Cron Jobs** → una vez al día:
@@ -138,31 +132,33 @@ Marca como cancelados los pedidos y reservas que nunca se pagaron y limpia sesio
 
 ## Variables de entorno
 
+Las marcadas con ⚙️ se pueden poner también (y mejor) en **Panel → Ajustes**, que tiene prioridad.
+
 | Variable | Obligatoria | Por defecto | Para qué sirve |
 |---|---|---|---|
 | `APP_URL` | Sí | `http://localhost:8000` | URL pública sin barra final. Se usa en las direcciones de vuelta de Stripe. |
 | `APP_TIMEZONE` | No | `Europe/Madrid` | Zona horaria de PHP y MySQL (horarios de clases). |
 | `APP_DEBUG` | No | `false` | `true` muestra el detalle de los errores. **Nunca en producción.** |
 | `CORS_ALLOWED_ORIGINS` | No | vacío | Otras webs que pueden llamar a la API desde el navegador, separadas por comas. |
-| `SETUP_TOKEN` | Solo al instalar | — | Token para `/admin/setup.html` (≥ 16 caracteres). Bórralo después. |
+| `APP_KEY` | Recomendado | — | 32 bytes en base64 que cifran las claves guardadas desde el panel. La crea el instalador; **no la cambies** o habrá que volver a escribir las claves en Ajustes. |
 | `SESSION_TTL_HOURS` | No | `12` | Duración de la sesión del panel. |
 | `DB_HOST` / `DB_PORT` | No | `localhost` / `3306` | Servidor MySQL. |
 | `DB_NAME` / `DB_USER` / `DB_PASS` | Sí | — | Base de datos creada en hPanel. |
-| `STRIPE_SECRET_KEY` | Para cobrar | — | Clave secreta `sk_test_…` o `sk_live_…`. Sin ella la compra y las reservas en grupo muestran “pagos no activos”. |
-| `STRIPE_WEBHOOK_SECRET` | Para cobrar | — | `whsec_…` del endpoint de webhook. |
+| `STRIPE_SECRET_KEY` ⚙️ | Para cobrar | — | Clave secreta `sk_test_…` o `sk_live_…`. Sin ella la compra y las reservas en grupo muestran “pagos no activos”. |
+| `STRIPE_WEBHOOK_SECRET` ⚙️ | Para cobrar | — | `whsec_…` del endpoint de webhook. |
 | `CURRENCY` | No | `eur` | Moneda. |
 | `CHECKOUT_HOLD_MINUTES` | No | `30` | Minutos que se retienen stock y plazas mientras se paga (mínimo 30, lo exige Stripe). |
-| `SHIPPING_PICKUP` | No | `true` | Ofrecer recogida gratis en el estudio. |
-| `SHIPPING_FLAT_CENTS` / `SHIPPING_FLAT_NAME` | No | `690` / `Envío estándar 48/72 h` | Tarifa plana si no hay Packlink o no responde. |
-| `SHIPPING_FREE_FROM_CENTS` | No | `0` | Envío gratis (la opción más barata) desde este importe. `0` = nunca. |
+| `SHIPPING_PICKUP` ⚙️ | No | `true` | Ofrecer recogida gratis en el estudio. |
+| `SHIPPING_FLAT_CENTS` / `SHIPPING_FLAT_NAME` ⚙️ | No | `690` / `Envío estándar 48/72 h` | Tarifa plana si no hay Packlink o no responde. |
+| `SHIPPING_FREE_FROM_CENTS` ⚙️ | No | `0` | Envío gratis (la opción más barata) desde este importe. `0` = nunca. |
 | `SHIPPING_BOX_CM` / `SHIPPING_PACKAGING_GRAMS` | No | `30x30x30` / `600` | Caja mínima y peso del embalaje. |
-| `PACKLINK_API_KEY` | No | — | Activa las tarifas reales y los borradores de envío. |
+| `PACKLINK_API_KEY` ⚙️ | No | — | Activa las tarifas reales y los borradores de envío. |
 | `PACKLINK_API_URL` | No | `https://api.packlink.com/v1` | URL de la API de Packlink. |
-| `SHIPPING_MARKUP_CENTS` | No | `0` | Suplemento sumado a cada tarifa de Packlink. |
+| `SHIPPING_MARKUP_CENTS` ⚙️ | No | `0` | Suplemento sumado a cada tarifa de Packlink. |
 | `SHIPPING_MAX_OPTIONS` | No | `4` | Cuántas tarifas de Packlink mostrar. |
 | `PACKLINK_CONTENT` | No | `Cerámica artesanal` | Descripción del contenido del paquete. |
-| `PACKLINK_SENDER_*` | Con Packlink | — | Remitente: `NAME`, `SURNAME`, `COMPANY`, `STREET`, `ZIP`, `CITY`, `COUNTRY`, `PHONE`, `EMAIL`. |
-| `MAIL_FROM` / `MAIL_ADMIN` | Recomendado | — | Remitente de los emails y buzón que recibe los avisos. |
+| `PACKLINK_SENDER_*` ⚙️ | Con Packlink | — | Remitente: `NAME`, `SURNAME`, `COMPANY`, `STREET`, `ZIP`, `CITY`, `COUNTRY`, `PHONE`, `EMAIL`. |
+| `MAIL_FROM` / `MAIL_ADMIN` ⚙️ | Recomendado | — | Remitente de los emails y buzón que recibe los avisos. |
 | `MAIL_DISABLED` | No | `false` | Desactiva el envío de emails (útil en pruebas). |
 | `UPLOAD_MAX_MB` | No | `10` | Peso máximo de cada imagen subida. |
 | `UPLOADS_URL` | No | `/uploads` | URL pública de la carpeta de imágenes. |
@@ -213,7 +209,8 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 - **XSS**: todo texto de la base de datos se escapa antes de pintarlo (web y panel). El panel tiene una CSP que solo permite scripts propios.
 - **Stripe**: firma del webhook verificada (HMAC‑SHA256, tolerancia 5 min) y eventos idempotentes (tabla `stripe_events`). El importe cobrado se compara con el del pedido y se registra cualquier diferencia.
 - **Ficheros**: `.htaccess` bloquea `.env`, `.git`, `backend/`, `*.sql`, `*.log`, `*.md`; en `uploads/` no se ejecuta PHP ni se sirven HTML/SVG/JS. HTTPS forzado.
-- **Secretos**: ninguno en el repositorio. `.env` está en `.gitignore`.
+- **Secretos**: ninguno en el repositorio. `.env` está en `.gitignore`. El instalador lo crea con permisos 600 fuera de `public_html` si puede. Las claves puestas en Ajustes se guardan cifradas (XSalsa20‑Poly1305) con la `APP_KEY` del `.env`, así que una copia de la base de datos sola no las revela, y la API nunca las devuelve.
+- **Instalador**: hace falta conocer usuario y contraseña de MySQL, y se cierra en cuanto existe un administrador.
 - **Errores**: en producción la API responde con mensajes genéricos y el detalle va a `backend/storage/logs/`.
 
 ## Referencia de la API
@@ -351,12 +348,18 @@ Solo para Stripe. Exige la cabecera `Stripe-Signature`. Responde `{"data":{"rece
 
 ### Instalación y sesión
 
+#### `GET /setup`
+`{ "data": { "installed": false, "configured": false } }` — lo usa `admin/setup.html` para saber si mostrar el formulario.
+
 #### `POST /setup`
-Crea las tablas y el primer administrador. Solo funciona con `SETUP_TOKEN` y si no hay ningún admin.
+Prueba la conexión con MySQL, guarda el `.env`, crea las tablas y el primer administrador. Solo funciona mientras no exista ningún admin; si ya hay un `.env`, los datos de MySQL tienen que coincidir con él.
 ```json
-{ "token": "…", "email": "tu@email.com", "password": "una-clave-larga", "name": "Juc", "seed": true }
+{ "db": { "host": "localhost", "port": 3306, "name": "u123456789_charria", "user": "u123456789_charria", "pass": "…" },
+  "name": "Juc", "email": "tu@email.com", "password": "una-clave-larga", "seed": true }
 ```
-Respuesta `201 { "data": { "installed": true, "seeded": true } }` · `403` token incorrecto · `409 already_installed`.
+Respuesta `201 { "data": { "installed": true, "seeded": true, "config_outside_public_html": true } }` · `422` con `fields` (`db.user`, `db.name`, `db.host`…) si MySQL rechaza los datos · `403` si no coinciden con el `.env` existente · `409 already_installed`.
+
+Mientras no hay base de datos configurada (o faltan las tablas), el resto de rutas responde `503 { "error": { "code": "not_installed" } }` y la web redirige al instalador.
 
 #### `POST /auth/login`
 ```json
@@ -376,6 +379,9 @@ Respuesta `201 { "data": { "installed": true, "seeded": true } }` · `403` token
 
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
+| `GET /admin/settings` | — | Ajustes del panel: `values` (remitente, envíos, emails), `secrets` (solo `set`, `hint` “…1234” y `source` panel/env, **nunca la clave**), `stripe_mode`, `webhook_url`, `webhook_events` |
+| `PUT /admin/settings` | `{ "values": { "STRIPE_SECRET_KEY": "sk_live_…", "SHIPPING_FLAT_CENTS": "690" }, "clear": ["PACKLINK_API_KEY"] }` | Igual que GET. Un secreto vacío no se cambia; un campo normal vacío vuelve al valor por defecto. `422` con `fields` si una clave no tiene el formato correcto |
+| `POST /admin/settings/test` | `{ "service": "stripe" }` o `"packlink"` | `{ "ok": true, "message": "Conectado con Stripe · …" }` · `502` si la clave no funciona |
 | `GET /admin/stats` | — | Pedidos por enviar/recoger, ventas 30 días, solicitudes privadas, stock bajo, si Stripe/Packlink están configurados |
 | `GET /admin/products` | — | Lista con campos internos: `stock`, `held` (en pago), `sold_out_manual`, `is_active`, peso y medidas |
 | `POST /admin/products` | `title`*, `price_cents`*, `description`, `category`, `discount_percent` (0–90), `stock`, `sold_out`, `is_active`, `weight_grams`, `length_cm`, `width_cm`, `height_cm`, `slug` | `201` producto |
@@ -438,7 +444,7 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 ## Funciones del backend
 
 ### Núcleo (`backend/src`)
-- **`Env`** · `load(rutas)` lee el primer `.env` que exista · `get`, `int`, `bool`, `required` (lanza error 500 claro si falta).
+- **`Env`** · `load(rutas)` lee el primer `.env` que exista · `get`, `int`, `bool`, `required` (lanza error 500 claro si falta) · `override` (ajustes del panel, con prioridad) · `file`.
 - **`Database`** · `get()` conexión PDO única (UTF‑8, zona horaria sincronizada) · `all`, `one`, `value`, `exec` · `insert(tabla, datos)` · `update(tabla, datos, where, params)` · `transaction(fn)` (rollback si falla) · `runSqlFile(ruta)`.
 - **`Validator`** · `string`, `email`, `int`, `bool`, `enum`, `date`, `datetime`, `array`, `nested` (objetos como `customer`), `check()` lanza 422 con todos los errores · `slugify(texto)`.
 - **`Http\Request`** · `fromGlobals()`, `header`, `body()` (JSON o formulario), `input`, `param`, `intParam`.
@@ -458,13 +464,16 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **`ImageProcessor`** · `store(archivo, tipo, alt, recortar)` valida, normaliza y guarda · `delete(id)` · `rules()`.
 - **`Customers`** · `validate` (bloque `customer`) · `upsert` (crea o actualiza por email).
 - **`Mailer`** · `send`, `admin`, `money` · **`Log`** · `error`, `info` · **`Settings`** · `currency`, `appUrl`, `holdMinutes`, `uploadsUrl`, `reference(prefijo)`.
+- **`AppSettings`** · `boot` (carga los ajustes del panel en cada petición) · `forPanel` · `save(valores, borrar)` con validación por tipo · cifrado `sodium_crypto_secretbox` con `APP_KEY`.
+- **`Installer`** · `isInstalled` · `install(db, admin, seed)`: prueba MySQL, escribe el `.env` (permisos 600), crea tablas y el primer admin.
 
 ### Controladores
 - **`PublicController`**: `health`, `products`, `product`, `gallery`, `classes`, `cartQuote`, `contact`.
 - **`CheckoutController`**: `shippingQuote`, `checkout`, `status`.
 - **`BookingController`**: `createGroup`, `createPrivate`.
 - **`WebhookController`**: `stripe`.
-- **`AuthController`**: `login`, `logout`, `me`, `changePassword`, `setup`.
+- **`AuthController`**: `login`, `logout`, `me`, `changePassword`, `setup`, `setupStatus`.
+- **`Admin\SettingsController`**: `show`, `update`, `test`.
 - **`Admin\ProductAdminController`**: `index`, `show`, `store`, `update`, `soldOut`, `destroy`, `uploadImage`, `reorderImages`, `deleteImage`.
 - **`Admin\ClassAdminController`**: `index`, `store`, `update`, `destroy`, `uploadImage`, `storeSession`, `updateSession`, `destroySession`, `bookings`, `updateBooking`.
 - **`Admin\GalleryAdminController`**: `index`, `rules`, `store`, `update`, `reorder`, `destroy`.
@@ -489,16 +498,18 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **Clases y horarios**: editar clases y precios; añadir horarios con plazas y precio propios; cancelar horarios; modalidades de clase privada.
 - **Reservas**: próximas reservas, solicitudes privadas (confirmar con fecha acordada o cancelar) y notas internas.
 - **Galería**: subir obras con validación, editar textos, ocultar/publicar, ordenar y borrar.
-- **Clientes** y **Cuenta** (cambiar contraseña, cerrar sesión).
+- **Clientes**.
+- **Ajustes**: claves de Stripe (con la URL y los eventos del webhook para copiar, modo prueba/real y botón de prueba), API key y remitente de Packlink, opciones de envío y emails.
+- **Cuenta**: cambiar contraseña, cerrar sesión.
 
 ## Desarrollo local y tests
 
 ```bash
-# 1. MySQL local con una base de datos vacía, y un .env de pruebas (ver backend/.env.example)
+# 1. MySQL local con una base de datos vacía. CHARRIA_ENV_FILE dice dónde leer/escribir el .env
 export CHARRIA_ENV_FILE=/ruta/a/mi.env
 # 2. Servidor de desarrollo (imita los .htaccess)
 php -S localhost:8000 backend/dev-router.php
-# 3. Instalar: abre http://localhost:8000/admin/setup.html
+# 3. Instalar: abre http://localhost:8000 (te lleva al instalador)
 ```
 
 **Tests de extremo a extremo** (crean y borran datos: usa una base de datos de pruebas):
@@ -509,7 +520,7 @@ php -S 127.0.0.1:8099 -t backend/tests backend/tests/mock-stripe.php &
 php -S 127.0.0.1:8000 backend/dev-router.php &
 php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test http://127.0.0.1:8099 admin@email contraseña
 ```
-Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas y cierre de sesión (47 comprobaciones).
+Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos y cierre de sesión (53 comprobaciones). El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
 
 Con Live Server (sin PHP) la web sigue funcionando con `data.js`; la cesta muestra “precios orientativos” y no deja pagar.
 
@@ -536,4 +547,5 @@ Para un panel en otra web basta con llamar a `POST /auth/login` y enviar `Author
 - **Cambiar un precio**: no afecta a pedidos ya hechos (guardan el precio del momento) ni a pagos en curso.
 - **Envíos a punto de recogida de Packlink**: de momento no se ofrecen (necesitan elegir un punto en un mapa); solo entrega a domicilio y recogida en el estudio.
 - **Logs**: `backend/storage/logs/app.log` (Stripe, Packlink, errores) y `php-errors.log`.
-- **Olvidé la contraseña**: `php backend/bin/create-admin.php tu@email.com` por SSH, o pon un `SETUP_TOKEN`, borra tu fila de `admins` en phpMyAdmin y vuelve a `admin/setup.html`.
+- **Olvidé la contraseña**: `php backend/bin/create-admin.php tu@email.com` por SSH, o borra tu fila de `admins` en phpMyAdmin y vuelve a `admin/setup.html` con los mismos datos de MySQL.
+- **Cambiar la contraseña de MySQL**: edita `DB_PASS` en el `.env` (Administrador de archivos, carpeta por encima de `public_html`).

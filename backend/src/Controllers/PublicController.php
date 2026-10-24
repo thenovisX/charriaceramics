@@ -8,6 +8,7 @@ use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Catalog;
+use Charria\Services\Installer;
 use Charria\Services\Mailer;
 use Charria\Services\Packlink;
 use Charria\Services\Pricing;
@@ -20,19 +21,14 @@ final class PublicController
 {
     public function health(Request $r): Response
     {
-        $db = true;
-        try {
-            Database::get()->value('SELECT 1');
-        } catch (\Throwable) {
-            $db = false;
-        }
+        $installed = Installer::isInstalled();
         return Response::json([
-            'ok' => $db,
-            'database' => $db,
+            'ok' => $installed === true,
+            'installed' => $installed,
             'payments' => Stripe::isConfigured(),
             'packlink' => Packlink::isConfigured(),
             'time' => date('c'),
-        ], $db ? 200 : 503);
+        ]);
     }
 
     /** GET /products?category=Jarrones */

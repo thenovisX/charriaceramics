@@ -5,25 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>Instalación · Charria Ceramics</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz@6..96&family=Montserrat:wght@300;400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css?v=1">
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz@6..96&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css?v=2">
 </head>
 <body>
   <main class="login">
-    <form class="login__box" data-setup-form>
-      <p class="eyebrow">Instalación · solo la primera vez</p>
+    <p class="muted" data-checking>Comprobando…</p>
+
+    <form class="login__box setup" data-setup-form hidden novalidate>
+      <p class="eyebrow">Bienvenida · solo la primera vez</p>
       <h1 class="login__title">Charria <span>Ceramics</span></h1>
-      <p class="muted">Crea las tablas de la base de datos y tu usuario del panel. Necesitas el <strong>SETUP_TOKEN</strong> que pusiste en el archivo .env.</p>
-      <label class="field"><span>Token de instalación</span><input name="token" required autocomplete="off"></label>
-      <label class="field"><span>Tu nombre</span><input name="name" maxlength="120"></label>
-      <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="username"></label>
-      <label class="field"><span>Contraseña</span><input type="password" name="password" minlength="10" required autocomplete="new-password"><small>Mínimo 10 caracteres</small></label>
-      <label class="check"><input type="checkbox" name="seed" checked> Cargar las piezas, clases y fotos de ejemplo que ya tiene la web</label>
-      <button class="btn" type="submit">Instalar</button>
+      <p class="muted">Rellena estos datos una vez y la web quedará lista. La próxima vez se abrirá normal.</p>
+
+      <fieldset class="stack">
+        <legend class="setup__step">1 · Tu base de datos</legend>
+        <p class="muted setup__hint">Son los datos que pusiste al crearla en Hostinger: <strong>hPanel → Bases de datos → Administración</strong>. El nombre y el usuario empiezan por <code>u</code> y números, por ejemplo <code>u123456789_charria</code>.</p>
+        <label class="field"><span>Nombre de la base de datos</span><input name="db.name" required autocomplete="off" spellcheck="false" placeholder="u123456789_charria"></label>
+        <label class="field"><span>Usuario de la base de datos</span><input name="db.user" required autocomplete="off" spellcheck="false" placeholder="u123456789_admin"></label>
+        <label class="field"><span>Contraseña de la base de datos</span><input type="password" name="db.pass" autocomplete="off"></label>
+        <details class="setup__more">
+          <summary>Opciones avanzadas</summary>
+          <label class="field"><span>Servidor (host)</span><input name="db.host" value="localhost" spellcheck="false"><small>En Hostinger es «localhost».</small></label>
+          <label class="field"><span>Puerto</span><input name="db.port" value="3306" inputmode="numeric"></label>
+        </details>
+      </fieldset>
+
+      <fieldset class="stack">
+        <legend class="setup__step">2 · Tu usuario del panel</legend>
+        <p class="muted setup__hint">Con esto entrarás en el panel para gestionar productos, clases, pedidos y los ajustes de Stripe y Packlink.</p>
+        <label class="field"><span>Tu nombre</span><input name="name" maxlength="120" autocomplete="name"></label>
+        <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="username"></label>
+        <label class="field"><span>Contraseña</span><input type="password" name="password" minlength="10" required autocomplete="new-password"><small>Mínimo 10 caracteres. Guárdala bien.</small></label>
+        <label class="check"><input type="checkbox" name="seed" checked> Cargar las piezas, clases y fotos que ya tiene la web</label>
+      </fieldset>
+
+      <button class="btn" type="submit">Instalar la web</button>
       <p class="form-error" data-error hidden></p>
-      <p class="notice notice--ok" data-ok hidden>Listo. Ahora <strong>borra SETUP_TOKEN del .env</strong> y entra en el <a href="./">panel</a>.</p>
     </form>
+
+    <div class="login__box" data-done hidden>
+      <p class="eyebrow">Listo</p>
+      <h1 class="login__title">Web <span>instalada</span></h1>
+      <p>Ya está todo creado. Último paso: entra en el panel y ve a <strong>Ajustes</strong> para poner las claves de Stripe (pagos) y Packlink (envíos).</p>
+      <p class="notice" data-warn-config hidden>Tu hosting no permite guardar la configuración fuera de public_html, así que se ha guardado en la carpeta protegida <code>backend/</code>. Está bloqueada para el público, no tienes que hacer nada.</p>
+      <a class="btn" href="./#ajustes">Ir al panel</a>
+      <a class="login__back" href="../index.html">Ver la web →</a>
+    </div>
+
+    <div class="login__box" data-installed hidden>
+      <p class="eyebrow">Instalación</p>
+      <h1 class="login__title">Ya está <span>instalada</span></h1>
+      <p class="muted">Esta web ya tiene su base de datos y usuario.</p>
+      <a class="btn" href="./">Ir al panel</a>
+    </div>
   </main>
-  <script src="setup.js?v=1"></script>
+  <script src="setup.js?v=2"></script>
 </body>
 </html>

@@ -88,6 +88,22 @@ check('login correcto devuelve token', $s === 200 && strlen($token) === 64, $j);
 [$s, $j] = call('GET', "$base/auth/me", null, $token);
 check('/auth/me con token', $s === 200 && $j['data']['email'] === $adminEmail, $j);
 
+echo "Instalador y ajustes\n";
+[$s, $j] = call('POST', "$base/setup", ['db' => ['name' => 'x', 'user' => 'x', 'pass' => 'x'], 'email' => 'otro@charria.test', 'password' => 'otraclave123']);
+check('el instalador queda cerrado una vez instalada', $s === 409, $j);
+[$s, $j] = call('GET', "$base/health");
+check('health dice que está instalada', $s === 200 && ($j['data']['installed'] ?? null) === true, $j);
+[$s] = call('GET', "$base/admin/settings");
+check('ajustes sin token responde 401', $s === 401);
+[$s, $j] = call('GET', "$base/admin/settings", null, $token);
+$raw = json_encode($j);
+check('los ajustes nunca devuelven las claves secretas', $s === 200 && isset($j['data']['secrets']['STRIPE_SECRET_KEY']) && !preg_match('/sk_(test|live)_[A-Za-z0-9]{6}|whsec_[A-Za-z0-9]{6}/', $raw), $j);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['STRIPE_SECRET_KEY' => 'pk_live_123456789012', 'MAIL_FROM' => 'nope']], $token);
+check('ajustes: rechaza clave publicable y email malo', $s === 422 && isset($j['error']['fields']['STRIPE_SECRET_KEY'], $j['error']['fields']['MAIL_FROM']), $j);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['STRIPE_SECRET_KEY' => '', 'SHIPPING_FLAT_NAME' => 'Envío test']], $token);
+check('ajustes: secreto vacío no cambia la clave', $s === 200 && $j['data']['secrets']['STRIPE_SECRET_KEY']['set'] && $j['data']['values']['SHIPPING_FLAT_NAME'] === 'Envío test', $j);
+call('PUT', "$base/admin/settings", ['values' => ['SHIPPING_FLAT_NAME' => '']], $token);
+
 echo "Productos (panel)\n";
 [$s, $j] = call('POST', "$base/admin/products", ['title' => 'Test Cuenco', 'price_cents' => 5000, 'discount_percent' => 15, 'stock' => 2, 'category' => 'Test', 'weight_grams' => 500], $token);
 $pid = $j['data']['id'] ?? 0;

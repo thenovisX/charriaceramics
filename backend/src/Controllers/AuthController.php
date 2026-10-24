@@ -9,6 +9,7 @@ use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Auth;
+use Charria\Services\Installer;
 use Charria\Validator;
 
 final class AuthController
@@ -52,36 +53,36 @@ final class AuthController
     }
 
     /**
-     * POST /setup { token, email, password, name, seed }
-     * Instalación inicial: crea las tablas y el primer administrador.
-     * Solo funciona si SETUP_TOKEN está en el .env y todavía no hay ningún admin.
+     * POST /setup — instalación desde el navegador (admin/setup.html).
+     * { db: {host, port, name, user, pass}, name, email, password, seed }
+     * Solo funciona mientras no exista ningún administrador.
      */
     public function setup(Request $r): Response
     {
-        $expected = Env::get('SETUP_TOKEN');
         $v = new Validator($r->body());
-        $token = $v->string('token', true, 200);
-        $email = $v->email('email', true);
-        $password = $v->string('password', true, 200, 10);
-        $name = $v->string('name', false, 120) ?? '';
+        $db = $v->nested('db', static fn (Validator $d) => [
+            'host' => $d->string('host', false, 120) ?: 'localhost',
+            'port' => $d->int('port', false, 1, 65535) ?? 3306,
+            'name' => $d->string('name', true, 64),
+            'user' => $d->string('user', true, 64),
+            'pass' => (string) ($d->string('pass', false, 200) ?? ''),
+        ]);
+        $admin = [
+            'name' => $v->string('name', false, 120) ?? '',
+            'email' => $v->email('email', true),
+            'password' => $v->string('password', true, 200, 10),
+        ];
         $seed = $v->bool('seed') ?? false;
         $v->check();
-        if (!$expected || strlen($expected) < 16 || !hash_equals($expected, (string) $token)) {
-            sleep(1); // frena los intentos de adivinar el token (aún puede no haber tablas para RateLimiter)
-            throw new HttpError(403, 'forbidden', 'Token de instalación incorrecto (SETUP_TOKEN, mínimo 16 caracteres)');
+        if (Installer::isInstalled()) {
+            throw new HttpError(409, 'already_installed', 'La web ya está instalada. Entra en el panel con tu usuario.');
         }
+        return Response::created(Installer::install($db, $admin, $seed, $r));
+    }
 
-        $db = Database::get();
-        $db->runSqlFile(BACKEND_DIR . '/database/schema.sql');
-        if ((int) $db->value('SELECT COUNT(*) FROM admins') > 0) {
-            throw new HttpError(409, 'already_installed', 'Ya existe un administrador. Borra SETUP_TOKEN del .env.');
-        }
-        Auth::createAdmin($email, $password, $name);
-        $seeded = false;
-        if ($seed && (int) $db->value('SELECT COUNT(*) FROM products') === 0) {
-            $db->runSqlFile(BACKEND_DIR . '/database/seed.sql');
-            $seeded = true;
-        }
-        return Response::created(['installed' => true, 'seeded' => $seeded]);
+    /** GET /setup — ¿hace falta instalar? (lo usa setup.html) */
+    public function setupStatus(Request $r): Response
+    {
+        return Response::json(['installed' => Installer::isInstalled(), 'configured' => Env::get('DB_NAME') !== null]);
     }
 }

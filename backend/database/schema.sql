@@ -250,6 +250,15 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_items_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Ajustes editables desde el panel (Stripe, Packlink, envíos, emails). Los secretos van cifrados.
+CREATE TABLE IF NOT EXISTS settings (
+  name       VARCHAR(80) NOT NULL,
+  value      TEXT        NOT NULL,
+  is_secret  TINYINT(1)  NOT NULL DEFAULT 0,
+  updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Eventos de Stripe ya procesados (el webhook es idempotente)
 CREATE TABLE IF NOT EXISTS stripe_events (
   id           VARCHAR(255) NOT NULL,

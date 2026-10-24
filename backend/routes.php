@@ -5,6 +5,7 @@ use Charria\Controllers\Admin\ClassAdminController as Classes;
 use Charria\Controllers\Admin\GalleryAdminController as Gallery;
 use Charria\Controllers\Admin\OrderAdminController as Orders;
 use Charria\Controllers\Admin\ProductAdminController as Products;
+use Charria\Controllers\Admin\SettingsController;
 use Charria\Controllers\AuthController;
 use Charria\Controllers\BookingController;
 use Charria\Controllers\CheckoutController;
@@ -31,6 +32,7 @@ return static function (Router $r): void {
     $r->post('/webhooks/stripe', [WebhookController::class, 'stripe']);
 
     // ---------- Instalación y sesión ----------
+    $r->get('/setup', [AuthController::class, 'setupStatus']);
     $r->post('/setup', [AuthController::class, 'setup']);
     $r->post('/auth/login', [AuthController::class, 'login']);
 
@@ -79,4 +81,8 @@ return static function (Router $r): void {
     $r->patch('/admin/orders/{id}', [Orders::class, 'update'], $admin);
     $r->post('/admin/orders/{id}/packlink', [Orders::class, 'packlink'], $admin);
     $r->get('/admin/customers', [Orders::class, 'customers'], $admin);
+
+    $r->get('/admin/settings', [SettingsController::class, 'show'], $admin);
+    $r->put('/admin/settings', [SettingsController::class, 'update'], $admin);
+    $r->post('/admin/settings/test', [SettingsController::class, 'test'], $admin);
 };

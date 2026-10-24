@@ -34,13 +34,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
+// Ajustes guardados desde el panel (Stripe, Packlink...) por encima del .env
+Charria\Services\AppSettings::boot();
+
 $router = new Router();
 (require BACKEND_DIR . '/routes.php')($router);
 
 try {
-    $router->dispatch(Request::fromGlobals())->send();
+    $request = Request::fromGlobals();
+    // Sin base de datos configurada solo responden el instalador y /health
+    if (!Env::get('DB_NAME') && !in_array($request->path, ['/setup', '/health'], true)) {
+        throw new HttpError(503, 'not_installed', 'La web aún no está instalada. Abre /admin/setup.html');
+    }
+    $router->dispatch($request)->send();
 } catch (HttpError $e) {
     Response::error($e);
+} catch (\PDOException $e) {
+    // Tablas sin crear: la base de datos existe pero falta la instalación
+    $missing = ($e->errorInfo[0] ?? '') === '42S02';
+    Log::error('Database', ['error' => $e->getMessage()]);
+    Response::error($missing
+        ? new HttpError(503, 'not_installed', 'La web aún no está instalada. Abre /admin/setup.html')
+        : new HttpError(500, 'server_error', Env::bool('APP_DEBUG') ? $e->getMessage() : 'Error interno. Inténtalo de nuevo en unos minutos.'));
 } catch (\Throwable $e) {
     Log::error('Unhandled', ['error' => $e->getMessage(), 'file' => $e->getFile() . ':' . $e->getLine()]);
     $message = Env::bool('APP_DEBUG') ? $e->getMessage() : 'Error interno. Inténtalo de nuevo en unos minutos.';

@@ -117,8 +117,8 @@ views.resumen = async () => {
   const s = await api("GET", "/admin/stats");
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Hoy</p><h1>Resumen</h1></div></div>
-    ${s.payments_configured ? "" : '<p class="notice">Stripe no está configurado: la tienda y las reservas en grupo no aceptan pagos todavía. Añade STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET al .env.</p>'}
-    ${s.packlink_configured ? "" : '<p class="notice">Packlink PRO no está configurado: se usa la tarifa plana de envío (SHIPPING_FLAT_CENTS).</p>'}
+    ${s.payments_configured ? "" : '<p class="notice">Stripe no está configurado: la tienda y las reservas en grupo no aceptan pagos todavía. Ponlo en <a href="#ajustes">Ajustes</a>.</p>'}
+    ${s.packlink_configured ? "" : '<p class="notice">Packlink PRO no está configurado: se usa la tarifa plana de envío. Puedes configurarlo en <a href="#ajustes">Ajustes</a>.</p>'}
     <div class="cards">
       <a class="card" href="#pedidos"><span class="eyebrow">Pedidos por enviar</span><p class="card__num">${s.orders_to_ship}</p></a>
       <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
@@ -557,6 +557,121 @@ views.clientes = async () => {
 };
 
 /* ---------- Cuenta ---------- */
+/* ---------- Ajustes: Stripe, Packlink, envíos y emails ---------- */
+views.ajustes = async () => {
+  const s = await api("GET", "/admin/settings");
+  const v = s.values;
+  const secret = (key, label, placeholder, hint) => {
+    const info = s.secrets[key];
+    const now = info.set
+      ? `Guardada (${esc(info.hint)})${info.source === "env" ? " · viene del archivo .env" : ""}. Déjalo vacío para no cambiarla.`
+      : "Sin configurar.";
+    return field(label, `<input type="password" name="${key}" placeholder="${placeholder}" autocomplete="off" spellcheck="false">`,
+      `${now}${hint ? " " + hint : ""}${info.source === "panel" ? ` <button type="button" class="link-btn" data-clear="${key}">Borrar</button>` : ""}`);
+  };
+  const mode = s.stripe_mode === "live" ? '<span class="badge badge--ok">Modo real</span>'
+    : s.stripe_mode === "test" ? '<span class="badge badge--warn">Modo prueba</span>' : '<span class="badge badge--bad">Sin configurar</span>';
+  main.innerHTML = `
+    <div class="page-head"><div><p class="eyebrow">Configuración</p><h1>Ajustes</h1></div></div>
+    <form class="stack settings" data-form style="max-width:640px">
+      <section class="stack">
+        <h2 class="settings__title">Stripe · pagos ${mode}</h2>
+        <p class="muted">En <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe → Desarrolladores → Claves de API</a> copia la <strong>clave secreta</strong> (sk_test_… para probar, sk_live_… para cobrar de verdad).</p>
+        ${secret("STRIPE_SECRET_KEY", "Clave secreta", "sk_live_…")}
+        <div class="notice notice--soft">
+          <p>En <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener">Stripe → Webhooks</a> pulsa «Añadir destino», pega esta URL y marca estos eventos:</p>
+          <p class="copy"><code data-copy>${esc(s.webhook_url)}</code> <button type="button" class="link-btn" data-copy-btn>Copiar</button></p>
+          <p class="muted">${s.webhook_events.map(esc).join(" · ")}</p>
+          <p>Después copia su «Secreto de firma» (whsec_…) aquí abajo.</p>
+        </div>
+        ${secret("STRIPE_WEBHOOK_SECRET", "Secreto del webhook", "whsec_…")}
+        <div class="row"><button type="button" class="btn btn--ghost" data-test="stripe">Probar conexión con Stripe</button></div>
+      </section>
+
+      <section class="stack">
+        <h2 class="settings__title">Packlink PRO · envíos</h2>
+        <p class="muted">En <a href="https://pro.packlink.es/private/settings/integrations/api" target="_blank" rel="noopener">Packlink PRO → Configuración → API</a> genera la API key. Sin ella se cobra la tarifa plana de abajo.</p>
+        ${secret("PACKLINK_API_KEY", "API key", "Pega la API key")}
+        <p class="eyebrow" style="margin-top:.5rem">Remitente (desde dónde se envían los paquetes)</p>
+        <div class="grid-2">
+          ${field("Nombre", input("PACKLINK_SENDER_NAME", v.PACKLINK_SENDER_NAME))}
+          ${field("Apellidos", input("PACKLINK_SENDER_SURNAME", v.PACKLINK_SENDER_SURNAME))}
+        </div>
+        ${field("Empresa", input("PACKLINK_SENDER_COMPANY", v.PACKLINK_SENDER_COMPANY))}
+        ${field("Dirección", input("PACKLINK_SENDER_STREET", v.PACKLINK_SENDER_STREET))}
+        <div class="grid-2">
+          ${field("Código postal", input("PACKLINK_SENDER_ZIP", v.PACKLINK_SENDER_ZIP))}
+          ${field("Ciudad", input("PACKLINK_SENDER_CITY", v.PACKLINK_SENDER_CITY))}
+        </div>
+        <div class="grid-2">
+          ${field("País", input("PACKLINK_SENDER_COUNTRY", v.PACKLINK_SENDER_COUNTRY, 'maxlength="2" placeholder="ES"'), "Código de 2 letras")}
+          ${field("Teléfono", input("PACKLINK_SENDER_PHONE", v.PACKLINK_SENDER_PHONE, 'type="tel"'))}
+        </div>
+        ${field("Email", input("PACKLINK_SENDER_EMAIL", v.PACKLINK_SENDER_EMAIL, 'type="email"'))}
+        <div class="row"><button type="button" class="btn btn--ghost" data-test="packlink">Probar conexión con Packlink</button></div>
+      </section>
+
+      <section class="stack">
+        <h2 class="settings__title">Opciones de envío</h2>
+        ${toggle("SHIPPING_PICKUP", v.SHIPPING_PICKUP !== "false", "Ofrecer recogida gratis en el estudio")}
+        <div class="grid-2">
+          ${field("Nombre de la tarifa plana", input("SHIPPING_FLAT_NAME", v.SHIPPING_FLAT_NAME, 'placeholder="Envío estándar"'))}
+          ${field("Precio tarifa plana (€)", input("SHIPPING_FLAT_CENTS", eurosInput(v.SHIPPING_FLAT_CENTS), 'inputmode="decimal" placeholder="6,90"'), "Se usa si Packlink no está configurado o falla")}
+        </div>
+        <div class="grid-2">
+          ${field("Envío gratis desde (€)", input("SHIPPING_FREE_FROM_CENTS", eurosInput(v.SHIPPING_FREE_FROM_CENTS), 'inputmode="decimal"'), "Vacío = nunca gratis")}
+          ${field("Suplemento sobre Packlink (€)", input("SHIPPING_MARKUP_CENTS", eurosInput(v.SHIPPING_MARKUP_CENTS), 'inputmode="decimal" placeholder="0,00"'), "Para cubrir el embalaje")}
+        </div>
+      </section>
+
+      <section class="stack">
+        <h2 class="settings__title">Emails</h2>
+        <div class="grid-2">
+          ${field("Remitente de los emails", input("MAIL_FROM", v.MAIL_FROM, 'type="email" placeholder="hola@tudominio.com"'), "Crea este buzón en hPanel → Emails")}
+          ${field("Avisos de pedidos y reservas a", input("MAIL_ADMIN", v.MAIL_ADMIN, 'type="email"'))}
+        </div>
+      </section>
+
+      <div class="row settings__save"><button class="btn" type="submit">Guardar ajustes</button></div>
+    </form>`;
+
+  const form = $("[data-form]");
+  const cents = new Set(["SHIPPING_FLAT_CENTS", "SHIPPING_FREE_FROM_CENTS", "SHIPPING_MARKUP_CENTS"]);
+  const collect = () => {
+    const values = {};
+    Object.keys(s.secrets).forEach((k) => { values[k] = form.elements[k].value.trim(); });
+    Object.keys(v).forEach((k) => {
+      const el = form.elements[k];
+      if (!el) return;
+      if (el.type === "checkbox") values[k] = el.checked;
+      else if (cents.has(k)) { const t = el.value.trim(); values[k] = t === "" ? "" : String(toCents(t)); }
+      else values[k] = el.value.trim();
+    });
+    return values;
+  };
+  const save = (clear = []) => submitting(form, async () => {
+    await api("PUT", "/admin/settings", { values: collect(), clear });
+    toast("Ajustes guardados");
+    await views.ajustes();
+  });
+  form.addEventListener("submit", (e) => { e.preventDefault(); save(); });
+  $$("[data-clear]", form).forEach((b) => b.addEventListener("click", () => {
+    if (confirm("¿Borrar esta clave del panel?")) save([b.dataset.clear]);
+  }));
+  $("[data-copy-btn]", form).addEventListener("click", () => {
+    navigator.clipboard?.writeText(s.webhook_url).then(() => toast("URL copiada"), () => {});
+  });
+  $$("[data-test]", form).forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      // Guarda primero lo escrito para probar con las claves nuevas
+      await api("PUT", "/admin/settings", { values: collect() });
+      const r = await api("POST", "/admin/settings/test", { service: b.dataset.test });
+      toast(r.message);
+    } catch (e) { if (e.fields) showFieldErrors(form, e.fields); fail(e); } finally { b.disabled = false; }
+  }));
+};
+
 views.cuenta = async () => {
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Seguridad</p><h1>Cuenta</h1></div></div>
@@ -633,4 +748,8 @@ $("[data-login-form]").addEventListener("submit", async (e) => {
 });
 
 window.addEventListener("hashchange", () => { if (token) route(); });
+// Primera visita sin instalar: al instalador
+fetch(`${API}/health`).then((r) => r.json()).then((j) => {
+  if (j.data?.installed === false) location.replace("setup.html");
+}).catch(() => {});
 token ? showApp() : showLogin();

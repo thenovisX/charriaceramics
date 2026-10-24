@@ -7,9 +7,13 @@ $store = sys_get_temp_dir() . '/charria-mock-stripe.json';
 $sessions = is_file($store) ? json_decode(file_get_contents($store), true) : [];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 header('Content-Type: application/json');
-if (($_SERVER['HTTP_AUTHORIZATION'] ?? '') !== 'Bearer sk_test_mock') {
+// sk_test_mock: la del .env de test · sk_test_mockpanel123456: la que se guarda desde el panel en los tests
+if (!in_array($_SERVER['HTTP_AUTHORIZATION'] ?? '', ['Bearer sk_test_mock', 'Bearer sk_test_mockpanel123456'], true)) {
     http_response_code(401);
     exit(json_encode(['error' => ['message' => 'bad key']]));
+}
+if ($path === '/v1/account') {
+    exit(json_encode(['id' => 'acct_mock', 'object' => 'account', 'settings' => ['dashboard' => ['display_name' => 'Charria Mock']]]));
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $path === '/v1/checkout/sessions') {
     parse_str(file_get_contents('php://input'), $p);

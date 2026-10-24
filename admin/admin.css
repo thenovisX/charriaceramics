@@ -29,7 +29,7 @@ img { display: block; max-width: 100%; }
 h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: 0; line-height: 1.15; }
 
 /* ---------- Botones ---------- */
-.btn {
+.btn { text-decoration: none;
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
   min-height: 2.6rem; padding: .55rem 1.3rem; border-radius: 999px;
   background: var(--ink); color: var(--ivory);
@@ -187,3 +187,21 @@ tr.is-clickable:hover td { background: var(--ivory); }
 
 .toast { position: fixed; z-index: 60; left: 50%; bottom: 1.5rem; transform: translateX(-50%); padding: .8rem 1.4rem; border-radius: 999px; background: var(--ink); color: var(--ivory); font-size: .88rem; box-shadow: 0 10px 30px rgba(0,0,0,.2); animation: fade .2s; max-width: calc(100% - 2rem); }
 .toast--bad { background: var(--bad); }
+
+/* Ajustes */
+.settings > section { padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+.settings__title { font-size: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+.settings__save { position: sticky; bottom: 0; padding: 1rem 0; background: var(--ivory); }
+.notice--soft { background: var(--paper); color: inherit; }
+.notice--soft p + p { margin-top: .5rem; }
+.copy { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.copy code { font-size: .82rem; padding: .3rem .5rem; background: #fff; border-radius: 4px; word-break: break-all; }
+
+/* Instalador */
+.login__box.setup { width: min(520px, 100%); padding: 2rem 0; }
+.setup fieldset { border: 0; padding: 0; margin: 0 0 .5rem; min-width: 0; }
+.setup__step { font-family: var(--serif); font-size: 1.3rem; margin-bottom: .2rem; }
+.setup__hint { font-size: .85rem; }
+.setup__hint code, [data-done] code { font-size: .8rem; background: var(--paper); padding: .1rem .35rem; border-radius: 3px; }
+.setup__more summary { cursor: pointer; font-size: .85rem; color: var(--muted); margin-bottom: .8rem; }
+.setup__more[open] .field + .field { margin-top: 1rem; }
