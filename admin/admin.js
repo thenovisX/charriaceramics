@@ -736,6 +736,8 @@ async function route() {
   const view = views[name] || views.resumen;
   $$("[data-nav] a").forEach((a) => a.toggleAttribute("aria-current", a.getAttribute("href") === `#${name}`));
   $$("[data-nav] a[aria-current]").forEach((a) => a.setAttribute("aria-current", "page"));
+  $("[data-menu-current]").textContent = $("[data-nav] a[aria-current]")?.textContent || "Menú";
+  toggleMenu(false);
   closeDrawer();
   main.innerHTML = '<p class="muted">Cargando…</p>';
   try { await view(); } catch (e) { if (e.status !== 401) { main.innerHTML = `<p class="form-error">${esc(e.message)}</p>`; } }
@@ -778,6 +780,39 @@ $("[data-login-form]").addEventListener("submit", async (e) => {
     btn.disabled = false;
   }
 });
+
+/* ---------- Móvil: menú desplegable y tablas como tarjetas ---------- */
+const side = $(".side");
+function toggleMenu(open = !side.classList.contains("is-open")) {
+  side.classList.toggle("is-open", open);
+  $("[data-menu-toggle]").setAttribute("aria-expanded", String(open));
+}
+$("[data-menu-toggle]").addEventListener("click", () => toggleMenu());
+// Tocar la sección en la que ya estás no cambia el hash: cierra el menú igualmente
+$("[data-nav]").addEventListener("click", (e) => { if (e.target.closest("a")) toggleMenu(false); });
+
+// Copia el título de cada columna en sus celdas para que en móvil cada fila se lea como una tarjeta
+function labelTables(root) {
+  $$("table:not(.has-labels)", root).forEach((table) => {
+    const heads = $$("thead th", table).map((th) => th.textContent.trim());
+    if (!heads.length) return;
+    $$("tbody tr", table).forEach((tr) => [...tr.children].forEach((td, i) => {
+      td.dataset.label = td.colSpan > 1 ? "" : heads[i] ?? "";
+      // El contenido va en un bloque para que nombre + email sigan uno debajo del otro (se mueven los nodos, no se pierden sus eventos)
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.append(...td.childNodes);
+      td.append(cell);
+    }));
+    table.classList.add("has-labels");
+  });
+}
+[main, $("[data-drawer-body]")].forEach((el) => new MutationObserver(() => labelTables(el)).observe(el, { childList: true, subtree: true }));
+
+// Panel instalable como app (Chrome pide un service worker; ver sw.js)
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => { /* sin app instalable, el panel funciona igual */ });
+}
 
 window.addEventListener("hashchange", () => { if (token) route(); });
 // Primera visita sin instalar: al instalador
