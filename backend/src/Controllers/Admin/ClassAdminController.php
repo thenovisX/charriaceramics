@@ -133,10 +133,29 @@ final class ClassAdminController
     }
 
     /** POST /admin/sessions { class_id, starts_at, label, price_cents?, capacity? } */
+    /**
+     * POST /admin/sessions { ..., repeat_weeks: 12 }
+     * Con repeat_weeks se crea el mismo horario cada semana (mismo día y hora),
+     * cada uno con sus propias plazas: así se reserva una semana concreta.
+     */
     public function storeSession(Request $r): Response
     {
-        $id = Database::get()->insert('class_sessions', $this->validateSession($r->body(), true));
-        return Response::created($this->presentSession($id));
+        $body = $r->body();
+        $v = new Validator($body);
+        $weeks = $v->int('repeat_weeks', false, 1, 52) ?? 1;
+        $v->check();
+        $data = $this->validateSession($body, true);
+        $db = Database::get();
+        $ids = $db->transaction(function () use ($db, $data, $weeks) {
+            $start = new \DateTimeImmutable($data['starts_at']);
+            $ids = [];
+            for ($i = 0; $i < $weeks; $i++) {
+                $ids[] = $db->insert('class_sessions', ['starts_at' => $start->modify("+$i week")->format('Y-m-d H:i:s')] + $data);
+            }
+            return $ids;
+        });
+        $first = $this->presentSession($ids[0]);
+        return Response::created($first + ['created' => count($ids)]);
     }
 
     public function updateSession(Request $r): Response

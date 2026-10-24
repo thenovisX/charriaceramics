@@ -148,7 +148,8 @@ tr.is-clickable:hover td { background: var(--ivory); }
 .class-card__head h3 { font-size: 1.4rem; }
 .class-card table { border-top: 1px solid var(--line); }
 .class-card .add-session { padding: 1rem 1.3rem; border-top: 1px solid var(--line); background: var(--ivory); }
-.add-session form { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr auto; gap: .8rem; align-items: end; }
+.add-session form { display: grid; grid-template-columns: 1.3fr 1.3fr .7fr .8fr 1.2fr auto; gap: .8rem; align-items: start; }
+.add-session form > .btn { margin-top: 1.45rem; }
 @media (max-width: 1100px) { .add-session form { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Galería ---------- */

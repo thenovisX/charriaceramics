@@ -324,8 +324,9 @@ views.clases = async () => {
         class_id: Number(form.dataset.sessionForm), starts_at: f.starts_at.value, label: f.label.value,
         capacity: f.capacity.value === "" ? null : Number(f.capacity.value),
         price_cents: f.price.value === "" ? null : toCents(f.price.value),
+        repeat_weeks: Number(f.repeat.value),
       });
-      toast("Horario añadido");
+      toast(Number(f.repeat.value) > 1 ? `${f.repeat.value} horarios añadidos, uno cada semana` : "Horario añadido");
       views.clases();
     });
   }));
@@ -350,7 +351,15 @@ function classCard(c) {
         <td class="num"><button class="link-btn" data-class="${c.id}" data-session="${s.id}">Editar</button></td></tr>`).join("")}
     </tbody></table>` : ""}
     <div class="add-session"><form data-session-form="${c.id}">
-      ${field("Nuevo horario", '<input type="datetime-local" name="starts_at" required>')}
+      ${field("Nuevo horario", '<input type="datetime-local" name="starts_at" required>', "Primer día")}
+      ${field("Repetir cada semana", `<select name="repeat">
+        <option value="1">No, solo ese día</option>
+        <option value="4">Durante 1 mes</option>
+        <option value="8">Durante 2 meses</option>
+        <option value="13" selected>Durante 3 meses</option>
+        <option value="26">Durante 6 meses</option>
+        <option value="52">Durante 1 año</option>
+      </select>`, "Mismo día y hora")}
       ${field("Plazas", `<input type="number" name="capacity" min="1" max="100" placeholder="${c.capacity}">`)}
       ${field("Precio (€)", `<input name="price" inputmode="decimal" placeholder="${eurosInput(c.price_cents)}">`)}
       ${field("Etiqueta (opcional)", '<input name="label" maxlength="120" placeholder="Martes · 12 sesiones">')}
