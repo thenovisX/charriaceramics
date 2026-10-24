@@ -358,7 +358,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .footer__big { font-family: var(--serif); font-size: var(--fs-big); line-height: 1.04; letter-spacing: -0.01em; margin-bottom: clamp(3rem, 1rem + 6vw, 6rem); max-width: 12ch; }
 .footer__big .char { display: inline-block; }
 .footer__cols { display: flex; gap: 6rem; }
-.footer__legal { margin-top: clamp(3rem, 2rem + 4vw, 5rem); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .2em; color: var(--muted); }
+.footer__bottom { margin-top: clamp(3rem, 2rem + 4vw, 5rem); display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem 2rem; }
+.footer__legal, .footer__credit { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .2em; color: var(--muted); }
+.footer__credit a { color: var(--ink); background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition: background-size .4s ease; }
+.footer__credit a:hover, .footer__credit a:focus-visible { background-size: 100% 1px; }
 
 /* ---------- Modal ---------- */
 .modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: flex-end; background: rgba(26,24,22,.35); }
