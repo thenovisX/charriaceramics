@@ -29,11 +29,16 @@ const PRODUCTS = (window.PRODUCTS || []).slice().sort((a, b) => b.added.localeCo
 const GALLERY = window.GALLERY || [];
 const pad = (n) => String(n).padStart(2, "0");
 
+// Las 3 piezas más recientes llevan la etiqueta "Nuevo"
 const productHTML = (p, i, tall = false) => `
   <article class="product${tall ? " product--tall" : ""}" style="order:${i}" data-category="${p.category}">
     <div class="product__img"><img src="${p.img}" alt="${p.alt}" loading="lazy"></div>
-    <div class="product__info"><h3>${p.name}</h3><span>${p.price} €</span></div>
-    <button class="btn-primary product__add" type="button" data-add>Añadir</button>
+    ${PRODUCTS.indexOf(p) < 3 ? '<span class="product__badge">Nuevo</span>' : ""}
+    <button class="btn-primary product__add" type="button" data-add data-icon="plus" aria-label="Añadir ${p.name} a la cesta">Añadir</button>
+    <div class="product__info">
+      <div><p class="product__cat">${p.category}</p><h3>${p.name}</h3></div>
+      <span class="product__price">${p.price} €</span>
+    </div>
   </article>`;
 
 // Portada: solo las 5 piezas más recientes, repartidas en 3 columnas con parallax
@@ -102,6 +107,40 @@ if (edGallery) {
     </figure>`).join("");
   const total = $("[data-gallery-total]");
   if (total) total.textContent = `${pad(GALLERY.length)} obras`;
+}
+
+/* ==========================================================
+   Botones: texto que rueda + círculo con icono (ver .btn-primary en style.css)
+   ========================================================== */
+const ICONS = {
+  arrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 8h12M9 3l5 5-5 5"/></svg>',
+  plus: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 2v12M2 8h12"/></svg>',
+  check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 8.5l3.5 3.5 7.5-8"/></svg>',
+};
+const setButton = (btn, text, icon = btn.dataset.icon || "arrow") => {
+  btn.innerHTML = `<span class="btn-primary__label"><span data-text="${text}">${text}</span></span><span class="btn-primary__icon" aria-hidden="true">${ICONS[icon]}</span>`;
+};
+$$(".btn-primary").forEach((btn) => setButton(btn, btn.textContent.trim()));
+// En móvil y tablet el botón "Añadir" de las fichas es solo el círculo sobre la foto
+const roundAdd = window.matchMedia("(max-width: 1024px), (hover: none)");
+const syncAddButtons = () => $$(".product__add").forEach((b) => b.classList.toggle("btn-primary--round", roundAdd.matches));
+roundAdd.addEventListener("change", syncAddButtons);
+syncAddButtons();
+
+// Estantería de la tienda en móvil: contador y barra según el desplazamiento
+const shelf = $("[data-latest-products]");
+const shelfCount = $("[data-shelf-count]");
+if (shelf && shelfCount) {
+  const total = $$(".product", shelf).length;
+  const bar = $("[data-shelf-bar]");
+  const update = () => {
+    const max = shelf.scrollWidth - shelf.clientWidth;
+    const p = max > 0 ? shelf.scrollLeft / max : 0;
+    shelfCount.textContent = `${pad(Math.round(p * (total - 1)) + 1)} / ${pad(total)}`;
+    bar.style.transform = `scaleX(${(1 + p * (total - 1)) / total})`;
+  };
+  shelf.addEventListener("scroll", update, { passive: true });
+  update();
 }
 
 /* ==========================================================
@@ -323,7 +362,7 @@ if (hasGsap && !reduceMotion) {
   mm.add(PHONE, () => {
     const items = $$([
       "main .eyebrow", "main .section-head__desc", ".intro__text",
-      ".shop .product__info", ".shop__more", ".class-row", ".private__lead",
+      ".shop__ui", ".shop__more", ".class-row", ".private__lead",
       "main .form__field", "main .form .btn-primary", ".gallery .btn-primary", ".gallery__ui",
       ".contact__lead", ".contact__details > div", ".footer__cols > div", ".footer__legal",
       ".page-head__desc", ".filters", ".ed-item figcaption",
@@ -446,6 +485,16 @@ if (hasMouse) {
     }
     requestAnimationFrame(loop);
   })();
+  // Botones magnéticos: se acercan un poco al cursor y vuelven con un rebote
+  if (hasGsap) {
+    $$(".btn-primary:not(.product__add)").forEach((btn) => {
+      btn.addEventListener("mousemove", (e) => {
+        const r = btn.getBoundingClientRect();
+        gsap.to(btn, { x: (e.clientX - r.left - r.width / 2) * 0.18, y: (e.clientY - r.top - r.height / 2) * 0.3, duration: 0.4, ease: "power3.out" });
+      });
+      btn.addEventListener("mouseleave", () => gsap.to(btn, { x: 0, y: 0, duration: 0.8, ease: "elastic.out(1, 0.4)" }));
+    });
+  }
   document.addEventListener("mouseover", (e) => cursor.classList.toggle("is-big", !!e.target.closest("a, button, .class-row__name, .ed-item")));
 }
 
@@ -462,9 +511,11 @@ document.addEventListener("click", (e) => {
   const n = readCart() + 1;
   saveCart(n);
   cartCount.textContent = n;
-  btn.textContent = "Añadido ✓";
+  setButton(btn, "Añadido", "check");
   btn.classList.add("is-added");
-  setTimeout(() => { btn.textContent = "Añadir"; btn.classList.remove("is-added"); }, 1600);
+  if (hasGsap) gsap.fromTo(cartCount.parentElement, { scale: 1.25 }, { scale: 1, duration: 0.6, ease: "elastic.out(1, 0.5)" });
+  clearTimeout(btn._t);
+  btn._t = setTimeout(() => { setButton(btn, "Añadir"); btn.classList.remove("is-added"); }, 1600);
 });
 
 /* ==========================================================
