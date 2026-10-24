@@ -102,15 +102,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 }
 .hero__title { display: flex; flex-direction: column; right: auto; width: max-content; }
 .hero__name { display: block; }
-.hero__ceramics {
-  align-self: flex-end;
-  margin-top: 0.12em;
-  font-size: 0.2em;
-  font-style: italic;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: none;
-}
 .hero__title .char { display: inline-block; transform-origin: 50% 100%; }
 .hero__sub {
   position: absolute; z-index: 2;
@@ -398,7 +389,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .hero__media::after { display: none; }
   .hero__media img { height: auto; transform: none !important; }
   .hero__title { position: relative; left: auto; right: auto; bottom: auto; width: max-content; margin: 2rem var(--side) 0; font-size: calc((100vw - 2.5rem) / 4.7); transform: none !important; }
-  .hero__ceramics { font-size: 0.24em; margin-top: 0.3em; }
   .hero__sub { position: static; max-width: none; margin: 1.6rem var(--side) 0; text-align: left; color: var(--muted); font-size: .66rem; }
   .hero__scroll { display: none; }
 

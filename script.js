@@ -62,7 +62,6 @@ if (hasGsap) {
       duration: 1.6, ease: "elastic.out(1, 0.6)", stagger: 0.06, delay: 0.2,
     });
   }
-  gsap.from(".hero__ceramics", { opacity: 0, x: 40, duration: 1.4, delay: 0.9, ease: "power3.out" });
   gsap.from(".hero__sub, .hero__scroll", { opacity: 0, y: 20, duration: 1, delay: 1, stagger: 0.15 });
 
   // Zoom lento de la imagen del hero al hacer scroll
