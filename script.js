@@ -9,7 +9,22 @@ document.querySelectorAll("img").forEach((img) => {
 });
 
 const hasGsap = typeof window.gsap !== "undefined" && typeof window.ScrollTrigger !== "undefined";
-const isDesktop = window.matchMedia("(min-width: 901px)").matches;
+// Escritorio = pantalla ancha con ratón; en tablet y móvil se simplifican los efectos
+const DESKTOP = "(min-width: 1025px)";
+const hasMouse = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+/* ---------- Menú móvil / tablet ---------- */
+const menuToggle = document.querySelector("[data-menu-toggle]");
+const mobileMenu = document.querySelector("[data-mobile-menu]");
+const setMenu = (open) => {
+  document.body.classList.toggle("menu-open", open);
+  menuToggle.setAttribute("aria-expanded", String(open));
+  menuToggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
+  mobileMenu.setAttribute("aria-hidden", String(!open));
+};
+menuToggle.addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));
+mobileMenu.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener("click", () => setMenu(false)));
+window.addEventListener("keydown", (e) => { if (e.key === "Escape") setMenu(false); });
 
 /* ---------- Scroll suave ---------- */
 let lenis = null;
@@ -38,7 +53,7 @@ if (hasGsap) {
   const split = (el, types) => (typeof window.SplitType !== "undefined" ? new SplitType(el, { types: types === "chars" ? "words, chars" : types }) : null);
 
   // Título del hero: cada letra sube girando en X con física elástica
-  const heroTitle = document.querySelector(".hero__title");
+  const heroTitle = document.querySelector(".hero__name");
   const heroSplit = split(heroTitle, "chars");
   if (heroSplit) {
     gsap.from(heroSplit.chars, {
@@ -46,6 +61,7 @@ if (hasGsap) {
       duration: 1.6, ease: "elastic.out(1, 0.6)", stagger: 0.06, delay: 0.2,
     });
   }
+  gsap.from(".hero__ceramics", { opacity: 0, x: 40, duration: 1.4, delay: 0.9, ease: "power3.out" });
   gsap.from(".hero__sub, .hero__scroll", { opacity: 0, y: 20, duration: 1, delay: 1, stagger: 0.15 });
 
   // Zoom lento de la imagen del hero al hacer scroll
@@ -77,15 +93,28 @@ if (hasGsap) {
     });
   });
 
-  // Columnas de la tienda con distinta velocidad (parallax)
-  if (isDesktop) {
+  // Efectos solo de escritorio; gsap.matchMedia los activa/desactiva al girar la tablet o cambiar el tamaño
+  const mm = gsap.matchMedia();
+  mm.add(DESKTOP, () => {
+    // Columnas de la tienda con distinta velocidad (parallax)
     document.querySelectorAll(".shop__col").forEach((col) => {
       gsap.to(col, {
         y: Number(col.dataset.speed) * 2, ease: "none",
         scrollTrigger: { trigger: ".shop", start: "top bottom", end: "bottom top", scrub: true },
       });
     });
-  }
+
+    // Galería: pantalla fijada y recorrido horizontal
+    const track = document.querySelector(".gallery__track");
+    const distance = () => track.scrollWidth - window.innerWidth;
+    gsap.to(track, {
+      x: () => -distance(), ease: "none",
+      scrollTrigger: {
+        trigger: ".gallery", start: "top top", end: () => "+=" + distance(),
+        pin: ".gallery__pin", scrub: 1, invalidateOnRefresh: true,
+      },
+    });
+  });
 
   // Productos: revelado tipo cortina
   document.querySelectorAll(".product__img").forEach((el) => {
@@ -107,51 +136,40 @@ if (hasGsap) {
     scrollTrigger: { trigger: ".private", start: "top bottom", end: "bottom top", scrub: true },
   });
 
-  // Galería: pantalla fijada y recorrido horizontal
-  if (isDesktop) {
-    const track = document.querySelector(".gallery__track");
-    const distance = () => track.scrollWidth - window.innerWidth;
-    gsap.to(track, {
-      x: () => -distance(), ease: "none",
-      scrollTrigger: {
-        trigger: ".gallery", start: "top top", end: () => "+=" + distance(),
-        pin: ".gallery__pin", scrub: 1, invalidateOnRefresh: true,
-      },
-    });
-  }
-
   window.addEventListener("load", () => ScrollTrigger.refresh());
 }
 
-/* ---------- Imagen flotante en la lista de clases ---------- */
-const floatBox = document.querySelector(".class-float");
-const floatImg = floatBox.querySelector("img");
-let fx = 0, fy = 0, tx = 0, ty = 0;
-document.querySelectorAll(".class-row").forEach((row) => {
-  row.addEventListener("mouseenter", () => {
-    floatImg.src = row.dataset.img;
-    floatBox.style.transition = "opacity .4s, transform .4s";
-    floatBox.style.opacity = 1;
+/* ---------- Imagen flotante y cursor (solo con ratón) ---------- */
+if (hasMouse) {
+  const floatBox = document.querySelector(".class-float");
+  const floatImg = floatBox.querySelector("img");
+  let fx = 0, fy = 0, tx = 0, ty = 0;
+  document.querySelectorAll(".class-row").forEach((row) => {
+    row.addEventListener("mouseenter", () => {
+      floatImg.src = row.dataset.img;
+      floatBox.style.transition = "opacity .4s, transform .4s";
+      floatBox.style.opacity = 1;
+    });
+    row.addEventListener("mouseleave", () => { floatBox.style.opacity = 0; });
   });
-  row.addEventListener("mouseleave", () => { floatBox.style.opacity = 0; });
-});
 
-/* ---------- Cursor con retraso (lerp) ---------- */
-const cursor = document.querySelector(".cursor");
-let cx = innerWidth / 2, cy = innerHeight / 2, mx = cx, my = cy;
-window.addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; tx = e.clientX + 160; ty = e.clientY; });
-(function loop() {
-  cx += (mx - cx) * 0.18; cy += (my - cy) * 0.18;
-  cursor.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
-  fx += (tx - fx) * 0.1; fy += (ty - fy) * 0.1;
-  floatBox.style.left = fx + "px"; floatBox.style.top = fy + "px";
-  floatBox.style.transform = `translate(-50%, -50%) rotate(${(tx - fx) * 0.03}deg)`;
-  requestAnimationFrame(loop);
-})();
-document.querySelectorAll("a, button, .class-row__name").forEach((el) => {
-  el.addEventListener("mouseenter", () => cursor.classList.add("is-big"));
-  el.addEventListener("mouseleave", () => cursor.classList.remove("is-big"));
-});
+  /* ---------- Cursor con retraso (lerp) ---------- */
+  const cursor = document.querySelector(".cursor");
+  let cx = innerWidth / 2, cy = innerHeight / 2, mx = cx, my = cy;
+  window.addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; tx = e.clientX + 160; ty = e.clientY; });
+  (function loop() {
+    cx += (mx - cx) * 0.18; cy += (my - cy) * 0.18;
+    cursor.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+    fx += (tx - fx) * 0.1; fy += (ty - fy) * 0.1;
+    floatBox.style.left = fx + "px"; floatBox.style.top = fy + "px";
+    floatBox.style.transform = `translate(-50%, -50%) rotate(${(tx - fx) * 0.03}deg)`;
+    requestAnimationFrame(loop);
+  })();
+  document.querySelectorAll("a, button, .class-row__name").forEach((el) => {
+    el.addEventListener("mouseenter", () => cursor.classList.add("is-big"));
+    el.addEventListener("mouseleave", () => cursor.classList.remove("is-big"));
+  });
+}
 
 /* ---------- Cesta (simulada) ---------- */
 const cartCount = document.querySelector("[data-cart-count]");

@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Charria Ceramics · Cerámica hecha a mano</title>
+  <title>Charria Ceramics</title>
+  <meta name="description" content="Charria Ceramics: cerámica hecha a mano, tienda, clases en grupo, clases privadas y galería.">
+  <meta name="theme-color" content="#f5f1ea">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
@@ -19,12 +21,22 @@
       <a href="#privadas">Privadas</a>
       <a href="#galeria">Galería</a>
     </nav>
-    <a href="#top" class="header__logo">Charria</a>
+    <a href="#top" class="header__logo">Charria <span>Ceramics</span></a>
     <nav class="header__nav header__nav--right">
       <a href="#privadas">Reservar</a>
       <button class="cart-btn" type="button">Cesta (<span data-cart-count>0</span>)</button>
+      <button class="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
     </nav>
   </header>
+
+  <!-- Menú para móvil y tablet -->
+  <nav class="mobile-menu" data-mobile-menu aria-hidden="true">
+    <a href="#tienda"><small>01</small>Tienda</a>
+    <a href="#clases"><small>02</small>Clases en grupo</a>
+    <a href="#privadas"><small>03</small>Clase privada</a>
+    <a href="#galeria"><small>04</small>Galería</a>
+    <p class="mobile-menu__foot"><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p>
+  </nav>
 
   <main id="top">
 
@@ -33,7 +45,7 @@
       <div class="hero__media">
         <img src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=2000&q=80" alt="Jarrones de cerámica artesanal sobre fondo neutro">
       </div>
-      <h1 class="hero__title" data-split>Charria</h1>
+      <h1 class="hero__title"><span class="hero__name">Charria</span><em class="hero__ceramics">Ceramics</em></h1>
       <p class="hero__sub">Cerámica hecha a mano · Estudio y tienda</p>
       <span class="hero__scroll">Desliza</span>
     </section>
