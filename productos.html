@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tienda · Charria Ceramics</title>
+  <meta name="description" content="Tienda de Charria Ceramics: todas las piezas de cerámica hecha a mano.">
+  <meta name="theme-color" content="#f5f1ea">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+
+  <!-- Cabecera fija: se invierte sobre fondos oscuros con mix-blend-mode -->
+  <header class="header">
+    <nav class="header__nav header__nav--left">
+      <a href="productos.html" aria-current="page">Tienda</a>
+      <a href="index.html#clases">Clases</a>
+      <a href="index.html#privadas">Privadas</a>
+      <a href="galeria.html">Galería</a>
+    </nav>
+    <a href="index.html" class="header__logo">Charria <span>Ceramics</span></a>
+    <nav class="header__nav header__nav--right">
+      <a href="index.html#contacto">Contacto</a>
+      <button class="cart-btn" type="button">Cesta (<span data-cart-count>0</span>)</button>
+      <button class="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
+    </nav>
+  </header>
+
+  <!-- Menú para móvil y tablet -->
+  <nav class="mobile-menu" data-mobile-menu aria-hidden="true">
+    <a href="productos.html" aria-current="page"><small>01</small><span>Tienda</span></a>
+    <a href="index.html#clases"><small>02</small><span>Clases en grupo</span></a>
+    <a href="index.html#privadas"><small>03</small><span>Clase privada</span></a>
+    <a href="galeria.html"><small>04</small><span>Galería</span></a>
+    <a href="index.html#contacto"><small>05</small><span>Contacto</span></a>
+    <p class="mobile-menu__foot"><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p>
+  </nav>
+
+  <main id="top">
+
+    <section class="page-head">
+      <p class="eyebrow">Tienda · Colección completa</p>
+      <h1 class="page-head__title" data-split>Piezas</h1>
+      <p class="page-head__desc">Cuencos, jarrones y vajilla torneados y esmaltados en el estudio. Cada pieza es única: tamaño y color pueden variar ligeramente.</p>
+    </section>
+
+    <div class="filters" data-filters role="group" aria-label="Filtrar por categoría">
+      <span class="filters__count" data-filter-count aria-live="polite"></span>
+    </div>
+
+    <section class="catalog" data-catalog aria-label="Productos"></section>
+
+  </main>
+
+  <footer class="footer">
+    <p class="footer__big" data-split>Hecho a mano, con calma.</p>
+    <div class="footer__cols">
+      <div><span class="eyebrow">Estudio</span><p>Calle del Barro 12<br>Madrid</p></div>
+      <div><span class="eyebrow">Horario</span><p>Mar–Sáb · 10:00–20:00</p></div>
+      <div><span class="eyebrow">Síguenos</span><p><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p></div>
+    </div>
+    <p class="footer__legal">© 2026 Charria Ceramics · Madrid</p>
+  </footer>
+
+  <div class="cursor" aria-hidden="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
+  <script src="data.js?v=5"></script>
+  <script src="script.js?v=5"></script>
+</body>
+</html>
