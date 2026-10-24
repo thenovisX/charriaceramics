@@ -30,6 +30,12 @@ final class Mailer
         }
     }
 
+    /** ¿Hay remitente configurado? (sin él no sale ningún email) */
+    public static function canSend(): bool
+    {
+        return (bool) Env::get('MAIL_FROM') && !Env::bool('MAIL_DISABLED');
+    }
+
     public static function admin(string $subject, string $text): void
     {
         $admin = Env::get('MAIL_ADMIN');

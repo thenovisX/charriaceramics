@@ -37,6 +37,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 // Ajustes guardados desde el panel (Stripe, Packlink...) por encima del .env
 Charria\Services\AppSettings::boot();
 
+// Instalaciones antiguas: aplica los cambios de base de datos pendientes (una consulta si no hay nada que hacer)
+if (Env::get('DB_NAME')) {
+    try {
+        Charria\Services\Migrations::run();
+    } catch (\Throwable $e) {
+        Log::error('Migrations', ['error' => $e->getMessage()]);
+    }
+}
+
 $router = new Router();
 (require BACKEND_DIR . '/routes.php')($router);
 

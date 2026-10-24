@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------- Clientes ----------
+-- Solo existe una fila si la persona pidió guardar su perfil (has_profile)
+-- o aceptó comunicaciones comerciales (marketing_opt_in). Los pedidos y
+-- reservas guardan sus propios datos de contacto y no dependen de esta tabla.
 CREATE TABLE IF NOT EXISTS customers (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   email       VARCHAR(190) NOT NULL,
@@ -55,6 +58,9 @@ CREATE TABLE IF NOT EXISTS customers (
   city        VARCHAR(120) NOT NULL DEFAULT '',
   postal_code VARCHAR(20)  NOT NULL DEFAULT '',
   country     CHAR(2)      NOT NULL DEFAULT 'ES',
+  has_profile          TINYINT(1) NOT NULL DEFAULT 0,
+  marketing_opt_in     TINYINT(1) NOT NULL DEFAULT 0,
+  marketing_updated_at DATETIME   NULL,
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -172,6 +178,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   class_id          INT UNSIGNED NULL,
   session_id        INT UNSIGNED NULL,
   customer_id       INT UNSIGNED NULL,
+  customer_name     VARCHAR(160) NOT NULL DEFAULT '',
+  customer_email    VARCHAR(190) NOT NULL DEFAULT '',
+  customer_phone    VARCHAR(40)  NOT NULL DEFAULT '',
   class_title       VARCHAR(160) NOT NULL DEFAULT '',  -- copia por si se borra la clase
   starts_at         DATETIME     NULL,
   seats             SMALLINT UNSIGNED NOT NULL DEFAULT 1,
@@ -184,11 +193,13 @@ CREATE TABLE IF NOT EXISTS bookings (
   stripe_session_id VARCHAR(255) NULL,
   expires_at        DATETIME     NULL,  -- fin de la retención de plazas mientras se paga
   paid_at           DATETIME     NULL,
+  privacy_blocked_at DATETIME    NULL,  -- el cliente pidió borrar sus datos: se conservan bloqueados por obligación legal
   created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_bookings_reference (reference),
   KEY idx_bookings_session (session_id, status),
+  KEY idx_bookings_email (customer_email),
   KEY idx_bookings_stripe (stripe_session_id),
   CONSTRAINT fk_bookings_class    FOREIGN KEY (class_id)    REFERENCES classes (id)        ON DELETE SET NULL,
   CONSTRAINT fk_bookings_session  FOREIGN KEY (session_id)  REFERENCES class_sessions (id) ON DELETE SET NULL,
@@ -223,11 +234,13 @@ CREATE TABLE IF NOT EXISTS orders (
   stripe_payment_intent VARCHAR(255) NULL,
   expires_at            DATETIME     NULL,  -- fin de la retención de stock mientras se paga
   paid_at               DATETIME     NULL,
+  privacy_blocked_at    DATETIME     NULL,  -- el cliente pidió borrar sus datos: se conservan bloqueados por obligación legal
   created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_orders_reference (reference),
   KEY idx_orders_status (status, created_at),
+  KEY idx_orders_email (customer_email),
   KEY idx_orders_stripe (stripe_session_id),
   CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -265,4 +278,51 @@ CREATE TABLE IF NOT EXISTS stripe_events (
   type         VARCHAR(80)  NOT NULL,
   processed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------- Privacidad (RGPD) ----------
+-- Registro de consentimientos: qué aceptó cada persona, cuándo, dónde y con qué versión del texto.
+-- purpose: terms (condiciones + privacidad), marketing, profile. granted = 0 cuando lo retira.
+-- Si la persona pide borrar sus datos, subject_email se sustituye por un hash.
+CREATE TABLE IF NOT EXISTS consents (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  subject_email VARCHAR(190) NOT NULL,
+  customer_id   INT UNSIGNED NULL,
+  order_id      INT UNSIGNED NULL,
+  booking_id    INT UNSIGNED NULL,
+  purpose       VARCHAR(30)  NOT NULL,
+  granted       TINYINT(1)   NOT NULL,
+  text_version  VARCHAR(40)  NOT NULL,
+  source        VARCHAR(40)  NOT NULL,
+  ip            VARCHAR(45)  NOT NULL DEFAULT '',
+  user_agent    VARCHAR(255) NOT NULL DEFAULT '',
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_consents_email (subject_email, purpose),
+  KEY idx_consents_customer (customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Solicitudes de acceso (export), supresión (delete) y baja de marketing (unsubscribe),
+-- confirmadas con un enlace enviado al email. Solo se guarda el hash del enlace.
+CREATE TABLE IF NOT EXISTS privacy_requests (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  email        VARCHAR(190) NOT NULL,
+  type         ENUM('export','delete','unsubscribe') NOT NULL,
+  token_hash   CHAR(64)     NOT NULL,
+  status       ENUM('pending','done') NOT NULL DEFAULT 'pending',
+  source       VARCHAR(20)  NOT NULL DEFAULT 'web',
+  result       VARCHAR(255) NOT NULL DEFAULT '',
+  expires_at   DATETIME     NOT NULL,
+  done_at      DATETIME     NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_privacy_token (token_hash),
+  KEY idx_privacy_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cambios de esquema aplicados a instalaciones antiguas (ver Services/Migrations.php)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version    INT UNSIGNED NOT NULL,
+  applied_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

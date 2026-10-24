@@ -30,6 +30,13 @@ final class AppSettings
         'SITE_FACEBOOK' => ['url', false],
         'SITE_TIKTOK' => ['url', false],
         'SITE_MAPS_URL' => ['url', false],
+        // Titular de la web (aviso legal, privacidad, condiciones: LSSI art. 10) y analítica
+        'LEGAL_OWNER' => ['text', false],
+        'LEGAL_TAX_ID' => ['tax_id', false],
+        'LEGAL_ADDRESS' => ['text', false],
+        'LEGAL_EMAIL' => ['email', false],
+        'LEGAL_REGISTRY' => ['text', false],
+        'GA_MEASUREMENT_ID' => ['ga_id', false],
         'STRIPE_SECRET_KEY' => ['stripe_key', true],
         'STRIPE_WEBHOOK_SECRET' => ['webhook_secret', true],
         'PACKLINK_API_KEY' => ['packlink_key', true],
@@ -57,7 +64,17 @@ final class AppSettings
         'SITE_EMAIL' => 'email', 'SITE_PHONE' => 'phone', 'SITE_WHATSAPP' => 'whatsapp',
         'SITE_INSTAGRAM' => 'instagram', 'SITE_FACEBOOK' => 'facebook', 'SITE_TIKTOK' => 'tiktok',
         'SITE_MAPS_URL' => 'maps_url',
+        'LEGAL_OWNER' => 'legal_owner', 'LEGAL_TAX_ID' => 'legal_tax_id', 'LEGAL_ADDRESS' => 'legal_address',
+        'LEGAL_EMAIL' => 'legal_email', 'LEGAL_REGISTRY' => 'legal_registry', 'GA_MEASUREMENT_ID' => 'ga_id',
     ];
+
+    /** Datos del titular que tienen que estar rellenos para que las páginas legales estén completas. */
+    public const LEGAL_REQUIRED = ['LEGAL_OWNER', 'LEGAL_TAX_ID', 'LEGAL_ADDRESS', 'LEGAL_EMAIL'];
+
+    public static function legalMissing(): array
+    {
+        return array_values(array_filter(self::LEGAL_REQUIRED, static fn ($k) => !Env::get($k)));
+    }
 
     /** Datos de contacto para la web: solo lo que se ha rellenado en el panel (o en el .env). */
     public static function publicSite(): array
@@ -139,6 +156,9 @@ final class AppSettings
             if ($type !== 'multiline') {
                 $value = preg_replace('/\s*\n\s*/', ' ', $value);
             }
+            if ($type === 'ga_id' || $type === 'tax_id') {
+                $value = strtoupper($value);
+            }
             if ($secret && $value === '') {
                 continue; // vacío = no cambiar
             }
@@ -202,6 +222,8 @@ final class AppSettings
             'cents' => ctype_digit($value) && (int) $value <= 100_000_00 ? null : 'Importe no válido',
             'bool' => in_array($value, ['true', 'false'], true) ? null : 'Debe ser sí o no',
             'multiline' => mb_strlen($value) <= 500 ? null : 'Máximo 500 caracteres',
+            'tax_id' => preg_match('/^[A-Za-z0-9]{1,3}[- ]?[0-9]{5,8}[- ]?[A-Za-z0-9]?$/', $value) ? null : 'NIF o CIF no válido (p. ej. 12345678Z o B12345678)',
+            'ga_id' => preg_match('/^G-[A-Z0-9]{4,15}$/', $value) ? null : 'El ID de Google Analytics 4 empieza por G- (p. ej. G-AB12CD34EF)',
             'phone' => preg_match('/^\+?[0-9 ().-]{6,20}$/', $value) ? null : 'Teléfono no válido (p. ej. +34 600 000 000)',
             'url' => preg_match('#^https://[^\s<>"]{4,300}$#', $value) ? null : 'Pega el enlace completo, empezando por https://',
             default => mb_strlen($value) <= 255 ? null : 'Máximo 255 caracteres',
@@ -218,6 +240,12 @@ final class AppSettings
         }
         // Instalaciones con .env escrito a mano sin APP_KEY: clave derivada de datos que no están en la BD
         return hash('sha256', 'charria|' . Env::get('DB_PASS', '') . '|' . Env::get('DB_NAME', ''), true);
+    }
+
+    /** Firma HMAC con APP_KEY (enlaces de baja, huellas de emails borrados). */
+    public static function sign(string $data): string
+    {
+        return hash_hmac('sha256', $data, self::key());
     }
 
     private static function encrypt(string $plain): string

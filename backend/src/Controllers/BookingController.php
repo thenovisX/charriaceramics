@@ -8,6 +8,7 @@ use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Catalog;
+use Charria\Services\Consents;
 use Charria\Services\Customers;
 use Charria\Services\Mailer;
 use Charria\Services\RateLimiter;
@@ -24,7 +25,7 @@ use Charria\Validator;
  */
 final class BookingController
 {
-    /** POST /bookings { session_id, seats, customer: {name, email, phone} } */
+    /** POST /bookings { session_id, seats, customer: {name, email, phone}, consents: {terms, marketing, profile} } */
     public function createGroup(Request $r): Response
     {
         if (!Stripe::isConfigured()) {
@@ -35,11 +36,12 @@ final class BookingController
         $sessionId = $v->int('session_id', true, 1);
         $seats = $v->int('seats', true, 1, 10);
         $customer = Customers::validate($v);
+        $consents = Consents::validate($v);
         $v->check();
 
         $db = Database::get();
         $hold = Settings::holdMinutes();
-        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold) {
+        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r) {
             // Bloquea el horario para que dos personas no se lleven la última plaza a la vez
             $session = $db->one('SELECT * FROM class_sessions WHERE id = ? FOR UPDATE', [$sessionId]);
             $class = $session ? $db->one("SELECT * FROM classes WHERE id = ? AND kind = 'group' AND is_active = 1", [$session['class_id']]) : null;
@@ -53,11 +55,15 @@ final class BookingController
                     : 'Este horario está completo');
             }
             $reference = Settings::reference('CL');
+            $customerId = Customers::fromConsents($customer, $consents);
             $id = $db->insert('bookings', [
                 'reference' => $reference,
                 'class_id' => $class['id'],
                 'session_id' => $session['id'],
-                'customer_id' => Customers::upsert($customer),
+                'customer_id' => $customerId,
+                'customer_name' => $customer['name'],
+                'customer_email' => $customer['email'],
+                'customer_phone' => $customer['phone'],
                 'class_title' => $class['title'],
                 'starts_at' => $session['starts_at'],
                 'seats' => $seats,
@@ -66,6 +72,7 @@ final class BookingController
                 'status' => 'pending_payment',
                 'expires_at' => date('Y-m-d H:i:s', time() + $hold * 60),
             ]);
+            Consents::recordAll($customer['email'], $consents, 'booking', $r, ['customer_id' => $customerId, 'booking_id' => $id]);
             return ['id' => $id, 'reference' => $reference, 'class' => $class, 'session' => $session, 'price' => $info['price_cents']];
         });
 
@@ -98,7 +105,7 @@ final class BookingController
         ]);
     }
 
-    /** POST /bookings/private { class_id, preferred_date, preferred_slot, customer: {name, email, phone}, notes } */
+    /** POST /bookings/private { class_id, preferred_date, preferred_slot, customer: {name, email, phone}, notes, consents } */
     public function createPrivate(Request $r): Response
     {
         RateLimiter::hit('private:' . $r->ip, 8, 600);
@@ -108,6 +115,7 @@ final class BookingController
         $slot = $v->enum('preferred_slot', ['Mañana', 'Tarde'], true);
         $notes = $v->string('notes', false, 1000);
         $customer = Customers::validate($v);
+        $consents = Consents::validate($v);
         if ($date && $date < date('Y-m-d')) {
             $v->addError('preferred_date', 'Elige una fecha a partir de hoy');
         }
@@ -119,10 +127,14 @@ final class BookingController
             throw HttpError::validation(['class_id' => 'Modalidad no disponible']);
         }
         $reference = Settings::reference('CP');
-        $db->insert('bookings', [
+        $customerId = Customers::fromConsents($customer, $consents);
+        $id = $db->insert('bookings', [
             'reference' => $reference,
             'class_id' => $class['id'],
-            'customer_id' => Customers::upsert($customer),
+            'customer_id' => $customerId,
+            'customer_name' => $customer['name'],
+            'customer_email' => $customer['email'],
+            'customer_phone' => $customer['phone'],
             'class_title' => $class['title'],
             'seats' => 1,
             'unit_price_cents' => $class['price_cents'],
@@ -132,6 +144,7 @@ final class BookingController
             'preferred_slot' => $slot,
             'notes' => $notes,
         ]);
+        Consents::recordAll($customer['email'], $consents, 'private_booking', $r, ['customer_id' => $customerId, 'booking_id' => $id]);
         Mailer::admin("Solicitud de clase privada $reference",
             "{$class['title']} · " . Mailer::money((int) $class['price_cents']) . "\nFecha preferida: $date ($slot)\n"
             . "Cliente: {$customer['name']} <{$customer['email']}> {$customer['phone']}\n\n" . ($notes ?? ''));
