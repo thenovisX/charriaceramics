@@ -177,6 +177,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 }
 .hero__name { display: block; }
 .hero__title .char { display: inline-block; transform-origin: 50% 100%; }
+/* Las "A" de Bodoni tienen el trazo izquierdo muy fino a este tamaño: se refuerza solo en ellas */
+.hero__a { -webkit-text-stroke: var(--a-stroke, max(.014em, 1.5px)) currentColor; paint-order: stroke fill; }
 .hero__sub {
   position: absolute; z-index: 2;
   right: var(--side); top: 42vh;
