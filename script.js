@@ -244,11 +244,11 @@ if (hasGsap && !reduceMotion) {
     });
   });
 
-  // Fotos: revelado tipo cortina
-  $$(".product__img, .ed-item__img").forEach((el) => {
+  // Fotos: fundido corto en cuanto asoman por abajo, para que nunca parezca que tardan en cargar
+  $$(".product__img, .ed-item__img, .art__img, .private__media").forEach((el) => {
     gsap.from(el, {
-      clipPath: "inset(100% 0 0 0)", duration: 1.4, ease: "power4.inOut",
-      scrollTrigger: { trigger: el, start: "top 92%" },
+      opacity: 0.25, y: 14, duration: 0.5, ease: "power2.out",
+      scrollTrigger: { trigger: el, start: "top bottom", once: true },
     });
   });
 
@@ -322,18 +322,18 @@ if (hasGsap && !reduceMotion) {
   // Solo móvil: cada bloque aparece con fundido y subida al entrar en pantalla
   mm.add(PHONE, () => {
     const items = $$([
-      "main .eyebrow", "main .section-head__desc", ".hero__media", ".intro__text",
-      ".shop .product", ".shop__more", ".class-row", ".private__media", ".private__lead",
-      "main .form__field", "main .form .btn-primary", ".gallery .btn-primary", ".gallery__viewport", ".gallery__ui",
+      "main .eyebrow", "main .section-head__desc", ".intro__text",
+      ".shop .product__info", ".shop__more", ".class-row", ".private__lead",
+      "main .form__field", "main .form .btn-primary", ".gallery .btn-primary", ".gallery__ui",
       ".contact__lead", ".contact__details > div", ".footer__cols > div", ".footer__legal",
-      ".page-head__desc", ".filters", ".catalog .product", ".ed-item figcaption",
+      ".page-head__desc", ".filters", ".ed-item figcaption",
     ].join(", "));
-    gsap.set(items, { autoAlpha: 0, y: 36 });
+    gsap.set(items, { autoAlpha: 0, y: 18 });
     ScrollTrigger.batch(items, {
-      start: "clamp(top 92%)",
+      start: "clamp(top 98%)",
       once: true,
       onEnter: (batch) => gsap.to(batch, {
-        autoAlpha: 1, y: 0, duration: 0.9, ease: "power3.out", stagger: 0.08, overwrite: true,
+        autoAlpha: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.04, overwrite: true,
       }),
     });
   });
