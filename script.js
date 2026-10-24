@@ -63,14 +63,18 @@ const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.tech
 let PRODUCTS = [];
 let GALLERY = [];
 let CLASSES = null;  // null = sin API: se quedan las clases escritas en el HTML
+let SITE = null;     // datos de contacto de Panel → Ajustes (null = se queda el HTML)
+let SLOTS = new Map(); // filas de clases: un horario suelto o todas las semanas de una clase semanal
 
 async function loadContent() {
   const wants = (sel) => !!document.querySelector(sel);
-  const [products, gallery, classes] = await Promise.all([
+  const [products, gallery, classes, site] = await Promise.all([
     wants("[data-latest-products], [data-catalog]") ? apiFetch("products").catch(() => null) : null,
     wants("[data-gallery-track], [data-ed-gallery]") ? apiFetch("gallery").catch(() => null) : null,
     wants(".class-list, [data-private-form]") ? apiFetch("classes").catch(() => null) : null,
+    apiFetch("site").catch(() => null),
   ]);
+  SITE = site;
   PRODUCTS = (products ? products.map(fromApiProduct) : (window.PRODUCTS || []).map(fromLocalProduct))
     .sort((a, b) => b.added.localeCompare(a.added));
   GALLERY = gallery ? gallery.map(fromApiGallery) : (window.GALLERY || []);
@@ -91,7 +95,52 @@ const productHTML = (p, i, tall = false) => `
     </div>
   </article>`;
 
+/* Dirección, horario, teléfono, email y redes: se editan en Panel → Ajustes → Datos de la web.
+   Lo que no esté rellenado se queda como está escrito en el HTML. */
+function renderSite() {
+  if (!SITE) return;
+  const link = (href, text, external = true) => `<a href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ""}>${esc(text)}</a>`;
+  const lines = (t) => String(t).split("\n").map((l) => l.trim()).filter(Boolean);
+  const handle = (url) => { const m = String(url).match(/instagram\.com\/([^/?#]+)/i); return m ? `@${m[1]}` : "Instagram"; };
+  const digits = (phone) => String(phone).replace(/[^\d+]/g, "");
+  const social = [
+    SITE.instagram && link(SITE.instagram, handle(SITE.instagram)),
+    SITE.facebook && link(SITE.facebook, "Facebook"),
+    SITE.tiktok && link(SITE.tiktok, "TikTok"),
+    SITE.whatsapp && link(`https://wa.me/${digits(SITE.whatsapp).replace("+", "")}`, "WhatsApp"),
+  ].filter(Boolean);
+  const place = (withZip) => {
+    const city = SITE.city ? (withZip ? SITE.city : SITE.city.replace(/^\d{4,5}\s*/, "")) : "";
+    const text = [SITE.address, city].filter(Boolean).map(esc).join("<br>");
+    return SITE.maps_url ? `<a href="${esc(SITE.maps_url)}" target="_blank" rel="noopener">${text}</a>` : text;
+  };
+  const setCol = (root, label, html) => {
+    const col = [...root.children].find((c) => c.querySelector(".eyebrow")?.textContent.trim().startsWith(label));
+    if (col && html) col.querySelector("p").innerHTML = html;
+  };
+  // Pie de todas las páginas
+  $$(".footer__cols").forEach((cols) => {
+    if (SITE.address || SITE.city) setCol(cols, "Estudio", place(false));
+    if (SITE.hours) setCol(cols, "Horario", esc(lines(SITE.hours)[0] || ""));
+    if (social.length) setCol(cols, "Síguenos", social.join("<br>"));
+  });
+  const legal = $(".footer__legal");
+  if (legal && SITE.city) legal.textContent = `© ${new Date().getFullYear()} Charria Ceramics · ${SITE.city.replace(/^\d{4,5}\s*/, "")}`;
+  // Menú del móvil
+  const menuFoot = $(".mobile-menu__foot");
+  if (menuFoot && social.length) menuFoot.innerHTML = social[0];
+  // Página de contacto
+  const details = $(".contact__details");
+  if (details) {
+    if (SITE.address || SITE.city) setCol(details, "Estudio", place(true));
+    if (SITE.hours) setCol(details, "Horario", lines(SITE.hours).map(esc).join("<br>"));
+    const write = [SITE.email && link(`mailto:${SITE.email}`, SITE.email, false), SITE.phone && link(`tel:${digits(SITE.phone)}`, SITE.phone, false)].filter(Boolean);
+    if (write.length) setCol(details, "Escríbenos", write.join("<br>"));
+  }
+}
+
 function renderContent() {
+  renderSite();
   // Portada: solo las 5 piezas más recientes, repartidas en 3 columnas con parallax
   const latest = $("[data-latest-products]");
   if (latest) {
@@ -163,21 +212,34 @@ function renderContent() {
   // Portada: clases en grupo (una fila por horario) y modalidades de clase privada
   const classList = $(".class-list");
   if (classList && CLASSES) {
-    const rows = CLASSES.group.flatMap((c) => c.sessions.map((s) => ({ c, s })))
-      // Por fecha; los cursos largos (con etiqueta, p. ej. "Martes · 12 sesiones") al final
-      .sort((a, b) => (!!a.s.label - !!b.s.label) || a.s.starts_at.localeCompare(b.s.starts_at));
     const day = (d) => d.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "short" }).replace(/[.,]/g, "").replace(/^\w/, (m) => m.toUpperCase());
+    const weekday = (d) => d.toLocaleDateString("es-ES", { weekday: "long" }).replace(/^\w/, (m) => m.toUpperCase());
     const hours = (min) => `${String(min / 60).replace(".", ",")} h`;
-    classList.innerHTML = rows.length ? rows.map(({ c, s }) => {
+    const timeOf = (d) => d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    // Las clases semanales (misma clase, mismo día de la semana y hora, sin etiqueta) van en una sola fila
+    const slots = new Map();
+    CLASSES.group.forEach((c) => c.sessions.forEach((s) => {
       const d = new Date(s.starts_at.replace(" ", "T"));
-      const time = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-      const seats = s.seats_left === 0 ? "Completo" : `${s.seats_left} ${s.seats_left === 1 ? "plaza" : "plazas"}`;
+      const key = s.label ? `s${s.id}` : `${c.id}|${d.getDay()}|${timeOf(d)}`;
+      if (!slots.has(key)) slots.set(key, { key, c, sessions: [] });
+      slots.get(key).sessions.push({ ...s, date: d });
+    }));
+    SLOTS = slots;
+    const rows = [...slots.values()]
+      // Por fecha; los cursos largos (con etiqueta, p. ej. "Martes · 12 sesiones") al final
+      .sort((a, b) => (!!a.sessions[0].label - !!b.sessions[0].label) || a.sessions[0].starts_at.localeCompare(b.sessions[0].starts_at));
+    classList.innerHTML = rows.length ? rows.map(({ key, c, sessions }) => {
+      const s = sessions.find((x) => x.seats_left > 0) || sessions[0];
+      const weekly = sessions.length > 1;
+      const free = sessions.some((x) => x.seats_left > 0);
+      const seats = !free ? "Completo" : weekly ? `${weekday(s.date).toLowerCase()} ${s.date.getDate()} · ${s.seats_left} ${s.seats_left === 1 ? "plaza" : "plazas"}` : `${s.seats_left} ${s.seats_left === 1 ? "plaza" : "plazas"}`;
+      const meta = s.label ? `${esc(s.label)} · ${seats}` : `${timeOf(s.date)} · ${hours(c.duration_minutes)} · ${weekly ? `Próxima: ${seats}` : seats}`;
       return `<li class="class-row" data-img="${esc(c.image?.url || "")}">
-        <span class="class-row__date">${day(d)}</span>
+        <span class="class-row__date">${weekly ? `Cada ${weekday(s.date).toLowerCase()}` : day(s.date)}</span>
         <span class="class-row__name">${esc(c.title)}</span>
-        <span class="class-row__meta">${s.label ? `${esc(s.label)} · ${seats}` : `${time} · ${hours(c.duration_minutes)} · ${seats}`}</span>
+        <span class="class-row__meta">${meta}</span>
         <span class="class-row__price">${euros(s.price_cents)}</span>
-        <button class="btn-primary" type="button" data-book="${s.id}" data-seats="${s.seats_left}" data-title="${esc(c.title)} · ${day(d)}" ${s.seats_left ? "" : "disabled"}>${s.seats_left ? "Reservar" : "Completo"}</button>
+        <button class="btn-primary" type="button" data-book="${s.id}" data-slot="${esc(key)}" data-seats="${s.seats_left}" data-title="${esc(c.title)}${weekly ? "" : ` · ${day(s.date)}`}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
       </li>`;
     }).join("") : '<li class="class-row class-row--empty"><span class="class-row__name">Pronto publicaremos nuevas fechas.</span><a class="btn-primary" href="contacto.html">Avísame</a></li>';
   }
@@ -642,9 +704,23 @@ function initPage() {
     $$("[data-book]").forEach((btn) => {
       btn.addEventListener("click", () => {
         $("[data-modal-title]", modal).textContent = btn.dataset.title || btn.dataset.book;
-        form.dataset.session = btn.dataset.book;
-        const max = Math.max(1, Math.min(6, Number(btn.dataset.seats) || 3));
-        form.elements.seats.innerHTML = Array.from({ length: max }, (_, i) => `<option>${i + 1}</option>`).join("");
+        const slot = SLOTS.get(btn.dataset.slot);
+        const dateField = $("[data-date-field]", modal);
+        const setSession = (id, seatsLeft) => {
+          form.dataset.session = id;
+          const max = Math.max(1, Math.min(6, Number(seatsLeft) || 3));
+          form.elements.seats.innerHTML = Array.from({ length: max }, (_, i) => `<option>${i + 1}</option>`).join("");
+        };
+        if (slot && slot.sessions.length > 1) {
+          // Clase semanal: se elige la semana
+          const label = (x) => x.date.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }) + (x.seats_left ? "" : " · completo");
+          form.elements.date.innerHTML = slot.sessions.map((x) => `<option value="${x.id}" ${x.seats_left ? "" : "disabled"} ${String(x.id) === btn.dataset.book ? "selected" : ""}>${esc(label(x))}</option>`).join("");
+          form.elements.date.onchange = () => setSession(form.elements.date.value, slot.sessions.find((x) => String(x.id) === form.elements.date.value)?.seats_left);
+          dateField.hidden = false;
+        } else if (dateField) {
+          dateField.hidden = true;
+        }
+        setSession(btn.dataset.book, btn.dataset.seats);
         $(".form__ok", modal).hidden = true;
         modal.hidden = false;
         lenis && lenis.stop();

@@ -324,8 +324,9 @@ views.clases = async () => {
         class_id: Number(form.dataset.sessionForm), starts_at: f.starts_at.value, label: f.label.value,
         capacity: f.capacity.value === "" ? null : Number(f.capacity.value),
         price_cents: f.price.value === "" ? null : toCents(f.price.value),
+        repeat_weeks: Number(f.repeat.value),
       });
-      toast("Horario añadido");
+      toast(Number(f.repeat.value) > 1 ? `${f.repeat.value} horarios añadidos, uno cada semana` : "Horario añadido");
       views.clases();
     });
   }));
@@ -350,7 +351,15 @@ function classCard(c) {
         <td class="num"><button class="link-btn" data-class="${c.id}" data-session="${s.id}">Editar</button></td></tr>`).join("")}
     </tbody></table>` : ""}
     <div class="add-session"><form data-session-form="${c.id}">
-      ${field("Nuevo horario", '<input type="datetime-local" name="starts_at" required>')}
+      ${field("Nuevo horario", '<input type="datetime-local" name="starts_at" required>', "Primer día")}
+      ${field("Repetir cada semana", `<select name="repeat">
+        <option value="1">No, solo ese día</option>
+        <option value="4">Durante 1 mes</option>
+        <option value="8">Durante 2 meses</option>
+        <option value="13" selected>Durante 3 meses</option>
+        <option value="26">Durante 6 meses</option>
+        <option value="52">Durante 1 año</option>
+      </select>`, "Mismo día y hora")}
       ${field("Plazas", `<input type="number" name="capacity" min="1" max="100" placeholder="${c.capacity}">`)}
       ${field("Precio (€)", `<input name="price" inputmode="decimal" placeholder="${eurosInput(c.price_cents)}">`)}
       ${field("Etiqueta (opcional)", '<input name="label" maxlength="120" placeholder="Martes · 12 sesiones">')}
@@ -574,6 +583,29 @@ views.ajustes = async () => {
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Configuración</p><h1>Ajustes</h1></div></div>
     <form class="stack settings" data-form style="max-width:640px">
+      <section class="stack">
+        <h2 class="settings__title">Datos de la web</h2>
+        <p class="muted">Salen en el pie de todas las páginas, en el menú del móvil y en Contacto. Lo que dejes vacío se queda como está ahora en la web.</p>
+        ${field("Dirección del estudio", input("SITE_ADDRESS", v.SITE_ADDRESS, 'placeholder="Calle del Barro 12"'))}
+        <div class="grid-2">
+          ${field("Código postal y ciudad", input("SITE_CITY", v.SITE_CITY, 'placeholder="28012 Madrid"'))}
+          ${field("Enlace de Google Maps", input("SITE_MAPS_URL", v.SITE_MAPS_URL, 'type="url" placeholder="https://maps.app.goo.gl/…"'), "Opcional: la dirección se podrá pulsar")}
+        </div>
+        ${field("Horario", `<textarea name="SITE_HOURS" rows="3" maxlength="500" placeholder="Mar–Sáb · 10:00–20:00&#10;Dom y Lun · cerrado">${esc(v.SITE_HOURS || "")}</textarea>`, "Una línea por cada franja. En el pie sale solo la primera.")}
+        <div class="grid-2">
+          ${field("Email de contacto", input("SITE_EMAIL", v.SITE_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'))}
+          ${field("Teléfono", input("SITE_PHONE", v.SITE_PHONE, 'type="tel" placeholder="+34 600 000 000"'))}
+        </div>
+        <div class="grid-2">
+          ${field("WhatsApp", input("SITE_WHATSAPP", v.SITE_WHATSAPP, 'type="tel" placeholder="+34 600 000 000"'), "Opcional")}
+          ${field("Instagram", input("SITE_INSTAGRAM", v.SITE_INSTAGRAM, 'type="url" placeholder="https://www.instagram.com/ch.ceramics/"'))}
+        </div>
+        <div class="grid-2">
+          ${field("Facebook", input("SITE_FACEBOOK", v.SITE_FACEBOOK, 'type="url" placeholder="https://www.facebook.com/…"'), "Opcional")}
+          ${field("TikTok", input("SITE_TIKTOK", v.SITE_TIKTOK, 'type="url" placeholder="https://www.tiktok.com/@…"'), "Opcional")}
+        </div>
+      </section>
+
       <section class="stack">
         <h2 class="settings__title">Stripe · pagos ${mode}</h2>
         <p class="muted">En <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe → Desarrolladores → Claves de API</a> copia la <strong>clave secreta</strong> (sk_test_… para probar, sk_live_… para cobrar de verdad).</p>

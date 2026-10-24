@@ -762,3 +762,4 @@ html.cart-open { overflow: hidden; }
 .cart__body { overflow-x: hidden; }
 .cart__form input, .cart__form select { width: 100%; min-width: 0; }
 .cart__two > * { min-width: 0; }
+.form__field[hidden] { display: none; }
