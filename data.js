@@ -1,7 +1,8 @@
 /* ==========================================================
-   Charria Ceramics · Catálogo y galería
-   Para añadir una pieza, copia una línea y cambia sus datos.
-   "added" es la fecha de alta: la portada muestra las 5 más recientes.
+   Charria Ceramics · Copia de respaldo del catálogo y la galería
+   Los productos y fotos reales se gestionan desde el panel (/admin) y
+   llegan por la API. Este archivo solo se usa si la API no responde
+   (por ejemplo, al abrir la web con Live Server, sin PHP ni MySQL).
    ========================================================== */
 
 const UNSPLASH = (id, w = 900) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;

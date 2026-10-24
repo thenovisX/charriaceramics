@@ -1,0 +1,235 @@
+<?php
+declare(strict_types=1);
+
+namespace Charria\Controllers\Admin;
+
+use Charria\Database;
+use Charria\Http\HttpError;
+use Charria\Http\Request;
+use Charria\Http\Response;
+use Charria\Services\Catalog;
+use Charria\Services\ImageProcessor;
+use Charria\Validator;
+
+/** Clases, horarios (sesiones) y precios desde el panel. */
+final class ClassAdminController
+{
+    private function findClass(int $id): array
+    {
+        $row = Database::get()->one('SELECT * FROM classes WHERE id = ?', [$id]);
+        if (!$row) {
+            throw HttpError::notFound('Clase no encontrada');
+        }
+        return $row;
+    }
+
+    private function present(int $id): array
+    {
+        return Catalog::classes([$this->findClass($id)], true)[0];
+    }
+
+    private function validateClass(array $body, bool $creating): array
+    {
+        $v = new Validator($body);
+        $data = array_filter([
+            'title' => $v->string('title', $creating, 160, 2),
+            'kind' => $v->enum('kind', ['group', 'private'], $creating),
+            'description' => $v->string('description', false, 5000),
+            'duration_minutes' => $v->int('duration_minutes', false, 15, 6000),
+            'price_cents' => $v->int('price_cents', $creating, 0, 10_000_000),
+            'capacity' => $v->int('capacity', false, 1, 100),
+            'is_active' => ($b = $v->bool('is_active')) === null ? null : (int) $b,
+            'sort_order' => $v->int('sort_order', false, -1000, 1000),
+        ], static fn ($x) => $x !== null);
+        $v->check();
+        return $data;
+    }
+
+    public function index(Request $r): Response
+    {
+        $rows = Database::get()->all('SELECT * FROM classes ORDER BY kind, sort_order, id');
+        return Response::json(Catalog::classes($rows, true));
+    }
+
+    public function store(Request $r): Response
+    {
+        $data = $this->validateClass($r->body(), true);
+        $db = Database::get();
+        $base = Validator::slugify($data['title']);
+        $slug = $base;
+        for ($i = 2; $db->value('SELECT id FROM classes WHERE slug = ?', [$slug]); $i++) {
+            $slug = "$base-$i";
+        }
+        $id = $db->insert('classes', $data + ['slug' => $slug]);
+        return Response::created($this->present($id));
+    }
+
+    public function update(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $this->findClass($id);
+        Database::get()->update('classes', $this->validateClass($r->body(), false), 'id = :id', ['id' => $id]);
+        return Response::json($this->present($id));
+    }
+
+    /** Borra la clase y sus horarios. Las reservas existentes se conservan (con el título copiado). */
+    public function destroy(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $class = $this->findClass($id);
+        Database::get()->exec('DELETE FROM classes WHERE id = ?', [$id]);
+        if ($class['image_id']) {
+            ImageProcessor::delete((int) $class['image_id']);
+        }
+        return Response::noContent();
+    }
+
+    /** POST /admin/classes/{id}/image (multipart: image, crop=1) — sustituye la foto de la clase */
+    public function uploadImage(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $class = $this->findClass($id);
+        $image = ImageProcessor::store($r->files['image'] ?? null, 'class', $class['title'], filter_var($r->post['crop'] ?? false, FILTER_VALIDATE_BOOLEAN));
+        Database::get()->exec('UPDATE classes SET image_id = ? WHERE id = ?', [$image['id'], $id]);
+        if ($class['image_id']) {
+            ImageProcessor::delete((int) $class['image_id']);
+        }
+        return Response::json($this->present($id));
+    }
+
+    /* ---------------- Horarios ---------------- */
+
+    private function validateSession(array $body, bool $creating): array
+    {
+        $v = new Validator($body);
+        $data = [
+            'class_id' => $v->int('class_id', $creating, 1),
+            'starts_at' => $v->datetime('starts_at', $creating),
+            'label' => $v->string('label', false, 120),
+            'is_cancelled' => ($b = $v->bool('is_cancelled')) === null ? null : (int) $b,
+        ];
+        // price_cents / capacity: null o "" = usar los de la clase
+        foreach (['price_cents' => [0, 10_000_000], 'capacity' => [1, 100]] as $field => [$min, $max]) {
+            if ($v->has($field)) {
+                $data[$field] = ($body[$field] === null || $body[$field] === '') ? null : $v->int($field, false, $min, $max);
+            }
+        }
+        $v->check();
+        $data = array_filter($data, static fn ($x, $k) => $x !== null || in_array($k, ['price_cents', 'capacity'], true), ARRAY_FILTER_USE_BOTH);
+        if (isset($data['class_id']) && !Database::get()->value("SELECT 1 FROM classes WHERE id = ? AND kind = 'group'", [$data['class_id']])) {
+            throw HttpError::validation(['class_id' => 'Los horarios solo se crean para clases en grupo']);
+        }
+        return $data;
+    }
+
+    private function presentSession(int $id): array
+    {
+        $db = Database::get();
+        $s = $db->one('SELECT * FROM class_sessions WHERE id = ?', [$id]);
+        if (!$s) {
+            throw HttpError::notFound('Horario no encontrado');
+        }
+        return Catalog::session($s, $this->findClass((int) $s['class_id']), Catalog::seatsTaken([$id]));
+    }
+
+    /** POST /admin/sessions { class_id, starts_at, label, price_cents?, capacity? } */
+    public function storeSession(Request $r): Response
+    {
+        $id = Database::get()->insert('class_sessions', $this->validateSession($r->body(), true));
+        return Response::created($this->presentSession($id));
+    }
+
+    public function updateSession(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $this->presentSession($id);
+        Database::get()->update('class_sessions', $this->validateSession($r->body(), false), 'id = :id', ['id' => $id]);
+        return Response::json($this->presentSession($id));
+    }
+
+    /** Un horario con reservas confirmadas no se borra: se cancela (is_cancelled) para no perder el historial. */
+    public function destroySession(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $this->presentSession($id);
+        $db = Database::get();
+        if ($db->value("SELECT 1 FROM bookings WHERE session_id = ? AND status IN ('confirmed','pending_payment') LIMIT 1", [$id])) {
+            throw new HttpError(409, 'session_has_bookings', 'Este horario tiene reservas. Márcalo como cancelado en lugar de borrarlo.');
+        }
+        $db->exec('DELETE FROM class_sessions WHERE id = ?', [$id]);
+        return Response::noContent();
+    }
+
+    /* ---------------- Reservas ---------------- */
+
+    /** GET /admin/bookings?status=confirmed&upcoming=1 */
+    public function bookings(Request $r): Response
+    {
+        $where = ['1 = 1'];
+        $params = [];
+        $status = $r->query['status'] ?? '';
+        if (in_array($status, ['requested', 'pending_payment', 'confirmed', 'cancelled'], true)) {
+            $where[] = 'b.status = ?';
+            $params[] = $status;
+        }
+        if (!empty($r->query['session_id']) && ctype_digit((string) $r->query['session_id'])) {
+            $where[] = 'b.session_id = ?';
+            $params[] = (int) $r->query['session_id'];
+        }
+        if (!empty($r->query['upcoming'])) {
+            $where[] = '(b.starts_at IS NULL OR b.starts_at >= CURDATE())';
+        }
+        $rows = Database::get()->all(
+            'SELECT b.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+             FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id
+             WHERE ' . implode(' AND ', $where) . ' ORDER BY COALESCE(b.starts_at, b.preferred_date, b.created_at) DESC LIMIT 500',
+            $params
+        );
+        return Response::json(array_map([self::class, 'booking'], $rows));
+    }
+
+    /** PATCH /admin/bookings/{id} { status, notes, starts_at } — confirmar o cancelar (p. ej. una clase privada) */
+    public function updateBooking(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $db = Database::get();
+        if (!$db->value('SELECT 1 FROM bookings WHERE id = ?', [$id])) {
+            throw HttpError::notFound('Reserva no encontrada');
+        }
+        $v = new Validator($r->body());
+        $data = array_filter([
+            'status' => $v->enum('status', ['requested', 'confirmed', 'cancelled']),
+            'notes' => $v->string('notes', false, 2000),
+            'starts_at' => $v->datetime('starts_at'),
+        ], static fn ($x) => $x !== null);
+        $v->check();
+        $db->update('bookings', $data, 'id = :id', ['id' => $id]);
+        $row = $db->one(
+            'SELECT b.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+             FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id WHERE b.id = ?',
+            [$id]
+        );
+        return Response::json(self::booking($row));
+    }
+
+    public static function booking(array $b): array
+    {
+        return [
+            'id' => (int) $b['id'],
+            'reference' => $b['reference'],
+            'status' => $b['status'],
+            'class_id' => $b['class_id'] ? (int) $b['class_id'] : null,
+            'session_id' => $b['session_id'] ? (int) $b['session_id'] : null,
+            'class_title' => $b['class_title'],
+            'starts_at' => $b['starts_at'],
+            'preferred_date' => $b['preferred_date'],
+            'preferred_slot' => $b['preferred_slot'],
+            'seats' => (int) $b['seats'],
+            'total_cents' => (int) $b['total_cents'],
+            'notes' => (string) $b['notes'],
+            'customer' => ['name' => $b['customer_name'], 'email' => $b['customer_email'], 'phone' => $b['customer_phone']],
+            'paid_at' => $b['paid_at'],
+            'created_at' => $b['created_at'],
+        ];
+    }
+}

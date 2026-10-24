@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Instalación · Charria Ceramics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz@6..96&family=Montserrat:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css?v=1">
+</head>
+<body>
+  <main class="login">
+    <form class="login__box" data-setup-form>
+      <p class="eyebrow">Instalación · solo la primera vez</p>
+      <h1 class="login__title">Charria <span>Ceramics</span></h1>
+      <p class="muted">Crea las tablas de la base de datos y tu usuario del panel. Necesitas el <strong>SETUP_TOKEN</strong> que pusiste en el archivo .env.</p>
+      <label class="field"><span>Token de instalación</span><input name="token" required autocomplete="off"></label>
+      <label class="field"><span>Tu nombre</span><input name="name" maxlength="120"></label>
+      <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="username"></label>
+      <label class="field"><span>Contraseña</span><input type="password" name="password" minlength="10" required autocomplete="new-password"><small>Mínimo 10 caracteres</small></label>
+      <label class="check"><input type="checkbox" name="seed" checked> Cargar las piezas, clases y fotos de ejemplo que ya tiene la web</label>
+      <button class="btn" type="submit">Instalar</button>
+      <p class="form-error" data-error hidden></p>
+      <p class="notice notice--ok" data-ok hidden>Listo. Ahora <strong>borra SETUP_TOKEN del .env</strong> y entra en el <a href="./">panel</a>.</p>
+    </form>
+  </main>
+  <script src="setup.js?v=1"></script>
+</body>
+</html>

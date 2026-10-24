@@ -1,0 +1,31 @@
+# ==========================================================
+# Charria Ceramics · public_html
+# ==========================================================
+Options -Indexes
+DirectoryIndex index.html
+
+# Nada que empiece por punto (.env, .git, .htaccess...) es accesible
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule (^|/)\. - [F,L]
+  # Carpeta interna del backend
+  RewriteRule ^backend(/|$) - [F,L]
+  # Forzar HTTPS (necesario para pagos)
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+<FilesMatch "(?i)(^\.|\.(env|sql|log|md|lock|sh|ini|bak)$|composer\.(json|lock)$)">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
