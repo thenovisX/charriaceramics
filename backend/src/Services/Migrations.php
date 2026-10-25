@@ -23,7 +23,7 @@ final class Migrations
         4 => 'payInPerson',
         5 => 'classPayments',
         6 => 'bookingCalendar',
-        7 => 'webContent',
+        8 => 'webContent',
     ];
 
     public static function latest(): int
@@ -205,7 +205,7 @@ final class Migrations
     }
 
     /**
-     * 7 · Contenido de la web: peso de la pieza en la ficha, etiqueta de
+     * 8 · Contenido de la web: peso de la pieza en la ficha, etiqueta de
      * disponibilidad de cada obra de la galería, fotos sueltas de la web
      * (la del estudio) y reseñas de clientes.
      */
