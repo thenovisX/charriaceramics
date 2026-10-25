@@ -8,7 +8,7 @@
   --paper: #ece6dc;
   --ink: #1a1816;
   --clay: #a67c5b;
-  --muted: #6f685f;
+  --muted: #4d4740;  /* gris cálido oscuro: 8:1 sobre marfil y 7,4:1 sobre papel (WCAG AA y AAA) */
   --serif: "Bodoni Moda", "Didot", serif;
   --sans: "Montserrat", system-ui, sans-serif;
   --gap: clamp(5rem, 2rem + 12vw, 14rem);
@@ -136,6 +136,13 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .header__nav--right { justify-content: flex-end; }
 .header__logo { font-family: var(--serif); font-size: 1.6rem; letter-spacing: 0.3em; text-transform: uppercase; white-space: nowrap; }
 .header__logo span { font-size: 0.62em; letter-spacing: 0.35em; }
+/* Al bajar, la cabecera deja de ser transparente para no pisar fotos ni textos (Galería, Clases…):
+   fondo marfil de la web, texto tinta y sin mix-blend-mode (que invertiría el fondo). */
+.header { transition: background-color .45s var(--ease), box-shadow .45s var(--ease); }
+.header.is-solid {
+  mix-blend-mode: normal; color: var(--ink); background: var(--ivory);
+  box-shadow: 0 1px 0 rgba(26,24,22,.08);
+}
 .header a, .cart-btn { position: relative; }
 .header__nav a::after {
   content: ""; position: absolute; left: 0; bottom: -4px; width: 100%; height: 1px;
@@ -726,7 +733,7 @@ html.cart-open { overflow: hidden; }
 .cart-line__title { font-family: var(--serif); font-size: 1.2rem; line-height: 1.2; }
 .cart-line__price { font-size: var(--fs-small); margin-top: .2rem; }
 .cart-line__price s, .product__price s { color: var(--muted); margin-right: .2rem; }
-.cart-line__off { color: var(--clay); }
+.cart-line__off { color: #7d5a3f; } /* arcilla oscurecida: 5:1 sobre el fondo */
 .cart-line__error { color: #9c3d2e; font-size: var(--fs-small); margin-top: .3rem; }
 .cart-line.is-unavailable .cart-line__img { opacity: .4; }
 .cart-line__remove { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .15em; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
