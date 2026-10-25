@@ -302,14 +302,16 @@ function productForm(p) {
         ${field("Descuento (%)", input("discount_percent", p?.discount_percent ?? 0, 'type=number min=0 max=90'))}
         ${field("Stock (unidades)", input("stock", p?.stock ?? 1, "type=number min=0"))}
       </div>
-      ${field("Descripción", `<textarea name="description" maxlength="5000">${esc(p?.description)}</textarea>`, "Se ve en la ficha del producto. Deja una línea en blanco para separar párrafos.")}
+      ${field("Descripción", `<textarea name="description" maxlength="5000" placeholder="Cuenco de gres torneado a mano con esmalte arena.">${esc(p?.description)}</textarea>`, "Se ve en la ficha del producto. Una frase con la técnica, el material y el esmalte. Deja una línea en blanco para separar párrafos.")}
 
       <h3 class="form-section">Ficha del producto</h3>
       <div class="grid-2">
-        ${field("Medidas de la pieza", input("dimensions", p?.dimensions, 'maxlength=160 placeholder="Ø 14 × 7 cm"'), "Tal y como quieres que se lea en la ficha")}
-        ${field("Material", input("material", p?.material, 'maxlength=160 placeholder="Gres, porcelana, barro rojo…"'))}
+        ${field("Medidas de la pieza", input("dimensions", p?.dimensions, 'maxlength=160 placeholder="Alto 7 cm × Ø 14 cm"'), "Alto × diámetro, tal y como quieres que se lea en la ficha")}
+        ${field("Peso de la pieza (g)", input("piece_weight_grams", p?.piece_weight_grams || "", 'type=number min=0 max=100000 placeholder="Sin indicar"'), "Lo que pesa la pieza, sin caja. Vacío: no se enseña")}
       </div>
-      ${field("Cuidados", `<textarea name="care" maxlength="3000" rows="3" placeholder="Apto para lavavajillas en programa suave…">${esc(p?.care)}</textarea>`)}
+      ${field("Material", input("material", p?.material, 'maxlength=160 placeholder="Gres, porcelana, barro rojo…"'))}
+      ${field("Cuidados", `<textarea name="care" maxlength="3000" rows="3" placeholder="Apto para lavavajillas y microondas.">${esc(p ? p.care : "Apto para lavavajillas y microondas.")}</textarea>`, p ? "" : "Viene puesto el texto más habitual: cámbialo si la pieza es decorativa o no admite lavavajillas.")}
+      <p class="muted" style="font-size:.85rem">En la ficha también sale «Envío: 2–5 días laborables» mientras la pieza esté disponible.</p>
       <div class="field"><span>Más especificaciones</span>
         <div class="specs" data-specs>${(p?.specs || []).map(specRow).join("")}</div>
         <input type="hidden" name="specs">
@@ -319,7 +321,7 @@ function productForm(p) {
 
       <h3 class="form-section">Envío</h3>
       <div class="grid-2">
-        ${field("Peso (g)", input("weight_grams", p?.weight_grams ?? 1000, "type=number min=1"), "Para calcular el envío")}
+        ${field("Peso con embalaje (g)", input("weight_grams", p?.weight_grams ?? 1000, "type=number min=1"), "Para calcular el envío, no se enseña en la web")}
         ${field("Paquete L × An × Al (cm)", `<div class="row" style="flex-wrap:nowrap">${input("length_cm", p?.length_cm ?? 0, "type=number min=0 aria-label=Largo")}${input("width_cm", p?.width_cm ?? 0, "type=number min=0 aria-label=Ancho")}${input("height_cm", p?.height_cm ?? 0, "type=number min=0 aria-label=Alto")}</div>`, "Medidas de la caja, no se enseñan en la web")}
       </div>
       ${p ? "" : `<h3 class="form-section">Fotos</h3>
@@ -344,7 +346,7 @@ function productForm(p) {
         title: f.title.value, category: f.category.value, description: f.description.value,
         price_cents: f.price.value ? toCents(f.price.value) : null,
         discount_percent: Number(f.discount_percent.value || 0), stock: Number(f.stock.value || 0),
-        dimensions: f.dimensions.value, material: f.material.value, care: f.care.value,
+        dimensions: f.dimensions.value, piece_weight_grams: Number(f.piece_weight_grams.value || 0), material: f.material.value, care: f.care.value,
         specs: $$("[data-spec]", specs).map((row) => ({ label: $("[name=spec_label]", row).value, value: $("[name=spec_value]", row).value })),
         weight_grams: Number(f.weight_grams.value || 1000), length_cm: Number(f.length_cm.value || 0),
         width_cm: Number(f.width_cm.value || 0), height_cm: Number(f.height_cm.value || 0),
@@ -798,6 +800,13 @@ async function calendarBookingForm(day, done) {
 }
 
 /* ---------- Galería ---------- */
+// Etiqueta bajo cada obra en la web
+const AVAILABILITY = { unique: ["Obra única (No disponible)", ""], on_request: ["Disponible bajo pedido (Consultar precios)", "ok"], none: ["Sin etiqueta", ""] };
+const availabilityBadge = (a) => { const [t, c] = AVAILABILITY[a] || AVAILABILITY.unique; return `<span class="badge${c ? ` badge--${c}` : ""}">${t}</span>`; };
+const availabilityField = (current) => field("Etiqueta bajo la obra",
+  `<select name="availability">${Object.entries(AVAILABILITY).map(([v, [t]]) => `<option value="${v}" ${v === current ? "selected" : ""}>${t}</option>`).join("")}</select>`,
+  "«Bajo pedido» enlaza al formulario de contacto con el nombre de la obra. Usa «Sin etiqueta» para fotos del taller.");
+
 views.galeria = async () => {
   const items = await api("GET", "/admin/gallery");
   main.innerHTML = `
@@ -807,6 +816,7 @@ views.galeria = async () => {
       <img src="${esc(g.image.thumb_url)}" alt="${esc(g.image.alt)}" loading="lazy">
       <div class="g-item__body">
         <p class="g-item__title">${esc(g.title)}</p><p class="muted" style="font-size:.82rem">${esc(g.technique)} · ${esc(g.year)}</p>
+        <p style="font-size:.82rem">${availabilityBadge(g.availability)}</p>
         ${toggle("is_published", g.is_published, "Publicada")}
         <div class="g-item__actions">
           <button type="button" data-move="-1" ${i === 0 ? "disabled" : ""} aria-label="Mover antes">←</button>
@@ -818,6 +828,7 @@ views.galeria = async () => {
     const body = openDrawer("Subir obra", uploadForm("gallery", `
       ${field("Título", '<input name="title" required maxlength="160">')}
       <div class="grid-2">${field("Técnica", '<input name="technique" maxlength="160" placeholder="Gres y engobe">')}${field("Año", `<input name="year" maxlength="10" value="${new Date().getFullYear()}">`)}</div>
+      ${availabilityField("unique")}
       ${field("Descripción de la foto (texto alternativo)", '<input name="alt" maxlength="255" placeholder="Jarrón de gres torneado a mano en esmalte arena">', "Lo leen Google y las personas que no ven la foto. Si lo dejas vacío se usa el título y la técnica")}`));
     wireUpload(body, "/admin/gallery", () => { closeDrawer(); views.galeria(); });
   });
@@ -843,6 +854,7 @@ views.galeria = async () => {
         <img src="${esc(g.image.thumb_url)}" alt="" style="border-radius:6px">
         ${field("Título", input("title", g.title, "required maxlength=160"))}
         <div class="grid-2">${field("Técnica", input("technique", g.technique, "maxlength=160"))}${field("Año", input("year", g.year, "maxlength=10"))}</div>
+        ${availabilityField(g.availability)}
         ${field("Descripción de la foto (texto alternativo)", input("alt", g.image.alt, 'maxlength=255 placeholder="Jarrón de gres torneado a mano en esmalte arena"'), "Lo leen Google y las personas que no ven la foto")}
         <div class="row row--end"><button class="btn" type="submit">Guardar</button></div></form>`);
       const form = $("[data-form]", body);
@@ -850,13 +862,78 @@ views.galeria = async () => {
         e.preventDefault();
         submitting(form, async () => {
           const f = form.elements;
-          await api("PATCH", `/admin/gallery/${id}`, { title: f.title.value, technique: f.technique.value, year: f.year.value, alt: f.alt.value });
+          await api("PATCH", `/admin/gallery/${id}`, { title: f.title.value, technique: f.technique.value, year: f.year.value, availability: f.availability.value, alt: f.alt.value });
           toast("Obra guardada"); closeDrawer(); views.galeria();
         });
       });
     });
   });
 };
+
+/* ---------- Reseñas (portada) ---------- */
+const stars = (n) => n ? `<span aria-label="${n} de 5">${"★".repeat(n)}<span class="muted">${"★".repeat(5 - n)}</span></span>` : '<span class="muted">—</span>';
+
+views.resenas = async () => {
+  const items = await api("GET", "/admin/reviews");
+  main.innerHTML = `
+    <div class="page-head"><div><p class="eyebrow">Web</p><h1>Reseñas</h1>
+      <p>Opiniones de compradores y alumnos para la portada. Publica solo opiniones reales y con permiso de quien la escribe (basta el nombre y la inicial del apellido). Mientras no haya ninguna publicada, la sección no sale en la web.</p></div>
+      <button class="btn" data-new>Añadir reseña</button></div>
+    <div class="table-wrap">${items.length ? `<table><thead><tr><th>Autor</th><th>Reseña</th><th>Valoración</th><th>Publicada</th><th></th></tr></thead><tbody>
+      ${items.map((r, i) => `<tr data-id="${r.id}"><td>${esc(r.author)}${r.context ? `<br><span class="muted" style="font-size:.82rem">${esc(r.context)}</span>` : ""}</td>
+        <td>${esc(r.body.length > 140 ? r.body.slice(0, 140) + "…" : r.body)}</td><td>${stars(r.rating)}</td>
+        <td>${toggle("is_published", r.is_published, "Publicada")}</td>
+        <td class="num" style="white-space:nowrap"><button class="link-btn" data-move="-1" ${i ? "" : "disabled"} aria-label="Subir">↑</button> <button class="link-btn" data-move="1" ${i < items.length - 1 ? "" : "disabled"} aria-label="Bajar">↓</button> <button class="link-btn" data-edit>Editar</button></td></tr>`).join("")}
+    </tbody></table>` : '<p class="empty">Todavía no hay reseñas. Añade las que te hayan dejado por email, Instagram, Google o en persona.</p>'}</div>`;
+  $("[data-new]").addEventListener("click", () => reviewForm(null));
+  const ids = items.map((r) => r.id);
+  $$("tr[data-id]").forEach((tr) => {
+    const id = Number(tr.dataset.id);
+    $("input[name=is_published]", tr).addEventListener("change", async (e) => {
+      try { await api("PATCH", `/admin/reviews/${id}`, { is_published: e.target.checked }); toast(e.target.checked ? "Publicada" : "Oculta"); } catch (err) { e.target.checked = !e.target.checked; fail(err); }
+    });
+    $$("[data-move]", tr).forEach((b) => b.addEventListener("click", async () => {
+      const i = ids.indexOf(id);
+      const j = i + Number(b.dataset.move);
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      try { await api("PUT", "/admin/reviews/order", { ids }); views.resenas(); } catch (e) { fail(e); }
+    }));
+    $("[data-edit]", tr).addEventListener("click", () => reviewForm(items.find((r) => r.id === id)));
+  });
+};
+
+function reviewForm(r) {
+  const body = openDrawer(r ? `Reseña de ${r.author}` : "Nueva reseña", `
+    <form class="stack" data-form novalidate>
+      <div class="grid-2">
+        ${field("Nombre", input("author", r?.author, 'required maxlength=120 placeholder="Lucía M."'), "Nombre e inicial del apellido")}
+        ${field("Quién es", input("context", r?.context, 'maxlength=160 placeholder="Alumna del curso de torno"'), "Opcional: qué compró o a qué clase vino")}
+      </div>
+      ${field("Reseña", `<textarea name="body" rows="5" maxlength="2000" required>${esc(r?.body)}</textarea>`, "Copia sus palabras tal cual; puedes acortarla si no cambia el sentido.")}
+      <div class="grid-2">
+        ${field("Valoración", `<select name="rating"><option value="">Sin estrellas</option>${[5, 4, 3, 2, 1].map((n) => `<option value="${n}" ${r?.rating === n ? "selected" : ""}>${"★".repeat(n)} (${n})</option>`).join("")}</select>`)}
+        ${field("Fecha", input("review_date", r?.review_date || "", "type=date"), "Opcional, no se enseña en la web")}
+      </div>
+      ${toggle("is_published", r ? r.is_published : true, "Publicada en la web")}
+      <div class="row row--end">${r ? '<button class="btn btn--danger" type="button" data-delete>Borrar</button>' : ""}<button class="btn" type="submit">${r ? "Guardar cambios" : "Añadir reseña"}</button></div>
+    </form>`);
+  const form = $("[data-form]", body);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitting(form, async () => {
+      const f = form.elements;
+      const data = { author: f.author.value, context: f.context.value, body: f.body.value, rating: f.rating.value, review_date: f.review_date.value, is_published: f.is_published.checked };
+      r ? await api("PATCH", `/admin/reviews/${r.id}`, data) : await api("POST", "/admin/reviews", data);
+      toast(r ? "Reseña guardada" : "Reseña añadida");
+      closeDrawer();
+      views.resenas();
+    });
+  });
+  $("[data-delete]", body)?.addEventListener("click", async () => {
+    if (!confirm(`¿Borrar la reseña de ${r.author}?`)) return;
+    try { await api("DELETE", `/admin/reviews/${r.id}`); toast("Reseña borrada"); closeDrawer(); views.resenas(); } catch (e) { fail(e); }
+  });
+}
 
 /* ---------- Clientes y privacidad (RGPD) ---------- */
 const CONSENT_LABEL = { terms: "Condiciones y privacidad", marketing: "Comunicaciones comerciales", profile: "Guardar perfil" };
@@ -1003,7 +1080,7 @@ views.ajustes = async () => {
         </div>
         ${field("Horario", `<textarea name="SITE_HOURS" rows="3" maxlength="500" placeholder="Mar–Sáb · 10:00–20:00&#10;Dom y Lun · cerrado">${esc(v.SITE_HOURS || "")}</textarea>`, "Una línea por cada franja. En el pie sale solo la primera.")}
         <div class="grid-2">
-          ${field("Email de contacto", input("SITE_EMAIL", v.SITE_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'))}
+          ${field("Email de contacto", input("SITE_EMAIL", v.SITE_EMAIL, 'type="email" placeholder="hola@tudominio.com"'), "Mejor uno con tu dominio que uno de Gmail: da más confianza. Créalo en hPanel → Emails.")}
           ${field("Teléfono", input("SITE_PHONE", v.SITE_PHONE, 'type="tel" placeholder="+34 600 000 000"'))}
         </div>
         <div class="grid-2">
@@ -1013,6 +1090,20 @@ views.ajustes = async () => {
         <div class="grid-2">
           ${field("Facebook", input("SITE_FACEBOOK", v.SITE_FACEBOOK, 'type="url" placeholder="https://www.facebook.com/…"'), "Opcional")}
           ${field("TikTok", input("SITE_TIKTOK", v.SITE_TIKTOK, 'type="url" placeholder="https://www.tiktok.com/@…"'), "Opcional")}
+        </div>
+      </section>
+
+      <section class="stack">
+        <h2 class="settings__title">El estudio (portada)</h2>
+        <p class="muted">La sección «Del barro a tu mesa» de la portada: una foto trabajando en el taller y un texto corto sobre cómo hacéis las piezas. Los cuatro pasos del proceso se quedan debajo.</p>
+        ${field("Texto", `<textarea name="SITE_STUDIO_TEXT" rows="5" maxlength="1500" placeholder="Cada pieza empieza como un puñado de barro en el torno…">${esc(v.SITE_STUDIO_TEXT || "")}</textarea>`, "Deja una línea en blanco para separar párrafos. Vacío: se queda el texto de ejemplo.")}
+        <div class="field" data-studio-photo><span>Foto</span>
+          ${s.studio_image ? `<img src="${esc(s.studio_image.thumb_url)}" alt="" style="max-width:220px;border-radius:6px">` : '<p class="muted">Ahora sale una foto de ejemplo. Sube una vuestra en el torno o en el taller.</p>'}
+          <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Foto del estudio">
+          <input type="text" maxlength="255" placeholder="Descripción de la foto (p. ej. Manos centrando el barro en el torno)" aria-label="Descripción de la foto" value="${esc(s.studio_image?.alt || "")}">
+          <label class="check"><input type="checkbox" data-crop checked> Recortar automáticamente si la proporción no encaja</label>
+          <small>Vertical 4:5 o 3:4 queda mejor (también vale 1:1, 4:3 o 3:2) · mínimo 1000 px de ancho.</small>
+          <div class="row"><button type="button" class="btn btn--small" data-studio-upload>Subir foto</button>${s.studio_image ? '<button type="button" class="btn btn--small btn--ghost" data-studio-remove>Quitar y volver a la de ejemplo</button>' : ""}</div>
         </div>
       </section>
 
@@ -1121,6 +1212,22 @@ views.ajustes = async () => {
   $$("[data-clear]", form).forEach((b) => b.addEventListener("click", () => {
     if (confirm("¿Borrar esta clave del panel?")) save([b.dataset.clear]);
   }));
+  const photo = $("[data-studio-photo]", form);
+  $("[data-studio-upload]", photo).addEventListener("click", async (e) => {
+    const file = $("input[type=file]", photo).files[0];
+    if (!file) return toast("Elige una foto", true);
+    const fd = new FormData();
+    fd.append("image", file);
+    fd.append("alt", $("input[type=text]", photo).value.trim());
+    if ($("[data-crop]", photo).checked) fd.append("crop", "1");
+    e.target.disabled = true;
+    try { await api("POST", "/admin/settings/studio-image", fd); toast("Foto del estudio guardada"); await views.ajustes(); }
+    catch (err) { fail(err.fields?.image ? { message: err.fields.image } : err); } finally { e.target.disabled = false; }
+  });
+  $("[data-studio-remove]", photo)?.addEventListener("click", async () => {
+    if (!confirm("¿Quitar la foto del estudio? Volverá a salir la de ejemplo.")) return;
+    try { await api("DELETE", "/admin/settings/studio-image"); toast("Foto quitada"); await views.ajustes(); } catch (e) { fail(e); }
+  });
   $("[data-copy-btn]", form).addEventListener("click", () => {
     navigator.clipboard?.writeText(s.webhook_url).then(() => toast("URL copiada"), () => {});
   });

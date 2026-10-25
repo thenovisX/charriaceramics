@@ -37,7 +37,7 @@ INSERT INTO images (id, kind, url, width, height, alt) VALUES
   (27, 'product', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?auto=format&fit=crop&w=900&h=1125&q=80', 900, 1125, 'Manos en el torno');
 
 INSERT INTO products (id, slug, title, description, category, price_cents, stock, weight_grams, dimensions, material, care, specs, created_at) VALUES
-  (1, 'cuenco-arena', 'Cuenco Arena', 'Cuenco de gres torneado a mano con esmalte arena.', 'Cuencos', 3800, 3, 600, 'Ø 14 × 7 cm', 'Gres', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Capacidad","value":"450 ml"},{"label":"Acabado","value":"Esmalte satinado arena"},{"label":"Lavavajillas","value":"Sí, programa suave"}]', '2026-10-20 10:00:00'),
+  (1, 'cuenco-arena', 'Cuenco Arena', 'Cuenco de gres torneado a mano con esmalte arena.', 'Cuencos', 3800, 3, 600, 'Alto 7 cm × Ø 14 cm', 'Gres', 'Apto para lavavajillas y microondas.', '[{"label":"Capacidad","value":"450 ml"},{"label":"Acabado","value":"Esmalte satinado arena"}]', '2026-10-20 10:00:00'),
   (2, 'jarron-duna', 'Jarrón Duna', 'Jarrón de gres con textura de duna.', 'Jarrones', 7200, 2, 1400, 'Ø 12 × 28 cm', 'Gres chamotado', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Apto para agua","value":"Sí, interior esmaltado"}]', '2026-10-18 10:00:00'),
   (3, 'taza-niebla', 'Taza Niebla', 'Taza esmaltada en gris niebla, 250 ml.', 'Tazas', 2600, 6, 350, 'Ø 8 × 9 cm', 'Gres', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Capacidad","value":"250 ml"},{"label":"Microondas","value":"Sí"}]', '2026-10-15 10:00:00'),
   (4, 'plato-sal', 'Plato Sal', 'Plato llano de 26 cm en blanco sal.', 'Platos', 3200, 5, 800, 'Ø 26 cm', 'Gres blanco', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[]', '2026-10-12 10:00:00'),
@@ -52,15 +52,15 @@ INSERT INTO product_images (product_id, image_id, sort_order) VALUES
   (1, 1, 0), (2, 2, 0), (3, 3, 0), (4, 4, 0), (5, 5, 0), (6, 6, 0), (7, 7, 0), (8, 8, 0), (9, 9, 0), (10, 10, 0),
   (1, 23, 1), (2, 24, 1), (7, 25, 1), (10, 26, 1), (3, 27, 1);
 
-INSERT INTO gallery_items (image_id, title, technique, year, sort_order) VALUES
-  (11, 'Serie Raíz',        'Gres y engobe',           '2025', 1),
-  (12, 'Silencio blanco',   'Porcelana sin esmaltar',  '2025', 2),
-  (13, 'Vasija nº 7',       'Torno, cocción a leña',   '2025', 3),
-  (14, 'Mesa de taller',    'Vajilla de uso diario',   '2024', 4),
-  (15, 'Tierra cocida',     'Barro rojo bruñido',      '2024', 5),
-  (16, 'Ceniza',            'Esmalte de ceniza',       '2024', 6),
-  (17, 'Tres formas',       'Gres blanco',             '2024', 7),
-  (18, 'Manos en el torno', 'El estudio',              '2023', 8);
+INSERT INTO gallery_items (image_id, title, technique, year, availability, sort_order) VALUES
+  (11, 'Serie Raíz',        'Gres y engobe',           '2025', 'unique',     1),
+  (12, 'Silencio blanco',   'Porcelana sin esmaltar',  '2025', 'on_request', 2),
+  (13, 'Vasija nº 7',       'Torno, cocción a leña',   '2025', 'unique',     3),
+  (14, 'Mesa de taller',    'Vajilla de uso diario',   '2024', 'on_request', 4),
+  (15, 'Tierra cocida',     'Barro rojo bruñido',      '2024', 'unique',     5),
+  (16, 'Ceniza',            'Esmalte de ceniza',       '2024', 'on_request', 6),
+  (17, 'Tres formas',       'Gres blanco',             '2024', 'unique',     7),
+  (18, 'Manos en el torno', 'El estudio',              '2023', 'none',       8);
 
 INSERT INTO classes (id, slug, kind, title, description, duration_minutes, price_cents, capacity, image_id, sort_order) VALUES
   (1, 'iniciacion-torno',   'group',   'Iniciación al torno',                'Primer contacto con el torno: centrado, apertura y subida de paredes.', 180, 6500,  6, 19, 1),

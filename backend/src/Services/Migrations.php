@@ -24,6 +24,7 @@ final class Migrations
         5 => 'classPayments',
         6 => 'bookingCalendar',
         7 => 'weekendHours',
+        8 => 'webContent',
     ];
 
     public static function latest(): int
@@ -223,6 +224,24 @@ final class Migrations
         if (is_string($new) && $new !== $hours) {
             $db->exec("UPDATE settings SET value = ? WHERE name = 'SITE_HOURS'", [$new]);
         }
+    }
+
+    /**
+     * 8 · Contenido de la web: peso de la pieza en la ficha, etiqueta de
+     * disponibilidad de cada obra de la galería, fotos sueltas de la web
+     * (la del estudio) y reseñas de clientes.
+     */
+    private static function webContent(Database $db): void
+    {
+        self::addColumn($db, 'products', 'piece_weight_grams', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER material');
+        self::addColumn($db, 'gallery_items', 'availability', "ENUM('unique','on_request','none') NOT NULL DEFAULT 'unique' AFTER year");
+        $type = (string) $db->value(
+            "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'images' AND COLUMN_NAME = 'kind'"
+        );
+        if (!str_contains($type, "'site'")) {
+            $db->pdo()->exec("ALTER TABLE images MODIFY COLUMN kind ENUM('product','gallery','class','site') NOT NULL");
+        }
+        self::createTables($db, ['reviews']);
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */
