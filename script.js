@@ -51,12 +51,15 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const euros = (cents) => (cents / 100).toLocaleString("es-ES", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 }) + " €";
 
 // Formato común para productos y obras, vengan de la API o de data.js
+// Si en el panel se deja vacía la descripción de una foto, el alt se arma con lo que se sabe de la pieza
+const productAlt = (p) => [p.title, p.material, p.category].filter(Boolean).join(" · ");
+const galleryAlt = (g) => [g.title, g.technique, g.year].filter(Boolean).join(" · ");
 const fromApiProduct = (p) => ({
   id: p.id, slug: p.slug, name: p.title, category: p.category, added: p.created_at,
   price: p.final_price_cents / 100, priceCents: p.final_price_cents, originalCents: p.price_cents,
   discount: p.discount_percent, soldOut: p.sold_out, lowStock: p.low_stock,
-  img: p.images[0]?.url || "", alt: p.images[0]?.alt || p.title,
-  images: p.images.map((i) => ({ url: i.url, thumb: i.thumb_url, alt: i.alt || p.title })),
+  img: p.images[0]?.url || "", alt: p.images[0]?.alt || productAlt(p),
+  images: p.images.map((i) => ({ url: i.url, thumb: i.thumb_url, alt: i.alt || productAlt(p) })),
   description: p.description || "", dimensions: p.dimensions || "", material: p.material || "", care: p.care || "", specs: p.specs || [],
   weight: p.piece_weight_grams || 0,
 });
@@ -66,17 +69,19 @@ const fromLocalProduct = (p) => ({
   images: (p.images || [p.img]).map((url) => ({ url, thumb: url, alt: p.alt })),
 });
 const productUrl = (p) => `producto.html?p=${encodeURIComponent(p.slug)}`;
-const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.technique, availability: g.availability, img: g.image.url, thumb: g.image.thumb_url, alt: g.image.alt || g.title });
+const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.technique, availability: g.availability, img: g.image.url, thumb: g.image.thumb_url, alt: g.image.alt || galleryAlt(g) });
 // Etiqueta bajo cada obra (Panel → Galería): pieza única o disponible bajo pedido
 const AVAILABILITY = { unique: "Obra única (No disponible)", on_request: "Disponible bajo pedido (Consultar precios)" };
 const askUrl = (g) => `contacto.html?obra=${encodeURIComponent(g.title)}#contacto`;
 
 let PRODUCTS = [];
 let GALLERY = [];
-let CLASSES = null;  // null = sin API: se quedan las clases escritas en el HTML
+let CLASSES = null;  // null = sin API: no se inventan fechas, se invita a escribir
 let SITE = null;     // datos de contacto de Panel → Ajustes (null = se queda el HTML)
 let REVIEWS = [];    // reseñas publicadas en Panel → Reseñas (sin ninguna, la sección no se enseña)
 let SLOTS = new Map(); // filas de clases: un horario suelto o todas las semanas de una clase semanal
+// Para cart.js: dónde se recoge un pedido (Panel → Ajustes → Datos de la web)
+window.pickupPlace = () => [SITE?.address, SITE?.city].filter(Boolean).join(", ") || "En el estudio de Tomiño (Pontevedra)";
 
 async function loadContent() {
   const wants = (sel) => !!document.querySelector(sel);
@@ -148,6 +153,8 @@ function renderSite() {
   const menuFoot = $(".mobile-menu__foot");
   if (menuFoot && social.length) menuFoot.innerHTML = social[0];
   // Página de contacto
+  const placeName = $("[data-site-place]");
+  if (placeName && SITE.city) placeName.textContent = SITE.city.replace(/^\d{4,5}\s*/, "");
   const details = $(".contact__details");
   if (details) {
     if (SITE.address || SITE.city) setCol(details, "Estudio", place(true));
@@ -270,6 +277,8 @@ function renderContent() {
 
   // Portada: clases en grupo (una fila por horario) y modalidades de clase privada
   const classList = $(".class-list");
+  if (classList) classList.removeAttribute("aria-busy");
+  if (classList && !CLASSES) classList.innerHTML = '<li class="class-row class-row--empty"><span class="class-row__name">Escríbenos y te contamos las próximas fechas.</span><a class="btn-primary" href="contacto.html">Contactar</a></li>';
   if (classList && CLASSES) {
     const day = (d) => d.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "short" }).replace(/[.,]/g, "").replace(/^\w/, (m) => m.toUpperCase());
     const weekday = (d) => d.toLocaleDateString("es-ES", { weekday: "long" }).replace(/^\w/, (m) => m.toUpperCase());
@@ -520,7 +529,7 @@ function renderProductPage() {
       <p>Puede que se haya vendido o que el enlace no sea correcto.</p><a class="btn-primary" href="productos.html">Ver todas las piezas</a></section>`;
     return;
   }
-  document.title = `${p.name} · Charria Ceramics`;
+  document.title = `${p.name} | Charria Ceramics`;
   const desc = $('meta[name="description"]');
   if (desc) desc.content = (p.description || `${p.name}, cerámica hecha a mano en Charria Ceramics.`).slice(0, 160);
 
@@ -600,6 +609,17 @@ loadContent().then(() => { renderContent(); initPage(); });
 function initPage() {
   const galleryTrack = $("[data-gallery-track]");
   const edGallery = $("[data-ed-gallery]");
+
+  // Cabecera: transparente sobre la foto de portada y con fondo en cuanto pisaría el contenido
+  const header = $(".header");
+  if (header) {
+    const hero = $(".hero");
+    const solidFrom = () => (hero ? Math.max(10, hero.offsetHeight - header.offsetHeight) : 10);
+    const onScroll = () => header.classList.toggle("is-solid", window.scrollY > solidFrom());
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    onScroll();
+  }
 
   $$(".btn-primary").forEach((btn) => setButton(btn, btn.textContent.trim()));
   // En móvil y tablet el botón "Añadir" de las fichas es solo el círculo sobre la foto

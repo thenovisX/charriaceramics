@@ -829,7 +829,7 @@ views.galeria = async () => {
       ${field("Título", '<input name="title" required maxlength="160">')}
       <div class="grid-2">${field("Técnica", '<input name="technique" maxlength="160" placeholder="Gres y engobe">')}${field("Año", `<input name="year" maxlength="10" value="${new Date().getFullYear()}">`)}</div>
       ${availabilityField("unique")}
-      ${field("Texto alternativo", '<input name="alt" maxlength="255">', "Describe la foto para personas que no la ven")}`));
+      ${field("Descripción de la foto (texto alternativo)", '<input name="alt" maxlength="255" placeholder="Jarrón de gres torneado a mano en esmalte arena">', "Lo leen Google y las personas que no ven la foto. Si lo dejas vacío se usa el título y la técnica")}`));
     wireUpload(body, "/admin/gallery", () => { closeDrawer(); views.galeria(); });
   });
   const ids = items.map((g) => g.id);
@@ -855,7 +855,7 @@ views.galeria = async () => {
         ${field("Título", input("title", g.title, "required maxlength=160"))}
         <div class="grid-2">${field("Técnica", input("technique", g.technique, "maxlength=160"))}${field("Año", input("year", g.year, "maxlength=10"))}</div>
         ${availabilityField(g.availability)}
-        ${field("Texto alternativo", input("alt", g.image.alt, "maxlength=255"))}
+        ${field("Descripción de la foto (texto alternativo)", input("alt", g.image.alt, 'maxlength=255 placeholder="Jarrón de gres torneado a mano en esmalte arena"'), "Lo leen Google y las personas que no ven la foto")}
         <div class="row row--end"><button class="btn" type="submit">Guardar</button></div></form>`);
       const form = $("[data-form]", body);
       form.addEventListener("submit", (e) => {
@@ -1075,7 +1075,7 @@ views.ajustes = async () => {
         <p class="muted">Salen en el pie de todas las páginas, en el menú del móvil y en Contacto. Lo que dejes vacío se queda como está ahora en la web.</p>
         ${field("Dirección del estudio", input("SITE_ADDRESS", v.SITE_ADDRESS, 'placeholder="Calle del Barro 12"'))}
         <div class="grid-2">
-          ${field("Código postal y ciudad", input("SITE_CITY", v.SITE_CITY, 'placeholder="28012 Madrid"'))}
+          ${field("Código postal y ciudad", input("SITE_CITY", v.SITE_CITY, 'placeholder="36740 Tomiño (Pontevedra)"'))}
           ${field("Enlace de Google Maps", input("SITE_MAPS_URL", v.SITE_MAPS_URL, 'type="url" placeholder="https://maps.app.goo.gl/…"'), "Opcional: la dirección se podrá pulsar")}
         </div>
         ${field("Horario", `<textarea name="SITE_HOURS" rows="3" maxlength="500" placeholder="Mar–Sáb · 10:00–20:00&#10;Dom y Lun · cerrado">${esc(v.SITE_HOURS || "")}</textarea>`, "Una línea por cada franja. En el pie sale solo la primera.")}
@@ -1114,10 +1114,10 @@ views.ajustes = async () => {
           ${field("Nombre o razón social", input("LEGAL_OWNER", v.LEGAL_OWNER, 'placeholder="Nombre Apellidos o Empresa S.L."'), "Autónomo: tu nombre completo")}
           ${field("NIF / CIF", input("LEGAL_TAX_ID", v.LEGAL_TAX_ID, 'placeholder="12345678Z"'))}
         </div>
-        ${field("Domicilio fiscal o del taller", input("LEGAL_ADDRESS", v.LEGAL_ADDRESS, 'placeholder="Calle del Barro 12, 28012 Madrid"'))}
+        ${field("Domicilio fiscal o del taller", input("LEGAL_ADDRESS", v.LEGAL_ADDRESS, 'placeholder="Calle y número, 36740 Tomiño (Pontevedra)"'))}
         <div class="grid-2">
           ${field("Email para privacidad y reclamaciones", input("LEGAL_EMAIL", v.LEGAL_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'), "Si lo dejas vacío se usa el email de contacto")}
-          ${field("Datos registrales", input("LEGAL_REGISTRY", v.LEGAL_REGISTRY, 'placeholder="Registro Mercantil de Madrid, tomo…"'), "Solo si eres sociedad. Opcional")}
+          ${field("Datos registrales", input("LEGAL_REGISTRY", v.LEGAL_REGISTRY, 'placeholder="Registro Mercantil de Pontevedra, tomo…"'), "Solo si eres sociedad. Opcional")}
         </div>
         ${field("ID de Google Analytics 4", input("GA_MEASUREMENT_ID", v.GA_MEASUREMENT_ID, 'placeholder="G-XXXXXXXXXX" spellcheck="false"'), 'En Google Analytics → Administrar → Flujos de datos. Solo se carga a los visitantes que acepten las cookies analíticas. Pon la retención de datos en 14 meses.')}
       </section>
