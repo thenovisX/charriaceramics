@@ -579,6 +579,34 @@ graphify install                # opcional: añade el comando /graphify a Claude
 ```
 Crea `graphify-out/` con `graph.html` (ábrelo en el navegador para ver el grafo), `GRAPH_REPORT.md` (resumen: piezas clave y grupos) y `graph.json` (para consultas: `graphify explain "Database"`, `graphify path "CheckoutController" "Database"`). Respeta `.graphifyignore`.
 
+#### Cómo empezar una tarea con poco contexto (para asistentes de IA)
+
+1. `graphify update .` (segundos, sin coste) y lee **`graphify-out/GRAPH_REPORT.md`** (~2.000 tokens). Mira en "Built from commit" que coincide con `git rev-parse HEAD`.
+2. Localiza la pieza con `graphify explain "Nombre"` o `graphify query "pregunta"`: dan el fichero y la línea de cada método.
+3. Abre **solo** esos ficheros, y en los grandes (`admin/admin.js`, `style.css`, `script.js`) solo el tramo con `grep -n` y un rango de líneas.
+4. No leas este README entero (~13.500 tokens) ni el paquete de Repomix completo; usa `repomix --include "ruta/**"` si de verdad necesitas una zona entera.
+
+Mapa rápido por zona:
+
+| Zona | Ficheros |
+|---|---|
+| Panel | `admin/admin.js`, `admin/index.html`, `admin/admin.css`, `backend/src/Controllers/Admin/` |
+| Tienda y pago | `productos.html`, `cart.js`, `gracias.*`, `backend/src/Controllers/{Checkout,Webhook,Public}Controller.php`, `backend/src/Services/{Catalog,Pricing,Shipping,Packlink,Stripe,Fulfillment}.php` |
+| Páginas públicas | `*.html`, `style.css`, `script.js`, `data.js`, `consent.js`, `mis-datos.js` |
+| API y base de datos | `backend/routes.php`, `backend/src/Http/`, `backend/database/schema.sql` |
+
+Medido el 2026-10-25 con el tokenizador de Repomix (o200k), commit `e09ef19`:
+
+| Qué se carga | Tokens |
+|---|---|
+| Repo completo (Repomix) | 181.949 |
+| Repo completo comprimido (`repomix --compress`) | 109.934 |
+| Zona panel / tienda / páginas / backend (Repomix) | 38.568 / 22.806 / 64.227 / 69.661 |
+| GRAPH_REPORT.md | 2.047 |
+| Tarea "campo nuevo en productos del panel" (informe + explain + `admin.js` + `ProductAdminController.php`) | 22.569 |
+| Tarea "cambiar el envío en la cesta" (informe + explain + `cart.js` + `Shipping.php` + `CheckoutController.php`) | 11.203 |
+| Tarea "retocar la galería" (informe + `galeria.html` + `script.js` + `style.css`) | 32.171 |
+
 ## Reutilizar la API en otra web
 
 1. Despliega `api/` + `backend/` en el dominio que quieras (o usa esta misma instalación).
