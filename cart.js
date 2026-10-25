@@ -41,7 +41,7 @@
   const read = () => {
     try {
       const items = JSON.parse(localStorage.getItem(KEY) || "[]");
-      return Array.isArray(items) ? items.filter((i) => i && i.id && i.qty > 0) : [];
+      return Array.isArray(items) ? items.map((i) => ({ ...i, qty: Number(i?.qty) || 0 })).filter((i) => i.id && i.qty > 0) : [];
     } catch { return []; }
   };
   const write = (items) => {
@@ -49,7 +49,16 @@
     updateCount();
   };
   const count = () => read().reduce((n, i) => n + i.qty, 0);
-  const updateCount = () => $$("[data-cart-count]").forEach((el) => { el.textContent = count(); });
+  // El número se vuelve a leer de localStorage cada vez que la página se enseña: al volver
+  // atrás el navegador puede sacar la página de su caché (bfcache) con el número de antes,
+  // y la cesta puede haber cambiado en otra pestaña. Nunca se deja el hueco vacío: «Cesta (0)».
+  const updateCount = () => {
+    const n = String(count() || 0);
+    $$("[data-cart-count]").forEach((el) => { if (el.textContent !== n) el.textContent = n; });
+  };
+  window.addEventListener("pageshow", updateCount);
+  window.addEventListener("storage", (e) => { if (e.key === null || e.key === KEY) updateCount(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) updateCount(); });
 
   /* ---------- Marcado del panel ---------- */
   document.body.insertAdjacentHTML("beforeend", `
@@ -276,7 +285,7 @@
     const pickup = ship.options.filter((o) => o.method === "pickup");
     const delivery = ship.options.filter((o) => o.method === "delivery");
     const opts = [
-      ...pickup.map((o) => ({ id: o.id, name: o.name, price: o.price_cents, note: "Calle del Barro 12, Madrid · te avisamos cuando esté lista" })),
+      ...pickup.map((o) => ({ id: o.id, name: o.name, price: o.price_cents, note: `${window.pickupPlace ? window.pickupPlace() : "En el estudio"} · te avisamos cuando esté lista` })),
       ...(delivery.length
         ? delivery.map((o) => ({ id: o.id, name: o.name, price: o.price_cents, note: o.transit_hours ? `Entrega estimada en ${Math.ceil(o.transit_hours / 24)} días laborables` : "" }))
         : [{ id: "__delivery", name: "Envío a domicilio", price: null, note: ship.loading ? "Calculando tarifas…" : "Escribe tu código postal para ver las tarifas" }]),

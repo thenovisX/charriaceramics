@@ -271,7 +271,7 @@ Datos de contacto que se editan en **Panel → Ajustes → Datos de la web**. Lo
 
 **Cerrar la tienda**: Panel → Ajustes → **Tienda** tiene el interruptor «Tienda abierta» (`SHOP_OPEN`) y un aviso opcional (`SHOP_CLOSED_MESSAGE`, por defecto «No disponible en estos momentos»). Cerrada, `/site` devuelve `shop_open: false`, la web oculta la cesta y los botones de compra y enseña el aviso en la tienda y las fichas, y `POST /checkout` responde 503 `shop_closed`. Los pedidos ya pagados no se tocan; el resto del sitio (clases, galería, contacto) sigue igual.
 ```json
-{ "data": { "address": "Calle del Barro 12", "city": "28012 Madrid", "hours": "Mar–Sáb · 10:00–20:00\nDom y Lun · cerrado",
+{ "data": { "address": "Calle del Barro 12", "city": "36740 Tomiño (Pontevedra)", "hours": "Lunes - Viernes: 10:00–20:00\nSábados - Domingos: Cerrado (Abierto exclusivamente para clases programadas con reserva)",
   "email": "hola@charriaceramics.com", "phone": "+34 600 000 000", "whatsapp": null,
   "instagram": "https://www.instagram.com/ch.ceramics/", "facebook": null, "tiktok": null, "maps_url": null } }
 ```
@@ -649,4 +649,6 @@ Para un panel en otra web basta con llamar a `POST /auth/login` y enviar `Author
 - **Envíos a punto de recogida de Packlink**: de momento no se ofrecen (necesitan elegir un punto en un mapa); solo entrega a domicilio y recogida en el estudio.
 - **Logs**: `backend/storage/logs/app.log` (Stripe, Packlink, errores) y `php-errors.log`.
 - **Olvidé la contraseña**: `php backend/bin/create-admin.php tu@email.com` por SSH, o borra tu fila de `admins` en phpMyAdmin y vuelve a `admin/setup.html` con los mismos datos de MySQL.
+- **Open Graph (vista previa al compartir)**: cada página tiene su `<title>` y sus etiquetas `og:*` / `twitter:card` en el `<head>`; la imagen es `assets/og-charria.jpg` (1200×630). WhatsApp, LinkedIn y Facebook piden que `og:image` sea una URL absoluta: cuando la web tenga su dominio definitivo, cambia `content="/assets/og-charria.jpg"` por `content="https://tudominio/assets/og-charria.jpg"` en todas las páginas y añade `<meta property="og:url" content="https://tudominio/pagina.html">`.
+- **Fechas, plazas y horario**: las clases (fechas, plazas libres y precios) salen siempre de Panel → Clases; el HTML no lleva fechas escritas a mano. Dirección, ciudad y horario salen de Panel → Ajustes → Datos de la web; el texto del HTML solo se ve si eso está vacío o la API no responde.
 - **Cambiar la contraseña de MySQL**: edita `DB_PASS` en el `.env` (Administrador de archivos, carpeta por encima de `public_html`).
