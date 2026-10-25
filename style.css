@@ -387,7 +387,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 /* ---------- Modal ---------- */
 .modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: flex-end; background: rgba(26,24,22,.35); }
 .modal[hidden] { display: none; }
-.modal__box { position: relative; width: min(480px, 100%); height: 100%; background: var(--ivory); padding: 5rem 3rem; overflow: auto; }
+.modal__box { position: relative; width: min(480px, 100%); height: 100%; background: var(--ivory); padding: 5rem 3rem; overflow: auto; overscroll-behavior: contain; }
 .modal__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.9rem, 1.5rem + 1.5vw, 2.4rem); line-height: 1.1; letter-spacing: 0; margin-bottom: 3rem; }
 .modal__close { position: absolute; top: 1.5rem; right: 1.8rem; font-size: 2rem; font-weight: 300; }
 
@@ -510,8 +510,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .menu-open .menu-btn span:last-child { transform: translateY(-4px) rotate(-45deg); }
 
   .mobile-menu {
-    display: flex; flex-direction: column; justify-content: center; gap: .2rem;
+    display: flex; flex-direction: column; justify-content: safe center; gap: .2rem;
     position: fixed; inset: 0; z-index: 45; padding: 6rem var(--side) 4rem;
+    overflow-y: auto; overscroll-behavior: contain;
     background: var(--ivory);
     clip-path: inset(0 0 100% 0); transition: clip-path .8s var(--ease);
   }
@@ -846,7 +847,7 @@ html.cart-open { overflow: hidden; }
 /* Preferencias (segunda capa) */
 .consent-prefs { position: fixed; inset: 0; z-index: 130; display: flex; align-items: center; justify-content: flex-end; background: rgba(26,24,22,.35); }
 .consent-prefs[hidden] { display: none; }
-.consent-prefs__box { position: relative; width: min(520px, 100%); height: 100%; overflow: auto; background: var(--ivory); padding: clamp(3.5rem, 3rem + 2vw, 5rem) clamp(1.25rem, 1rem + 2vw, 3rem) 3rem; outline: none; }
+.consent-prefs__box { position: relative; width: min(520px, 100%); height: 100%; overflow: auto; overscroll-behavior: contain; background: var(--ivory); padding: clamp(3.5rem, 3rem + 2vw, 5rem) clamp(1.25rem, 1rem + 2vw, 3rem) 3rem; outline: none; }
 .consent-prefs__close { position: absolute; top: 1.2rem; right: 1.5rem; font-size: 2rem; font-weight: 300; background: none; border: 0; color: inherit; cursor: pointer; }
 .consent-prefs__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.9rem, 1.5rem + 1.5vw, 2.4rem); margin: .6rem 0 1rem; }
 .consent-prefs__lead { color: var(--muted); font-size: var(--fs-small); margin-bottom: 2rem; }

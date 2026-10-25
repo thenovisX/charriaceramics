@@ -647,7 +647,10 @@ function initPage() {
      ========================================================== */
   let lenis = null;
   if (typeof window.Lenis !== "undefined" && !reduceMotion) {
-    lenis = new Lenis({ duration: 1.3, smoothWheel: true });
+    // Los paneles y modales (cesta, filtros, reserva, menú, cookies, visor) hacen su propio scroll:
+    // Lenis no debe bloquear el dedo dentro de ellos mientras está parado.
+    const OVERLAYS = ".cart, .sheet, .modal, .mobile-menu, .consent-prefs, .lightbox";
+    lenis = new Lenis({ duration: 1.3, smoothWheel: true, prevent: (node) => node.matches?.(OVERLAYS) });
     if (hasGsap) {
       lenis.on("scroll", ScrollTrigger.update);
       gsap.ticker.add((t) => lenis.raf(t * 1000));
