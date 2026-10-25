@@ -40,11 +40,37 @@ final class ClassAdminController
             'price_cents' => $v->int('price_cents', $creating, 0, 10_000_000),
             'capacity' => $v->int('capacity', false, 1, 100),
             'pay_in_person' => ($b = $v->bool('pay_in_person')) === null ? null : (int) $b,
+            'pay_online' => ($b = $v->bool('pay_online')) === null ? null : (int) $b,
+            'pay_subscription' => ($b = $v->bool('pay_subscription')) === null ? null : (int) $b,
+            'monthly_price_cents' => $v->has('monthly_price_cents') && ($body['monthly_price_cents'] === null || $body['monthly_price_cents'] === '')
+                ? null : $v->int('monthly_price_cents', false, 0, 10_000_000),
             'is_active' => ($b = $v->bool('is_active')) === null ? null : (int) $b,
             'sort_order' => $v->int('sort_order', false, -1000, 1000),
         ], static fn ($x) => $x !== null);
+        // monthly_price_cents puede ser null a propósito (sin cuota): el filtro de arriba lo quitaría
+        if ($v->has('monthly_price_cents') && ($body['monthly_price_cents'] === null || $body['monthly_price_cents'] === '')) {
+            $data['monthly_price_cents'] = null;
+        }
         $v->check();
         return $data;
+    }
+
+    /** Una clase en grupo necesita al menos una forma de pago, y la suscripción una cuota mensual. */
+    private function checkPayments(array $class): void
+    {
+        if ($class['kind'] !== 'group') {
+            return;
+        }
+        $errors = [];
+        if (!$class['pay_online'] && !$class['pay_subscription'] && !$class['pay_in_person']) {
+            $errors['pay_online'] = 'Activa al menos una forma de pago';
+        }
+        if ($class['pay_subscription'] && (int) $class['monthly_price_cents'] <= 0) {
+            $errors['monthly_price_cents'] = 'Indica la cuota mensual de la suscripción';
+        }
+        if ($errors) {
+            throw HttpError::validation($errors);
+        }
     }
 
     public function index(Request $r): Response
@@ -62,6 +88,7 @@ final class ClassAdminController
         for ($i = 2; $db->value('SELECT id FROM classes WHERE slug = ?', [$slug]); $i++) {
             $slug = "$base-$i";
         }
+        $this->checkPayments($data + ['pay_online' => 1, 'pay_subscription' => 0, 'pay_in_person' => 1, 'monthly_price_cents' => null]);
         $id = $db->insert('classes', $data + ['slug' => $slug]);
         return Response::created($this->present($id));
     }
@@ -69,8 +96,10 @@ final class ClassAdminController
     public function update(Request $r): Response
     {
         $id = $r->intParam('id');
-        $this->findClass($id);
-        Database::get()->update('classes', $this->validateClass($r->body(), false), 'id = :id', ['id' => $id]);
+        $class = $this->findClass($id);
+        $data = $this->validateClass($r->body(), false);
+        $this->checkPayments($data + $class);
+        Database::get()->update('classes', $data, 'id = :id', ['id' => $id]);
         return Response::json($this->present($id));
     }
 
@@ -183,7 +212,7 @@ final class ClassAdminController
 
     /* ---------------- Reservas ---------------- */
 
-    /** GET /admin/bookings?status=confirmed&upcoming=1 (status=unpaid: confirmadas para pagar en el taller y aún sin cobrar) */
+    /** GET /admin/bookings?status=confirmed&upcoming=1 (status=unpaid: para pagar en el taller y aún sin cobrar, o suscripciones con la cuota del mes sin pagar) */
     public function bookings(Request $r): Response
     {
         $where = ['1 = 1'];
@@ -193,7 +222,7 @@ final class ClassAdminController
             $where[] = 'b.status = ?';
             $params[] = $status;
         } elseif ($status === 'unpaid') {
-            $where[] = "b.status = 'confirmed' AND b.payment_method = 'in_person' AND b.paid_at IS NULL";
+            $where[] = "b.status = 'confirmed' AND b.paid_at IS NULL AND (b.payment_method = 'in_person' OR (b.payment_method = 'subscription' AND b.subscription_status = 'past_due'))";
         }
         if (!empty($r->query['session_id']) && ctype_digit((string) $r->query['session_id'])) {
             $where[] = 'b.session_id = ?';
@@ -262,6 +291,8 @@ final class ClassAdminController
             'seats' => (int) $b['seats'],
             'total_cents' => (int) $b['total_cents'],
             'payment_method' => $b['payment_method'] ?? 'online',
+            'subscription_status' => (string) ($b['subscription_status'] ?? ''),
+            'paid_until' => $b['paid_until'] ?? null,
             'notes' => (string) $b['notes'],
             'customer' => ['name' => $b['customer_name'], 'email' => $b['customer_email'], 'phone' => $b['customer_phone']],
             'privacy_blocked' => !empty($b['privacy_blocked_at']),

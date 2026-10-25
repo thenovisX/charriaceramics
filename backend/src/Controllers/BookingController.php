@@ -22,6 +22,8 @@ use Charria\Validator;
  * Reservas públicas.
  * - Clases en grupo: se reservan plazas de un horario concreto y se pagan con Stripe.
  *   Las plazas quedan retenidas mientras se paga (CHECKOUT_HOLD_MINUTES).
+ *   Cada clase activa por separado: pago único online (pay_online), suscripción mensual
+ *   de Stripe (pay_subscription, cuota monthly_price_cents) y pagar en el taller.
  *   Si la clase lo admite (pay_in_person) se puede elegir pagar en el taller: la
  *   reserva queda confirmada sin caducidad y el panel la marca como pagada al cobrarla.
  * - Clases privadas: se envía una solicitud (fecha y franja preferidas) y el estudio
@@ -29,11 +31,13 @@ use Charria\Validator;
  */
 final class BookingController
 {
-    /** POST /bookings { session_id, seats, payment_method: online|in_person, customer: {name, email, phone}, consents: {terms, marketing, profile} } */
+    /** POST /bookings { session_id, seats, payment_method: online|subscription|in_person, customer: {name, email, phone}, consents: {terms, marketing, profile} } */
     public function createGroup(Request $r): Response
     {
         $v = new Validator($r->body());
-        $inPerson = ($v->enum('payment_method', ['online', 'in_person']) ?? 'online') === 'in_person';
+        $method = $v->enum('payment_method', ['online', 'subscription', 'in_person']) ?? 'online';
+        $inPerson = $method === 'in_person';
+        $subscription = $method === 'subscription';
         if (!$inPerson && !Stripe::isConfigured()) {
             throw new HttpError(503, 'payments_unavailable', 'Las reservas online aún no están activas. Escríbenos para reservar.');
         }
@@ -50,17 +54,24 @@ final class BookingController
 
         $db = Database::get();
         $hold = Settings::holdMinutes();
-        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r, $inPerson) {
+        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r, $inPerson, $subscription, $method) {
             // Bloquea el horario para que dos personas no se lleven la última plaza a la vez
             $session = $db->one('SELECT * FROM class_sessions WHERE id = ? FOR UPDATE', [$sessionId]);
             $class = $session ? $db->one("SELECT * FROM classes WHERE id = ? AND kind = 'group' AND is_active = 1", [$session['class_id']]) : null;
             if (!$session || !$class || $session['is_cancelled'] || strtotime($session['starts_at']) <= time()) {
                 throw HttpError::notFound('Este horario ya no está disponible');
             }
-            if ($inPerson && !$class['pay_in_person']) {
-                throw HttpError::validation(['payment_method' => 'Esta clase solo se puede pagar online']);
+            $allowed = match ($method) {
+                'in_person' => $class['pay_in_person'],
+                'subscription' => $class['pay_subscription'] && (int) $class['monthly_price_cents'] > 0,
+                default => $class['pay_online'],
+            };
+            if (!$allowed) {
+                throw HttpError::validation(['payment_method' => 'Esta forma de pago no está disponible para esta clase']);
             }
             $info = Catalog::session($session, $class, Catalog::seatsTaken([$session['id']]));
+            // La suscripción cobra la cuota mensual de la clase; lo demás, el precio de este horario
+            $unit = $subscription ? (int) $class['monthly_price_cents'] : $info['price_cents'];
             if ($info['seats_left'] < $seats) {
                 throw new HttpError(409, 'not_enough_seats', $info['seats_left']
                     ? "Solo quedan {$info['seats_left']} plazas en este horario"
@@ -79,15 +90,15 @@ final class BookingController
                 'class_title' => $class['title'],
                 'starts_at' => $session['starts_at'],
                 'seats' => $seats,
-                'unit_price_cents' => $info['price_cents'],
-                'total_cents' => $info['price_cents'] * $seats,
-                'payment_method' => $inPerson ? 'in_person' : 'online',
+                'unit_price_cents' => $unit,
+                'total_cents' => $unit * $seats,
+                'payment_method' => $method,
                 // En el taller la plaza queda guardada ya; online, solo mientras se paga
                 'status' => $inPerson ? 'confirmed' : 'pending_payment',
                 'expires_at' => $inPerson ? null : date('Y-m-d H:i:s', time() + $hold * 60),
             ]);
             Consents::recordAll($customer['email'], $consents, 'booking', $r, ['customer_id' => $customerId, 'booking_id' => $id]);
-            return ['id' => $id, 'reference' => $reference, 'class' => $class, 'session' => $session, 'price' => $info['price_cents']];
+            return ['id' => $id, 'reference' => $reference, 'class' => $class, 'session' => $session, 'price' => $unit];
         });
 
         if ($inPerson) {
@@ -105,10 +116,11 @@ final class BookingController
         try {
             $stripe = Stripe::createCheckoutSession([
                 'type' => 'booking',
+                'subscription' => $subscription,
                 'reference' => $booking['reference'],
                 'email' => $customer['email'],
                 'lines' => [[
-                    'name' => "{$booking['class']['title']} · $when",
+                    'name' => $subscription ? "{$booking['class']['title']} · cuota mensual (desde $when)" : "{$booking['class']['title']} · $when",
                     'unit_amount' => $booking['price'],
                     'quantity' => $seats,
                 ]],
@@ -125,7 +137,7 @@ final class BookingController
         return Response::created([
             'reference' => $booking['reference'],
             'total_cents' => $booking['price'] * $seats,
-            'payment_method' => 'online',
+            'payment_method' => $method,
             'checkout_url' => $stripe['url'],
         ]);
     }

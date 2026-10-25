@@ -1050,11 +1050,13 @@ function initPage() {
     const form = $("[data-form]", modal);
     const payField = $("[data-pay-field]", modal);
     const showPay = () => {
-      const inPerson = form.elements.pay.value === "in_person";
-      setButton($("[data-pay-submit]", form), inPerson ? "Reservar" : "Reservar y pagar");
-      $("[data-pay-note]", form).textContent = inPerson
-        ? "Tu plaza queda reservada y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos para liberarla."
-        : "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.";
+      const method = form.elements.pay.value;
+      setButton($("[data-pay-submit]", form), method === "in_person" ? "Reservar" : method === "subscription" ? "Suscribirme y pagar" : "Reservar y pagar");
+      $("[data-pay-note]", form).textContent = {
+        in_person: "Tu plaza queda reservada y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos para liberarla.",
+        subscription: "El pago se hace en la página segura de Stripe y la cuota se cobra cada mes en tu tarjeta. Tu plaza queda guardada 30 minutos mientras pagas.",
+        online: "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.",
+      }[method];
     };
     $$("input[name=pay]", form).forEach((r) => r.addEventListener("change", showPay));
     $$("[data-book]").forEach((btn) => {
@@ -1077,11 +1079,18 @@ function initPage() {
           dateField.hidden = true;
         }
         setSession(btn.dataset.book, btn.dataset.seats);
-        // Forma de pago: se elige solo si hay las dos opciones
-        const online = CLASSES?.online_payment !== false;
-        const inPerson = !!slot?.c.pay_in_person;
-        payField.hidden = !(online && inPerson);
-        form.elements.pay.value = online || !inPerson ? "online" : "in_person";
+        // Formas de pago que la clase tiene activadas; se elige solo si hay más de una
+        const stripeOn = CLASSES?.online_payment !== false;
+        const c = slot?.c;
+        const methods = c ? [
+          stripeOn && c.pay_online !== false && "online",
+          stripeOn && c.pay_subscription && c.monthly_price_cents > 0 && "subscription",
+          c.pay_in_person && "in_person",
+        ].filter(Boolean) : ["online"];
+        $$("[data-pay-option]", payField).forEach((o) => { o.hidden = !methods.includes(o.dataset.payOption); });
+        $("[data-sub-price]", payField).textContent = `${c?.monthly_price_cents > 0 ? `${euros(c.monthly_price_cents)} al mes por plaza. ` : ""}Pagas online cada mes con tarjeta en Stripe. Para darte de baja, escríbenos.`;
+        payField.hidden = methods.length < 2;
+        form.elements.pay.value = methods[0] || "online";
         showPay();
         $$(".check input[type=checkbox]", form).forEach((c) => { c.checked = false; c.closest(".check").classList.remove("is-invalid"); });
         $(".form__ok", modal).hidden = true;

@@ -35,6 +35,15 @@ final class WebhookController
             case 'checkout.session.async_payment_failed':
                 Fulfillment::failed($session);
                 break;
+            case 'invoice.paid':
+                Fulfillment::invoicePaid($session);
+                break;
+            case 'invoice.payment_failed':
+                Fulfillment::invoiceFailed($session);
+                break;
+            case 'customer.subscription.deleted':
+                Fulfillment::subscriptionDeleted($session);
+                break;
             default:
                 Log::info('Stripe event ignored', ['type' => $event['type']]);
         }

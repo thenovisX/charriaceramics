@@ -151,6 +151,9 @@ CREATE TABLE IF NOT EXISTS classes (
   price_cents      INT UNSIGNED NOT NULL,
   capacity         SMALLINT UNSIGNED NOT NULL DEFAULT 6,
   pay_in_person    TINYINT(1)   NOT NULL DEFAULT 1,  -- se puede reservar y pagar en el taller
+  pay_online       TINYINT(1)   NOT NULL DEFAULT 1,  -- se puede pagar ya, online, un pago único (Stripe)
+  pay_subscription TINYINT(1)   NOT NULL DEFAULT 0,  -- se puede pagar con suscripción mensual online (Stripe)
+  monthly_price_cents INT UNSIGNED NULL,             -- cuota mensual por plaza de la suscripción
   image_id         INT UNSIGNED NULL,
   is_active        TINYINT(1)   NOT NULL DEFAULT 1,
   sort_order       INT          NOT NULL DEFAULT 0,
@@ -192,14 +195,17 @@ CREATE TABLE IF NOT EXISTS bookings (
   seats             SMALLINT UNSIGNED NOT NULL DEFAULT 1,
   unit_price_cents  INT UNSIGNED NOT NULL DEFAULT 0,
   total_cents       INT UNSIGNED NOT NULL DEFAULT 0,
-  payment_method    ENUM('online','in_person') NOT NULL DEFAULT 'online',  -- in_person: confirmada sin pagar; paid_at al cobrarla en el taller
+  payment_method    ENUM('online','in_person','subscription') NOT NULL DEFAULT 'online',  -- in_person: confirmada sin pagar; paid_at al cobrarla en el taller · subscription: cuota mensual de Stripe
   status            ENUM('requested','pending_payment','confirmed','cancelled') NOT NULL,
   preferred_date    DATE         NULL,  -- solo clases privadas
   preferred_slot    VARCHAR(40)  NOT NULL DEFAULT '',
   notes             TEXT         NULL,
   stripe_session_id VARCHAR(255) NULL,
+  stripe_subscription_id VARCHAR(255) NULL,  -- solo suscripciones
+  subscription_status VARCHAR(20) NOT NULL DEFAULT '',  -- active | past_due | canceled (solo suscripciones)
+  paid_until        DATETIME     NULL,  -- fin del periodo mensual ya pagado (suscripciones)
   expires_at        DATETIME     NULL,  -- fin de la retención de plazas mientras se paga
-  paid_at           DATETIME     NULL,
+  paid_at           DATETIME     NULL,  -- último cobro; en suscripciones vuelve a NULL si falla la cuota
   privacy_blocked_at DATETIME    NULL,  -- el cliente pidió borrar sus datos: se conservan bloqueados por obligación legal
   created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -208,6 +214,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   KEY idx_bookings_session (session_id, status),
   KEY idx_bookings_email (customer_email),
   KEY idx_bookings_stripe (stripe_session_id),
+  KEY idx_bookings_subscription (stripe_subscription_id),
   CONSTRAINT fk_bookings_class    FOREIGN KEY (class_id)    REFERENCES classes (id)        ON DELETE SET NULL,
   CONSTRAINT fk_bookings_session  FOREIGN KEY (session_id)  REFERENCES class_sessions (id) ON DELETE SET NULL,
   CONSTRAINT fk_bookings_customer FOREIGN KEY (customer_id) REFERENCES customers (id)      ON DELETE SET NULL
