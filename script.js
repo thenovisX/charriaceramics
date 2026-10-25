@@ -58,30 +58,37 @@ const fromApiProduct = (p) => ({
   img: p.images[0]?.url || "", alt: p.images[0]?.alt || p.title,
   images: p.images.map((i) => ({ url: i.url, thumb: i.thumb_url, alt: i.alt || p.title })),
   description: p.description || "", dimensions: p.dimensions || "", material: p.material || "", care: p.care || "", specs: p.specs || [],
+  weight: p.piece_weight_grams || 0,
 });
 const fromLocalProduct = (p) => ({
-  description: "", dimensions: "", material: "", care: "", specs: [], ...p, slug: p.id,
+  description: "", dimensions: "", material: "", care: "", specs: [], weight: 0, ...p, slug: p.id,
   priceCents: Math.round(p.price * 100), originalCents: Math.round(p.price * 100), discount: 0, soldOut: false,
   images: (p.images || [p.img]).map((url) => ({ url, thumb: url, alt: p.alt })),
 });
 const productUrl = (p) => `producto.html?p=${encodeURIComponent(p.slug)}`;
-const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.technique, img: g.image.url, thumb: g.image.thumb_url, alt: g.image.alt || g.title });
+const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.technique, availability: g.availability, img: g.image.url, thumb: g.image.thumb_url, alt: g.image.alt || g.title });
+// Etiqueta bajo cada obra (Panel → Galería): pieza única o disponible bajo pedido
+const AVAILABILITY = { unique: "Obra única (No disponible)", on_request: "Disponible bajo pedido (Consultar precios)" };
+const askUrl = (g) => `contacto.html?obra=${encodeURIComponent(g.title)}#contacto`;
 
 let PRODUCTS = [];
 let GALLERY = [];
 let CLASSES = null;  // null = sin API: se quedan las clases escritas en el HTML
 let SITE = null;     // datos de contacto de Panel → Ajustes (null = se queda el HTML)
+let REVIEWS = [];    // reseñas publicadas en Panel → Reseñas (sin ninguna, la sección no se enseña)
 let SLOTS = new Map(); // filas de clases: un horario suelto o todas las semanas de una clase semanal
 
 async function loadContent() {
   const wants = (sel) => !!document.querySelector(sel);
-  const [products, gallery, classes, site] = await Promise.all([
+  const [products, gallery, classes, site, reviews] = await Promise.all([
     wants("[data-latest-products], [data-catalog], [data-product-page]") ? apiFetch("products").catch(() => null) : null,
     wants("[data-gallery-track], [data-ed-gallery]") ? apiFetch("gallery").catch(() => null) : null,
     wants(".class-list, [data-private-form]") ? apiFetch("classes").catch(() => null) : null,
     apiFetch("site").catch(() => null),
+    wants("[data-reviews]") ? apiFetch("reviews").catch(() => null) : null,
   ]);
   SITE = site;
+  REVIEWS = reviews || [];
   PRODUCTS = (products ? products.map(fromApiProduct) : (window.PRODUCTS || []).map(fromLocalProduct))
     .sort((a, b) => b.added.localeCompare(a.added));
   GALLERY = gallery ? gallery.map(fromApiGallery) : (window.GALLERY || []);
@@ -168,8 +175,43 @@ function renderLegal() {
   $$("[data-legal-optional]").forEach((el) => { el.hidden = !values[el.dataset.legalOptional]; });
 }
 
+/* Portada · El estudio: texto y foto de Panel → Ajustes → Datos de la web.
+   Sin rellenar se queda lo escrito en el HTML. Un párrafo por cada línea en blanco. */
+function renderStudio() {
+  const studio = $("[data-studio]");
+  if (!studio || !SITE) return;
+  if (SITE.studio_text) {
+    $("[data-studio-text]", studio).innerHTML = String(SITE.studio_text).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+      .map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  }
+  const img = SITE.studio_image && $("[data-studio-img]", studio);
+  if (img) {
+    $$("source", img.parentElement).forEach((s) => s.remove());
+    img.removeAttribute("srcset");
+    img.src = SITE.studio_image.url;
+    img.alt = SITE.studio_image.alt || "Trabajando en el torno del estudio";
+    img.width = SITE.studio_image.width;
+    img.height = SITE.studio_image.height;
+  }
+}
+
+/* Portada · Reseñas de Panel → Reseñas. Sin ninguna publicada la sección sigue oculta. */
+function renderReviews() {
+  const box = $("[data-reviews]");
+  if (!box || !REVIEWS.length) return;
+  $("[data-reviews-list]", box).innerHTML = REVIEWS.map((r) => `
+    <figure class="review">
+      ${r.rating ? `<p class="review__stars" role="img" aria-label="${r.rating} de 5 estrellas">${"★".repeat(r.rating)}<span>${"★".repeat(5 - r.rating)}</span></p>` : ""}
+      <blockquote class="review__text"><p>${esc(r.body).replace(/\n+/g, "<br>")}</p></blockquote>
+      <figcaption><span class="review__author">${esc(r.author)}</span>${r.context ? `<span class="review__context">${esc(r.context)}</span>` : ""}</figcaption>
+    </figure>`).join("");
+  box.hidden = false;
+}
+
 function renderContent() {
   renderSite();
+  renderStudio();
+  renderReviews();
   if (shopClosed()) {
     // Tienda cerrada desde el panel: fuera la cesta y el botón de compra, y aviso en el catálogo
     document.documentElement.classList.add("shop-is-closed");
@@ -204,6 +246,7 @@ function renderContent() {
       <a class="art ${shapes[i % 3]}" href="galeria.html#obra-${i + 1}" aria-label="${esc(g.title)}, ver en la galería">
         <div class="art__img"><img src="${esc(g.thumb || g.img.replace("w=1600", "w=1000"))}" alt="${esc(g.alt)}" loading="lazy"></div>
         <p class="art__cap">${esc(g.title)}, ${esc(g.year)}</p>
+        ${AVAILABILITY[g.availability] ? `<p class="art__status">${AVAILABILITY[g.availability]}</p>` : ""}
       </a>`).join("");
   }
 
@@ -217,6 +260,8 @@ function renderContent() {
           <span class="ed-item__num">${pad(i + 1)}</span>
           <span class="ed-item__title">${esc(g.title)}</span>
           <span class="ed-item__meta">${esc(g.technique)} · ${esc(g.year)}</span>
+          ${g.availability === "unique" ? `<span class="ed-item__status">Obra única <span>(No disponible)</span></span>`
+            : g.availability === "on_request" ? `<span class="ed-item__status">Disponible bajo pedido <a href="${askUrl(g)}">(Consultar precios)</a></span>` : ""}
         </figcaption>
       </figure>`).join("");
     const total = $("[data-gallery-total]");
@@ -480,10 +525,13 @@ function renderProductPage() {
   if (desc) desc.content = (p.description || `${p.name}, cerámica hecha a mano en Charria Ceramics.`).slice(0, 160);
 
   const images = p.images.length ? p.images : [{ url: p.img, thumb: p.img, alt: p.alt }];
+  // Ficha: medidas, peso, material, lo que se añada en el panel y el plazo de envío
   const specs = [
     p.dimensions && ["Medidas", p.dimensions],
+    p.weight && ["Peso", `${p.weight.toLocaleString("es-ES")} g`],
     p.material && ["Material", p.material],
     ...p.specs.map((s) => [s.label, s.value]),
+    !p.soldOut && !shopClosed() && ["Envío", "2–5 días laborables"],
   ].filter(Boolean);
   const paragraphs = (t) => String(t).split(/\n{2,}|\n/).map((l) => l.trim()).filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join("");
   const stockNote = p.soldOut ? "Agotada · escríbenos si quieres una parecida" : p.lowStock ? "Últimas unidades" : "Disponible · envío en 2–5 días laborables";
@@ -825,7 +873,7 @@ function initPage() {
   const pdpStage = $("[data-pdp-stage]");
   // La galería muestra las obras; la ficha de producto, sus fotos
   const LB_ITEMS = edGallery
-    ? GALLERY.map((g) => ({ src: g.img.replace("w=1600", "w=2200"), alt: g.alt, title: g.title, meta: `${g.technique} · ${g.year}` }))
+    ? GALLERY.map((g) => ({ src: g.img.replace("w=1600", "w=2200"), alt: g.alt, title: g.title, meta: [g.technique, g.year, AVAILABILITY[g.availability]].filter(Boolean).join(" · ") }))
     : PRODUCT ? PRODUCT.images.map((img, i) => ({ src: img.url, alt: img.alt, title: PRODUCT.name, meta: `Foto ${i + 1}` })) : [];
   if (lightbox && LB_ITEMS.length && (edGallery || pdpStage)) {
     const img = $("[data-lb-img]", lightbox);
@@ -865,9 +913,9 @@ function initPage() {
     };
 
     if (edGallery) {
-      edGallery.addEventListener("click", (e) => { const f = e.target.closest(".ed-item"); if (f) open(Number(f.dataset.index)); });
+      edGallery.addEventListener("click", (e) => { const f = e.target.closest(".ed-item"); if (f && !e.target.closest("a")) open(Number(f.dataset.index)); });
       edGallery.addEventListener("keydown", (e) => {
-        const f = e.target.closest(".ed-item");
+        const f = !e.target.closest("a") && e.target.closest(".ed-item");
         if (f && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(Number(f.dataset.index)); }
       });
     }
@@ -1053,9 +1101,9 @@ function initPage() {
       const method = form.elements.pay.value;
       setButton($("[data-pay-submit]", form), method === "in_person" ? "Reservar" : method === "subscription" ? "Suscribirme y pagar" : "Reservar y pagar");
       $("[data-pay-note]", form).textContent = {
-        in_person: "Tu plaza queda reservada y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos para liberarla.",
-        subscription: "El pago se hace en la página segura de Stripe y la cuota se cobra cada mes en tu tarjeta. Tu plaza queda guardada 30 minutos mientras pagas.",
-        online: "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.",
+        in_person: "Tu plaza queda reservada al momento y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos con al menos 72 horas de antelación para cambiar la fecha o liberar tu plaza.",
+        subscription: "Tu plaza se confirmará tras el primer pago, en la página segura de Stripe; la cuota se cobra cada mes en tu tarjeta. Para cambiar de fecha avísanos con 72 horas de antelación, y para darte de baja, antes de la siguiente renovación.",
+        online: "Tu plaza se confirmará tras el pago, en la página segura de Stripe (queda guardada 30 minutos mientras pagas). Las cancelaciones deben notificarse con 72 horas de antelación para cambios o reembolsos.",
       }[method];
     };
     $$("input[name=pay]", form).forEach((r) => r.addEventListener("change", showPay));
@@ -1141,6 +1189,11 @@ function initPage() {
   // Contacto
   const contactForm = $("[data-contact-form]");
   if (contactForm) {
+    const obra = new URLSearchParams(location.search).get("obra");
+    if (obra) {
+      contactForm.elements.motivo.value = "Encargo personalizado";
+      contactForm.elements.mensaje.value = `Hola, me interesa la obra «${obra.slice(0, 160)}» de la galería. ¿Me podéis decir el precio y el plazo para un encargo?`;
+    }
     sendForm(contactForm, async (f) => {
       requireCheck(f.privacy, "Para enviar el mensaje tienes que aceptar la política de privacidad.");
       await apiPost("contact", { name: f.nombre.value, email: f.email.value, reason: f.motivo.value, message: f.mensaje.value, consents: { privacy: true } });

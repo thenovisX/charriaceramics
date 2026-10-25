@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
   <link rel="preload" as="image" type="image/webp" imagesrcset="assets/inicio-800.webp 800w, assets/inicio-1195.webp 1195w" imagesizes="100vw" fetchpriority="high">
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 
@@ -66,6 +66,27 @@
         Piezas modeladas a mano, una a una, con barro de la tierra y esmaltes que nacen del fuego.
         Objetos para vivir despacio.
       </p>
+    </section>
+
+    <!-- EL ESTUDIO: foto en el torno y el proceso. Texto y foto se cambian en Panel → Ajustes → Datos de la web -->
+    <section class="studio" id="estudio" data-studio>
+      <figure class="studio__media">
+        <picture>
+          <img data-studio-img src="https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=1000&h=1250&q=80" width="1000" height="1250" loading="lazy" decoding="async" alt="Manos centrando el barro en el torno del estudio">
+        </picture>
+      </figure>
+      <div class="studio__content">
+        <h2 class="studio__title" data-split>Del barro a tu mesa</h2>
+        <div class="studio__text" data-studio-text>
+          <p>Cada pieza empieza como un puñado de barro en el torno y pasa varias semanas en el estudio antes de salir a la tienda. Trabajamos en series cortas, sin moldes y sin prisa: por eso no hay dos iguales.</p>
+        </div>
+        <ol class="studio__steps">
+          <li><span class="studio__num">01</span><h3>Tornear</h3><p>Centramos el barro en el torno y levantamos la forma a mano.</p></li>
+          <li><span class="studio__num">02</span><h3>Secar y repasar</h3><p>La pieza seca despacio durante días; después repasamos el pie y los bordes.</p></li>
+          <li><span class="studio__num">03</span><h3>Primera cocción</h3><p>Un primer horneado endurece el barro y lo prepara para recibir el esmalte.</p></li>
+          <li><span class="studio__num">04</span><h3>Esmaltar y cocer</h3><p>Esmaltamos a mano y la segunda cocción, a alta temperatura, fija el color y hace la pieza resistente.</p></li>
+        </ol>
+      </div>
     </section>
 
     <!-- 1. TIENDA: las 5 piezas más recientes (se pintan desde data.js) -->
@@ -171,7 +192,7 @@
           </div>
           <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar la reserva y escribirte para confirmarla. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
           <button class="btn-primary" type="submit">Solicitar reserva</button>
-          <p class="form__note">La clase privada se paga en el taller, en efectivo, con tarjeta o por Bizum.</p>
+          <p class="form__note">Te confirmaremos la plaza por email y la clase se paga en el taller, en efectivo, con tarjeta o por Bizum. Si no puedes venir, avísanos con al menos 72 horas de antelación para cambiar la fecha. <a href="condiciones.html#clases" target="_blank">Política de cambios y cancelaciones</a></p>
           <p class="form__ok" hidden></p>
         </form>
       </div>
@@ -194,6 +215,16 @@
           <span class="gallery__bar"><span data-gallery-bar></span></span>
         </div>
       </div>
+    </section>
+
+    <!-- 5. RESEÑAS: opiniones reales de Panel → Reseñas. Oculta mientras no haya ninguna publicada -->
+    <section class="reviews" id="opiniones" data-reviews hidden>
+      <div class="section-head">
+        <span class="section-head__num">05</span>
+        <h2 class="section-head__title" data-split>Opiniones</h2>
+        <p class="section-head__desc">Lo que cuentan quienes se han llevado una pieza a casa o han venido a clase. Publicadas con su permiso.</p>
+      </div>
+      <div class="reviews__list" data-reviews-list></div>
     </section>
 
   </main>
@@ -244,7 +275,8 @@
         </div>
         <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar la reserva y su factura; el pago online lo procesa Stripe. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
         <button class="btn-primary" type="submit" data-pay-submit>Reservar y pagar</button>
-        <p class="form__note" data-pay-note>El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.</p>
+        <p class="form__note" data-pay-note>Tu plaza se confirmará tras el pago, en la página segura de Stripe (queda guardada 30 minutos mientras pagas). Las cancelaciones deben notificarse con 72 horas de antelación para cambios o reembolsos.</p>
+        <p class="form__note"><a href="condiciones.html#clases" target="_blank">Política de cambios y cancelaciones</a></p>
         <p class="form__ok" hidden></p>
       </form>
     </div>
@@ -258,7 +290,7 @@
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
   <script src="data.js?v=9"></script>
-  <script src="script.js?v=16"></script>
+  <script src="script.js?v=17"></script>
   <script src="cart.js?v=9"></script>
   <script src="consent.js?v=1"></script>
 </body>

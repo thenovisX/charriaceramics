@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS customers (
 -- url: ruta pública (/uploads/...) o URL externa en los datos de ejemplo
 CREATE TABLE IF NOT EXISTS images (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  kind       ENUM('product','gallery','class') NOT NULL,
+  kind       ENUM('product','gallery','class','site') NOT NULL,  -- site: fotos sueltas de la web (El estudio)
   url        VARCHAR(500) NOT NULL,
   thumb_url  VARCHAR(500) NOT NULL DEFAULT '',
   file_path  VARCHAR(500) NOT NULL DEFAULT '',
@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS products (
   -- Ficha de la pieza (lo que ve el cliente; las medidas de arriba son las del paquete)
   dimensions       VARCHAR(160) NOT NULL DEFAULT '',  -- "Ø 14 × 7 cm"
   material         VARCHAR(160) NOT NULL DEFAULT '',
+  piece_weight_grams INT UNSIGNED NOT NULL DEFAULT 0, -- peso de la pieza en la ficha (0 = no se enseña)
   care             TEXT         NULL,                 -- cuidados
   specs            TEXT         NULL,                 -- JSON [{"label":"Capacidad","value":"350 ml"}]
   created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -130,12 +131,31 @@ CREATE TABLE IF NOT EXISTS gallery_items (
   title        VARCHAR(160) NOT NULL,
   technique    VARCHAR(160) NOT NULL DEFAULT '',
   year         VARCHAR(10)  NOT NULL DEFAULT '',
+  -- Etiqueta bajo la obra: unique = "Obra única (No disponible)", on_request = "Disponible bajo pedido", none = sin etiqueta
+  availability ENUM('unique','on_request','none') NOT NULL DEFAULT 'unique',
   sort_order   INT          NOT NULL DEFAULT 0,
   is_published TINYINT(1)   NOT NULL DEFAULT 1,
   created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_gallery_order (is_published, sort_order),
   CONSTRAINT fk_gallery_image FOREIGN KEY (image_id) REFERENCES images (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------- Reseñas ----------
+-- Opiniones reales de compradores y alumnos, dadas de alta en el panel con su permiso.
+-- La sección de la portada solo aparece si hay alguna publicada.
+CREATE TABLE IF NOT EXISTS reviews (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  author       VARCHAR(120) NOT NULL,                -- "Lucía M."
+  context      VARCHAR(160) NOT NULL DEFAULT '',     -- "Alumna del curso de torno", "Compró el Jarrón Duna"
+  body         TEXT         NOT NULL,
+  rating       TINYINT UNSIGNED NULL,                -- 1 a 5, opcional
+  review_date  DATE         NULL,
+  sort_order   INT          NOT NULL DEFAULT 0,
+  is_published TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_reviews_order (is_published, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------- Clases / servicios ----------

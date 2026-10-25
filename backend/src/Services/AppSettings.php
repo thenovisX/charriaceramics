@@ -30,6 +30,9 @@ final class AppSettings
         'SITE_FACEBOOK' => ['url', false],
         'SITE_TIKTOK' => ['url', false],
         'SITE_MAPS_URL' => ['url', false],
+        // Portada · El estudio: texto sobre el proceso y foto (la foto se sube aparte, ver setStudioImage)
+        'SITE_STUDIO_TEXT' => ['longtext', false],
+        'SITE_STUDIO_IMAGE' => ['image_id', false],
         // Tienda abierta o cerrada (por defecto abierta) y aviso opcional mientras está cerrada
         'SHOP_OPEN' => ['bool', false],
         'SHOP_CLOSED_MESSAGE' => ['text', false],
@@ -66,7 +69,7 @@ final class AppSettings
         'SITE_ADDRESS' => 'address', 'SITE_CITY' => 'city', 'SITE_HOURS' => 'hours',
         'SITE_EMAIL' => 'email', 'SITE_PHONE' => 'phone', 'SITE_WHATSAPP' => 'whatsapp',
         'SITE_INSTAGRAM' => 'instagram', 'SITE_FACEBOOK' => 'facebook', 'SITE_TIKTOK' => 'tiktok',
-        'SITE_MAPS_URL' => 'maps_url',
+        'SITE_MAPS_URL' => 'maps_url', 'SITE_STUDIO_TEXT' => 'studio_text',
         'LEGAL_OWNER' => 'legal_owner', 'LEGAL_TAX_ID' => 'legal_tax_id', 'LEGAL_ADDRESS' => 'legal_address',
         'LEGAL_EMAIL' => 'legal_email', 'LEGAL_REGISTRY' => 'legal_registry', 'GA_MEASUREMENT_ID' => 'ga_id',
     ];
@@ -91,9 +94,41 @@ final class AppSettings
         foreach (self::PUBLIC_KEYS as $key => $name) {
             $out[$name] = Env::get($key);
         }
+        $out['studio_image'] = self::studioImage();
         $out['shop_open'] = self::shopOpen();
         $out['shop_message'] = Env::get('SHOP_CLOSED_MESSAGE') ?: 'No disponible en estos momentos';
         return $out;
+    }
+
+    /** Foto de la sección «El estudio» de la portada (null = la de ejemplo del HTML). */
+    public static function studioImage(): ?array
+    {
+        $id = (string) Env::get('SITE_STUDIO_IMAGE');
+        if (!ctype_digit($id)) {
+            return null;
+        }
+        return Catalog::image(Database::get()->one('SELECT * FROM images WHERE id = ?', [(int) $id]));
+    }
+
+    /** Cambia (o quita, con null) la foto del estudio y borra la anterior. */
+    public static function setStudioImage(?int $imageId): void
+    {
+        $old = self::studioImage();
+        $db = Database::get();
+        self::ensureTable();
+        if ($imageId === null) {
+            $db->exec("DELETE FROM settings WHERE name = 'SITE_STUDIO_IMAGE'");
+        } else {
+            $db->exec(
+                "INSERT INTO settings (name, value, is_secret) VALUES ('SITE_STUDIO_IMAGE', ?, 0)
+                 ON DUPLICATE KEY UPDATE value = VALUES(value)",
+                [(string) $imageId]
+            );
+        }
+        if ($old && $old['id'] !== $imageId) {
+            ImageProcessor::delete($old['id']);
+        }
+        Env::override(['SITE_STUDIO_IMAGE' => $imageId === null ? null : (string) $imageId]);
     }
 
     /** Carga los ajustes del panel sobre Env. Si aún no hay tabla o base de datos, no hace nada. */
@@ -143,6 +178,7 @@ final class AppSettings
         return [
             'values' => $values,
             'secrets' => $secrets,
+            'studio_image' => self::studioImage(),
             'stripe_mode' => str_contains($stripeKey, '_live_') ? 'live' : ($stripeKey ? 'test' : ''),
             'webhook_url' => Settings::appUrl() . '/api/webhooks/stripe',
             'webhook_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired', 'invoice.paid', 'invoice.payment_failed', 'customer.subscription.deleted'],
@@ -162,8 +198,11 @@ final class AppSettings
                 continue;
             }
             [$type, $secret] = self::KEYS[$key];
+            if ($type === 'image_id') {
+                continue; // la foto se cambia con su propia subida
+            }
             $value = is_bool($raw) ? ($raw ? 'true' : 'false') : trim(str_replace("\r\n", "\n", (string) $raw));
-            if ($type !== 'multiline') {
+            if ($type !== 'multiline' && $type !== 'longtext') {
                 $value = preg_replace('/\s*\n\s*/', ' ', $value);
             }
             if ($type === 'ga_id' || $type === 'tax_id') {
@@ -232,6 +271,7 @@ final class AppSettings
             'cents' => ctype_digit($value) && (int) $value <= 100_000_00 ? null : 'Importe no válido',
             'bool' => in_array($value, ['true', 'false'], true) ? null : 'Debe ser sí o no',
             'multiline' => mb_strlen($value) <= 500 ? null : 'Máximo 500 caracteres',
+            'longtext' => mb_strlen($value) <= 1500 ? null : 'Máximo 1.500 caracteres',
             'tax_id' => preg_match('/^[A-Za-z0-9]{1,3}[- ]?[0-9]{5,8}[- ]?[A-Za-z0-9]?$/', $value) ? null : 'NIF o CIF no válido (p. ej. 12345678Z o B12345678)',
             'ga_id' => preg_match('/^G-[A-Z0-9]{4,15}$/', $value) ? null : 'El ID de Google Analytics 4 empieza por G- (p. ej. G-AB12CD34EF)',
             'phone' => preg_match('/^\+?[0-9 ().-]{6,20}$/', $value) ? null : 'Teléfono no válido (p. ej. +34 600 000 000)',
