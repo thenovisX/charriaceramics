@@ -27,6 +27,7 @@ Sin Composer ni dependencias: se sube tal cual a `public_html`.
 9. [Funciones del backend](#funciones-del-backend)
 10. [Panel de administración](#panel-de-administración)
 11. [Desarrollo local y tests](#desarrollo-local-y-tests)
+    - [Herramientas para IA (Repomix y Graphify)](#herramientas-para-ia-repomix-y-graphify)
 12. [Reutilizar la API en otra web](#reutilizar-la-api-en-otra-web)
 13. [Mantenimiento y preguntas frecuentes](#mantenimiento-y-preguntas-frecuentes)
 
@@ -557,6 +558,26 @@ php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test http://127.0.0.1
 Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos y cierre de sesión (57 comprobaciones). El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
 
 Con Live Server (sin PHP) la web sigue funcionando con `data.js`; la cesta muestra “precios orientativos” y no deja pagar.
+
+### Herramientas para IA (Repomix y Graphify)
+
+Sirven para dar contexto del proyecto a un asistente de IA (Claude, ChatGPT, Cursor…). Sus salidas **no se suben a GitHub** (están en `.gitignore`) ni se publican en la web (el `.htaccess` las bloquea por si acaso): se regeneran cuando hagan falta.
+
+**Repomix** junta todo el código en un solo fichero para pegarlo o adjuntarlo a una IA.
+```bash
+npm install -g repomix      # una vez
+repomix                     # crea repomix-output.xml (~180k tokens)
+repomix --compress          # versión resumida (solo estructura del código)
+```
+Usa `repomix.config.json` y `.repomixignore`: deja fuera `.env`, `uploads/`, `backend/storage/`, imágenes y binarios, y además pasa su comprobación de secretos (Secretlint). Las claves que verás en el paquete (`sk_test_mock…`, `pk_live_123456789012`) son falsas, de los tests.
+
+**Graphify** dibuja un grafo de conocimiento del código (qué fichero usa qué clase, qué partes están más conectadas).
+```bash
+pip install "graphifyy[sql]"   # una vez (el paquete se llama graphifyy, con dos y)
+graphify update .               # analiza el código en local, sin IA ni coste
+graphify install                # opcional: añade el comando /graphify a Claude Code
+```
+Crea `graphify-out/` con `graph.html` (ábrelo en el navegador para ver el grafo), `GRAPH_REPORT.md` (resumen: piezas clave y grupos) y `graph.json` (para consultas: `graphify explain "Database"`, `graphify path "CheckoutController" "Database"`). Respeta `.graphifyignore`.
 
 ## Reutilizar la API en otra web
 

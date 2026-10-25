@@ -1,0 +1,10 @@
+# Graphify: carpetas que no se analizan
+.env
+**/.env
+backend/storage/
+uploads/
+vendor/
+node_modules/
+assets/
+admin/icons/
+repomix-output.*
