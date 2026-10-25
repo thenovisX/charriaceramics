@@ -1076,3 +1076,8 @@ html.consent-open { overflow: hidden; }
   .pdp__buy .qty button { width: 1.8rem; }
   .pdp__add { padding-left: 1.1rem; gap: .5rem; letter-spacing: .1em; }
 }
+
+/* Tienda cerrada desde el panel */
+.shop-is-closed .cart-btn { display: none; }
+.shop-closed { margin: 0 var(--gutter, 1.5rem) 2rem; padding: 1.1rem 1.4rem; border: 1px solid var(--line, #d9d2c7); text-align: center; letter-spacing: .08em; text-transform: uppercase; font-size: var(--fs-small, .85rem); }
+.pdp__buy .shop-closed { margin: 0; }
