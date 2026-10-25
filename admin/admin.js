@@ -953,6 +953,12 @@ views.ajustes = async () => {
       </section>
 
       <section class="stack">
+        <h2 class="settings__title">Tienda</h2>
+        ${toggle("SHOP_OPEN", v.SHOP_OPEN !== "false", "Tienda abierta (compra y cesta activas)")}
+        ${field("Aviso cuando está cerrada", input("SHOP_CLOSED_MESSAGE", v.SHOP_CLOSED_MESSAGE, 'placeholder="No disponible en estos momentos"'), "Se ve en la tienda y en las fichas. Los pedidos ya pagados no cambian.")}
+      </section>
+
+      <section class="stack">
         <h2 class="settings__title">Opciones de envío</h2>
         ${toggle("SHIPPING_PICKUP", v.SHIPPING_PICKUP !== "false", "Ofrecer recogida gratis en el estudio")}
         <div class="grid-2">

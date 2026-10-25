@@ -90,13 +90,16 @@ async function loadContent() {
 
 // Las 3 piezas más recientes llevan la etiqueta "Nuevo"; las agotadas, "Agotado".
 // La foto y el nombre llevan a la ficha; si hay segunda foto, aparece al pasar el ratón.
+const shopClosed = () => SITE?.shop_open === false;
+const closedNote = () => `<p class="shop-closed" role="status">${esc(SITE?.shop_message || "No disponible en estos momentos")}</p>`;
+
 const productHTML = (p, i, tall = false) => `
   <article class="product${tall ? " product--tall" : ""}${p.soldOut ? " is-sold-out" : ""}" style="order:${i}" data-category="${esc(p.category)}">
     <a class="product__img" href="${productUrl(p)}" tabindex="-1" aria-hidden="true"><img src="${esc(p.img)}" alt="${esc(p.alt)}" loading="lazy">${p.images[1] ? `<img class="product__img-alt" src="${esc(p.images[1].thumb)}" alt="" loading="lazy">` : ""}</a>
     ${p.soldOut ? '<span class="product__badge product__badge--out">Agotado</span>'
       : p.discount ? `<span class="product__badge">−${p.discount} %</span>`
       : PRODUCTS.indexOf(p) < 3 ? '<span class="product__badge">Nuevo</span>' : ""}
-    ${p.soldOut ? "" : `<button class="btn-primary product__add" type="button" data-add="${esc(p.id)}" data-icon="plus" aria-label="Añadir ${esc(p.name)} a la cesta">Añadir al carrito</button>`}
+    ${p.soldOut || shopClosed() ? "" : `<button class="btn-primary product__add" type="button" data-add="${esc(p.id)}" data-icon="plus" aria-label="Añadir ${esc(p.name)} a la cesta">Añadir al carrito</button>`}
     <div class="product__info">
       <div><p class="product__cat">${esc(p.category)}</p><h3><a href="${productUrl(p)}">${esc(p.name)}</a></h3></div>
       <span class="product__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}</span>
@@ -167,6 +170,12 @@ function renderLegal() {
 
 function renderContent() {
   renderSite();
+  if (shopClosed()) {
+    // Tienda cerrada desde el panel: fuera la cesta y el botón de compra, y aviso en el catálogo
+    document.documentElement.classList.add("shop-is-closed");
+    const catalog = $("[data-catalog]");
+    if (catalog) catalog.insertAdjacentHTML("beforebegin", closedNote());
+  }
   // Portada: solo las 5 piezas más recientes, repartidas en 3 columnas con parallax
   const latest = $("[data-latest-products]");
   if (latest) {
@@ -492,7 +501,8 @@ function renderProductPage() {
     <p class="pdp__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}${p.discount ? ` <span class="pdp__off">−${p.discount} %</span>` : ""}</p>
     <p class="pdp__stock${p.soldOut ? " is-out" : p.lowStock ? " is-low" : ""}">${stockNote}</p>
     <div class="pdp__buy">
-      ${p.soldOut ? `<a class="btn-primary btn-primary--ghost" href="contacto.html">Preguntar por una parecida</a>`
+      ${shopClosed() ? closedNote()
+        : p.soldOut ? `<a class="btn-primary btn-primary--ghost" href="contacto.html">Preguntar por una parecida</a>`
         : `<div class="qty" data-qty><button type="button" data-step="-1" aria-label="Quitar una">−</button><span data-qty-value>1</span><button type="button" data-step="1" aria-label="Añadir una">+</button></div>
            <button class="btn-primary pdp__add" type="button" data-add="${esc(p.id)}" data-icon="plus">Añadir al carrito</button>`}
     </div>

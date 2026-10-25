@@ -107,7 +107,7 @@ call('PUT', "$base/admin/settings", ['values' => ['SHIPPING_FLAT_NAME' => '']], 
 check('datos de la web: rechaza enlace sin https', $s === 422 && isset($j['error']['fields']['SITE_INSTAGRAM']), $j);
 call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '+34 600 111 222', 'SITE_HOURS' => "Mar–Sáb 10–20\nDom cerrado"]], $token);
 [$s, $j] = call('GET', "$base/site");
-check('datos de la web públicos en /site (sin claves secretas)', $s === 200 && $j['data']['phone'] === '+34 600 111 222' && str_contains($j['data']['hours'], "\n") && !isset($j['data']['STRIPE_SECRET_KEY']) && count($j['data']) === 16, $j);
+check('datos de la web públicos en /site (sin claves secretas)', $s === 200 && $j['data']['phone'] === '+34 600 111 222' && str_contains($j['data']['hours'], "\n") && !isset($j['data']['STRIPE_SECRET_KEY']) && count($j['data']) === 18, $j);
 call('PUT', "$base/admin/settings", ['values' => ['SITE_PHONE' => '', 'SITE_HOURS' => '']], $token);
 [$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['LEGAL_TAX_ID' => 'hola', 'GA_MEASUREMENT_ID' => 'UA-1234']], $token);
 check('datos legales: rechaza NIF y Google Analytics no válidos', $s === 422 && isset($j['error']['fields']['LEGAL_TAX_ID'], $j['error']['fields']['GA_MEASUREMENT_ID']), $j);
@@ -117,6 +117,16 @@ check('datos legales y ID de Analytics públicos en /site', $s === 200 && $site[
 [, $stats] = call('GET', "$base/admin/stats", null, $token);
 check('el resumen avisa de los datos legales que faltan', in_array('LEGAL_ADDRESS', $stats['data']['legal_missing'] ?? [], true) && !in_array('LEGAL_OWNER', $stats['data']['legal_missing'], true), $stats);
 call('PUT', "$base/admin/settings", ['values' => ['LEGAL_OWNER' => '', 'LEGAL_TAX_ID' => '', 'GA_MEASUREMENT_ID' => '']], $token);
+[, $site] = call('GET', "$base/site");
+check('tienda abierta por defecto en /site', ($site['data']['shop_open'] ?? null) === true, $site);
+call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => false, 'SHOP_CLOSED_MESSAGE' => 'Volvemos en septiembre']], $token);
+[, $site] = call('GET', "$base/site");
+check('tienda cerrada: /site lo indica con su aviso', $site['data']['shop_open'] === false && $site['data']['shop_message'] === 'Volvemos en septiembre', $site);
+[$s, $j] = call('POST', "$base/checkout", ['items' => []]);
+check('tienda cerrada: el pago se rechaza en el servidor', $s === 503 && ($j['error']['code'] ?? '') === 'shop_closed', $j);
+call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => true, 'SHOP_CLOSED_MESSAGE' => '']], $token);
+[, $site] = call('GET', "$base/site");
+check('tienda reabierta desde el panel', $site['data']['shop_open'] === true, $site);
 
 echo "Productos (panel)\n";
 [$s, $j] = call('POST', "$base/admin/products", ['title' => 'Test Cuenco', 'price_cents' => 5000, 'discount_percent' => 15, 'stock' => 2, 'category' => 'Test', 'weight_grams' => 500], $token);
