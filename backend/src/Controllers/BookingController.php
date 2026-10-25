@@ -177,7 +177,7 @@ final class BookingController
             "{$class['title']} · " . Mailer::money((int) $class['price_cents']) . "\nFecha preferida: $date ($slot)\n"
             . "Cliente: {$customer['name']} <{$customer['email']}> {$customer['phone']}\n\n" . ($notes ?? ''));
         Mailer::send($customer['email'], 'Hemos recibido tu solicitud · Charria Ceramics',
-            "Hola {$customer['name']},\n\nGracias por tu interés en la clase privada ({$class['title']}).\nTe escribiremos en menos de 24 h para confirmar la fecha.\nLa clase se paga en el taller.\n\nCharria Ceramics");
+            "Hola {$customer['name']},\n\nGracias por tu interés en la clase privada ({$class['title']}).\nTe escribiremos en menos de 24 h para confirmar la fecha.\nLa clase se paga en el taller, en efectivo, con tarjeta o por Bizum.\n\nCharria Ceramics");
 
         return Response::created(['reference' => $reference, 'status' => 'requested']);
     }

@@ -1043,7 +1043,7 @@ function initPage() {
       const inPerson = form.elements.pay.value === "in_person";
       setButton($("[data-pay-submit]", form), inPerson ? "Reservar" : "Reservar y pagar");
       $("[data-pay-note]", form).textContent = inPerson
-        ? "Tu plaza queda reservada y pagas en el taller el día de la clase. Si no puedes venir, avísanos para liberarla."
+        ? "Tu plaza queda reservada y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos para liberarla."
         : "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.";
     };
     $$("input[name=pay]", form).forEach((r) => r.addEventListener("change", showPay));
@@ -1097,7 +1097,7 @@ function initPage() {
         window.location.href = res.checkout_url;
         return;
       }
-      formMessage(form, `Reserva ${res.reference} confirmada. Pagas ${euros(res.total_cents)} en el taller el día de la clase. Te hemos enviado un email con los detalles.`);
+      formMessage(form, `Reserva ${res.reference} confirmada. Pagas ${euros(res.total_cents)} en el taller el día de la clase (efectivo, tarjeta o Bizum). Te hemos enviado un email con los detalles.`);
       $$("input[type=checkbox]", form).forEach((c) => { c.checked = false; });
     });
   }
