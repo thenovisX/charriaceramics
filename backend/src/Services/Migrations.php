@@ -21,7 +21,8 @@ final class Migrations
         2 => 'productDetails',
         3 => 'messages',
         4 => 'payInPerson',
-        5 => 'bookingCalendar',
+        5 => 'classPayments',
+        6 => 'bookingCalendar',
     ];
 
     public static function latest(): int
@@ -168,7 +169,31 @@ final class Migrations
     }
 
     /**
-     * 5 · Calendario de reservas: tipo de cobro (pago único o suscripción mensual),
+     * 5 · Formas de pago de las clases: pago único online, suscripción mensual y pagar
+     * en el taller se activan por separado en cada clase. Las reservas guardan los datos
+     * de la suscripción de Stripe para reflejar si la cuota del mes está pagada.
+     */
+    private static function classPayments(Database $db): void
+    {
+        self::addColumn($db, 'classes', 'pay_online', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER pay_in_person');
+        self::addColumn($db, 'classes', 'pay_subscription', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER pay_online');
+        self::addColumn($db, 'classes', 'monthly_price_cents', 'INT UNSIGNED NULL AFTER pay_subscription');
+        $type = (string) $db->value(
+            "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'payment_method'"
+        );
+        if (!str_contains($type, 'subscription')) {
+            $db->pdo()->exec("ALTER TABLE bookings MODIFY COLUMN payment_method ENUM('online','in_person','subscription') NOT NULL DEFAULT 'online'");
+        }
+        self::addColumn($db, 'bookings', 'stripe_subscription_id', 'VARCHAR(255) NULL AFTER stripe_session_id');
+        self::addColumn($db, 'bookings', 'subscription_status', "VARCHAR(20) NOT NULL DEFAULT '' AFTER stripe_subscription_id");
+        self::addColumn($db, 'bookings', 'paid_until', 'DATETIME NULL AFTER subscription_status');
+        if (!$db->value("SHOW INDEX FROM bookings WHERE Key_name = 'idx_bookings_subscription'")) {
+            $db->pdo()->exec('ALTER TABLE bookings ADD KEY idx_bookings_subscription (stripe_subscription_id)');
+        }
+    }
+
+    /**
+     * 6 · Calendario de reservas: tipo de cobro (pago único o suscripción mensual),
      * origen (web o añadida a mano) y fecha del último aviso de impago.
      */
     private static function bookingCalendar(Database $db): void

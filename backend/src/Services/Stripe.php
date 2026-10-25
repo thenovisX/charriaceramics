@@ -77,6 +77,9 @@ final class Stripe
                     'product_data' => ['name' => $line['name']],
                 ],
             ];
+            if (!empty($opts['subscription'])) {
+                $item['price_data']['recurring'] = ['interval' => 'month'];
+            }
             if (!empty($line['image']) && str_starts_with($line['image'], 'https://')) {
                 $item['price_data']['product_data']['images'] = [$line['image']];
             }
@@ -84,7 +87,7 @@ final class Stripe
         }
 
         $params = [
-            'mode' => 'payment',
+            'mode' => empty($opts['subscription']) ? 'payment' : 'subscription',
             'locale' => 'es',
             'line_items' => $lineItems,
             'customer_email' => $opts['email'],
@@ -93,8 +96,9 @@ final class Stripe
             'cancel_url' => $opts['cancel_url'],
             'expires_at' => $opts['expires_at'],
             'metadata' => ['type' => $opts['type'], 'reference' => $opts['reference']],
-            'payment_intent_data' => ['metadata' => ['type' => $opts['type'], 'reference' => $opts['reference']]],
         ];
+        // La metadata viaja también en el pago o la suscripción para reconocerlos en sus eventos
+        $params[empty($opts['subscription']) ? 'payment_intent_data' : 'subscription_data'] = ['metadata' => ['type' => $opts['type'], 'reference' => $opts['reference']]];
         if (isset($opts['shipping'])) {
             $params['shipping_options'] = [[
                 'shipping_rate_data' => [

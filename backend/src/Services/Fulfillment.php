@@ -116,22 +116,85 @@ final class Fulfillment
         if (!$booking || !in_array($booking['status'], ['pending_payment', 'cancelled'], true)) {
             return;
         }
-        $db->update('bookings', ['status' => 'confirmed', 'paid_at' => date('Y-m-d H:i:s')], 'id = :id', ['id' => $booking['id']]);
+        $data = ['status' => 'confirmed', 'paid_at' => date('Y-m-d H:i:s')];
+        if ($booking['payment_method'] === 'subscription') {
+            $data += [
+                'stripe_subscription_id' => is_string($session['subscription'] ?? null) ? $session['subscription'] : null,
+                'subscription_status' => 'active',
+                'paid_until' => date('Y-m-d H:i:s', strtotime('+1 month')),
+            ];
+        }
+        $db->update('bookings', $data, 'id = :id', ['id' => $booking['id']]);
         self::bookingConfirmedEmails($booking);
+    }
+
+    /** invoice.paid: la cuota de un mes siguiente (la primera la confirma el Checkout). */
+    public static function invoicePaid(array $invoice): void
+    {
+        if (($invoice['billing_reason'] ?? '') !== 'subscription_cycle') {
+            return;
+        }
+        $db = Database::get();
+        $booking = self::bookingOfInvoice($invoice);
+        if (!$booking) {
+            return;
+        }
+        $end = $invoice['lines']['data'][0]['period']['end'] ?? null;
+        $db->update('bookings', [
+            'paid_at' => date('Y-m-d H:i:s'),
+            'subscription_status' => 'active',
+            'paid_until' => date('Y-m-d H:i:s', is_int($end) ? $end : strtotime('+1 month')),
+        ], 'id = :id', ['id' => $booking['id']]);
+    }
+
+    /** invoice.payment_failed: la cuota del mes no se ha cobrado; la reserva pasa a «sin pagar» y se avisa al estudio. */
+    public static function invoiceFailed(array $invoice): void
+    {
+        $booking = self::bookingOfInvoice($invoice);
+        if (!$booking) {
+            return;
+        }
+        Database::get()->update('bookings', ['paid_at' => null, 'subscription_status' => 'past_due'], 'id = :id', ['id' => $booking['id']]);
+        Mailer::admin("Cuota sin cobrar · {$booking['reference']}",
+            "No se ha podido cobrar la cuota mensual de la suscripción de {$booking['customer_name']} <{$booking['customer_email']}> ({$booking['class_title']}).\n"
+            . 'Stripe reintentará el cobro. Lo ves en el panel → Reservas → «Sin pagar».');
+    }
+
+    /** customer.subscription.deleted: la suscripción se ha cancelado o ha agotado los reintentos. */
+    public static function subscriptionDeleted(array $subscription): void
+    {
+        $db = Database::get();
+        $booking = $db->one('SELECT * FROM bookings WHERE stripe_subscription_id = ?', [$subscription['id'] ?? '']);
+        if ($booking) {
+            $db->update('bookings', ['subscription_status' => 'canceled'], 'id = :id', ['id' => $booking['id']]);
+        }
+    }
+
+    private static function bookingOfInvoice(array $invoice): ?array
+    {
+        $subscription = is_string($invoice['subscription'] ?? null) ? $invoice['subscription'] : '';
+        return $subscription === '' ? null
+            : Database::get()->one("SELECT * FROM bookings WHERE stripe_subscription_id = ? AND payment_method = 'subscription'", [$subscription]);
     }
 
     /** Emails de reserva confirmada (al cliente y al estudio), pagada online o por pagar en el taller. */
     public static function bookingConfirmedEmails(array $booking): void
     {
-        $inPerson = ($booking['payment_method'] ?? 'online') === 'in_person';
+        $method = $booking['payment_method'] ?? 'online';
+        $inPerson = $method === 'in_person';
         $when = $booking['starts_at'] ? date('d/m/Y H:i', strtotime($booking['starts_at'])) : '';
         $text = "Reserva {$booking['reference']}\n{$booking['class_title']} · $when\nPlazas: {$booking['seats']}\nTotal: " . Mailer::money((int) $booking['total_cents'])
-            . ($inPerson ? "\nPago: en el taller, el día de la clase (pendiente) · efectivo, tarjeta o Bizum" : "\nPago: online (pagado)");
+            . match ($method) {
+                'in_person' => "\nPago: en el taller, el día de la clase (pendiente) · efectivo, tarjeta o Bizum",
+                'subscription' => "\nPago: suscripción mensual online (primera cuota pagada)",
+                default => "\nPago: online (pagado)",
+            };
         Mailer::send($booking['customer_email'], "Reserva confirmada · {$booking['class_title']}",
             "Hola {$booking['customer_name']},\n\nTu plaza está confirmada."
+            . ($method === 'subscription' ? ' La cuota se cobra cada mes en tu tarjeta; para darte de baja, escríbenos.' : '')
             . ($inPerson ? ' Pagas en el taller el día de la clase, en efectivo, con tarjeta o por Bizum. Si no puedes venir, avísanos para liberar la plaza.' : '')
             . "\n\n$text\n\nNos vemos en el estudio.\nCharria Ceramics");
-        Mailer::admin(($inPerson ? 'Nueva reserva (pago en el taller) ' : 'Nueva reserva ') . $booking['reference'],
+        Mailer::admin(($inPerson ? 'Nueva reserva (pago en el taller) ' : ($method === 'subscription' ? 'Nueva suscripción ' : 'Nueva reserva ')) . $booking['reference'],
             "$text\nCliente: {$booking['customer_name']} <{$booking['customer_email']}> {$booking['customer_phone']}");
     }
 }

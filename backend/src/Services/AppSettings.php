@@ -30,6 +30,9 @@ final class AppSettings
         'SITE_FACEBOOK' => ['url', false],
         'SITE_TIKTOK' => ['url', false],
         'SITE_MAPS_URL' => ['url', false],
+        // Tienda abierta o cerrada (por defecto abierta) y aviso opcional mientras está cerrada
+        'SHOP_OPEN' => ['bool', false],
+        'SHOP_CLOSED_MESSAGE' => ['text', false],
         // Titular de la web (aviso legal, privacidad, condiciones: LSSI art. 10) y analítica
         'LEGAL_OWNER' => ['text', false],
         'LEGAL_TAX_ID' => ['tax_id', false],
@@ -68,6 +71,11 @@ final class AppSettings
         'LEGAL_EMAIL' => 'legal_email', 'LEGAL_REGISTRY' => 'legal_registry', 'GA_MEASUREMENT_ID' => 'ga_id',
     ];
 
+    public static function shopOpen(): bool
+    {
+        return Env::get('SHOP_OPEN') !== 'false';
+    }
+
     /** Datos del titular que tienen que estar rellenos para que las páginas legales estén completas. */
     public const LEGAL_REQUIRED = ['LEGAL_OWNER', 'LEGAL_TAX_ID', 'LEGAL_ADDRESS', 'LEGAL_EMAIL'];
 
@@ -83,6 +91,8 @@ final class AppSettings
         foreach (self::PUBLIC_KEYS as $key => $name) {
             $out[$name] = Env::get($key);
         }
+        $out['shop_open'] = self::shopOpen();
+        $out['shop_message'] = Env::get('SHOP_CLOSED_MESSAGE') ?: 'No disponible en estos momentos';
         return $out;
     }
 
@@ -135,7 +145,7 @@ final class AppSettings
             'secrets' => $secrets,
             'stripe_mode' => str_contains($stripeKey, '_live_') ? 'live' : ($stripeKey ? 'test' : ''),
             'webhook_url' => Settings::appUrl() . '/api/webhooks/stripe',
-            'webhook_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired'],
+            'webhook_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired', 'invoice.paid', 'invoice.payment_failed', 'customer.subscription.deleted'],
         ];
     }
 

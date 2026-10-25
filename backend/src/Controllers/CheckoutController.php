@@ -7,6 +7,7 @@ use Charria\Database;
 use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
+use Charria\Services\AppSettings;
 use Charria\Services\Consents;
 use Charria\Services\Customers;
 use Charria\Services\Fulfillment;
@@ -76,6 +77,9 @@ final class CheckoutController
      */
     public function checkout(Request $r): Response
     {
+        if (!AppSettings::shopOpen()) {
+            throw new HttpError(503, 'shop_closed', 'La tienda no está disponible en estos momentos.');
+        }
         if (!Stripe::isConfigured()) {
             throw new HttpError(503, 'payments_unavailable', 'La tienda online aún no acepta pagos. Escríbenos y te lo preparamos.');
         }

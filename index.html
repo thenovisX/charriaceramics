@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
   <link rel="preload" as="image" type="image/webp" imagesrcset="assets/inicio-800.webp 800w, assets/inicio-1195.webp 1195w" imagesizes="100vw" fetchpriority="high">
-  <link rel="stylesheet" href="style.css?v=15">
+  <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 
@@ -233,8 +233,9 @@
         <label class="form__field"><span>Teléfono (opcional)</span><input type="tel" name="phone" autocomplete="tel"></label>
         <fieldset class="checks pay-choice" data-pay-field hidden>
           <legend>Forma de pago</legend>
-          <label class="check"><input type="radio" name="pay" value="online" checked><span>Pagar ahora online<small>Con tarjeta en la página segura de Stripe.</small></span></label>
-          <label class="check"><input type="radio" name="pay" value="in_person"><span>Pagar en el taller<small>Tu plaza queda reservada y pagas el día de la clase en efectivo, con tarjeta o por Bizum.</small></span></label>
+          <label class="check" data-pay-option="online"><input type="radio" name="pay" value="online" checked><span>Pagar ahora online<small>Un solo pago con tarjeta en la página segura de Stripe.</small></span></label>
+          <label class="check" data-pay-option="subscription"><input type="radio" name="pay" value="subscription"><span>Suscripción mensual<small data-sub-price>Pagas online cada mes con tarjeta en Stripe. Para darte de baja, escríbenos.</small></span></label>
+          <label class="check" data-pay-option="in_person"><input type="radio" name="pay" value="in_person"><span>Pagar en el taller<small>Tu plaza queda reservada y pagas el día de la clase en efectivo, con tarjeta o por Bizum.</small></span></label>
         </fieldset>
         <div class="checks">
           <label class="check"><input type="checkbox" name="terms"><span>He leído y acepto las <a href="condiciones.html#clases" target="_blank">condiciones de las clases</a> y la <a href="privacidad.html" target="_blank">política de privacidad</a>.</span></label>

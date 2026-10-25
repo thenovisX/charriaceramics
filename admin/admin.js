@@ -104,7 +104,10 @@ const STATUS = {
 const badge = (s) => { const [t, c] = STATUS[s] || [s, ""]; return `<span class="badge badge--${c}">${t}</span>`; };
 // Reserva para pagar en el taller: confirmada pero sin cobrar hasta que se marca como pagada
 const inPersonUnpaid = (b) => b.payment_method === "in_person" && !b.paid_at && b.status !== "cancelled";
-const payBadge = (b) => b.payment_method !== "in_person" || b.status === "cancelled" ? ""
+const payBadge = (b) => b.status === "cancelled" ? ""
+  : b.payment_method === "subscription" ? (b.subscription_status === "canceled" ? '<span class="badge badge--bad">Suscripción cancelada</span>'
+    : b.paid_at ? '<span class="badge badge--ok">Suscripción al día</span>' : '<span class="badge badge--warn">Cuota sin pagar</span>')
+  : b.payment_method !== "in_person" ? ""
   : b.paid_at ? '<span class="badge badge--ok">Cobrada en el taller</span>' : '<span class="badge badge--warn">Pagar en el taller</span>';
 const filters = (options, current) => `<div class="filters" data-filters>${options.map(([v, t]) =>
   `<button type="button" data-value="${v}" aria-pressed="${v === current}">${t}</button>`).join("")}</div>`;
@@ -131,7 +134,7 @@ views.resumen = async () => {
       <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
       <a class="card" href="#reservas"><span class="eyebrow">Clases privadas por confirmar</span><p class="card__num">${s.private_requests}</p></a>
       <a class="card" href="#calendario"><span class="eyebrow">Cobros atrasados</span><p class="card__num">${s.payments_overdue}</p></a>
-      <a class="card" href="#reservas" data-unpaid><span class="eyebrow">Reservas por cobrar en el taller</span><p class="card__num">${s.bookings_unpaid}</p></a>
+      <a class="card" href="#reservas" data-unpaid><span class="eyebrow">Reservas por cobrar</span><p class="card__num">${s.bookings_unpaid}</p></a>
       <a class="card" href="#clases"><span class="eyebrow">Próximos horarios</span><p class="card__num">${s.upcoming_sessions}</p></a>
       <div class="card"><span class="eyebrow">Ventas tienda · 30 días</span><p class="card__num">${money(s.sales_30d_cents)}</p></div>
       <div class="card"><span class="eyebrow">Clases cobradas · 30 días</span><p class="card__num">${money(s.bookings_30d_cents)}</p></div>
@@ -551,11 +554,17 @@ function classForm(c) {
       ${field("Descripción", `<textarea name="description">${esc(c?.description)}</textarea>`)}
       ${field("Orden", input("sort_order", c?.sort_order ?? 0, "type=number"), "Las clases se muestran de menor a mayor")}
       ${toggle("is_active", c ? c.is_active : true, "Visible en la web")}
-      ${c?.kind === "private" ? "" : `<div data-pay-toggle>${toggle("pay_in_person", c ? c.pay_in_person : true, "Se puede pagar en el taller")}<p class="muted" style="font-size:.82rem">Al reservar, el cliente elige pagar online o en el taller. Si paga en el taller la plaza queda reservada y la marcas como cobrada en Reservas.</p></div>`}
+      ${c?.kind === "private" ? "" : `<fieldset class="stack" data-pay-toggle><legend>Formas de pago de la clase</legend>
+        ${toggle("pay_online", c ? c.pay_online : true, "Pagar ya online (un solo pago)")}
+        ${toggle("pay_subscription", c ? c.pay_subscription : false, "Suscripción mensual online")}
+        <div data-sub-price ${c?.pay_subscription ? "" : "hidden"}>${field("Cuota mensual por plaza (€)", input("monthly_price", eurosInput(c?.monthly_price_cents), 'inputmode="decimal"'), "Stripe cobra esta cuota cada mes en la tarjeta del cliente")}</div>
+        ${toggle("pay_in_person", c ? c.pay_in_person : true, "Pagar en el taller")}
+        <p class="muted" style="font-size:.82rem">El cliente elige entre las que dejes activas; si solo hay una, no se le pregunta. Con «en el taller» la plaza queda reservada y la marcas como cobrada en Reservas. Las suscripciones se reflejan solas: si no se cobra la cuota del mes, la reserva sale en «Por cobrar».</p></fieldset>`}
       <div class="row row--end">${c ? '<button class="btn btn--danger" type="button" data-delete>Borrar</button>' : ""}<button class="btn" type="submit">Guardar</button></div>
     </form>
     ${c?.kind === "group" ? `<h3>Foto (se ve al pasar el ratón)</h3>${c.image ? `<img src="${esc(c.image.thumb_url)}" alt="" style="width:120px;border-radius:4px;margin-bottom:1rem">` : ""}<div data-img>${uploadForm("class")}</div>` : ""}`);
   const form = $("[data-form]", body);
+  form.elements.pay_subscription?.addEventListener("change", (e) => { $("[data-sub-price]", form).hidden = !e.target.checked; });
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     submitting(form, async () => {
@@ -565,7 +574,12 @@ function classForm(c) {
         capacity: Number(f.capacity.value), duration_minutes: Number(f.duration_minutes.value),
         sort_order: Number(f.sort_order.value || 0), is_active: f.is_active.checked,
       };
-      if (f.pay_in_person) data.pay_in_person = f.pay_in_person.checked;
+      if (f.pay_in_person) {
+        data.pay_in_person = f.pay_in_person.checked;
+        data.pay_online = f.pay_online.checked;
+        data.pay_subscription = f.pay_subscription.checked;
+        data.monthly_price_cents = f.pay_subscription.checked ? toCents(f.monthly_price.value || "0") : null;
+      }
       if (!c) data.kind = f.kind.value;
       c ? await api("PATCH", `/admin/classes/${c.id}`, data) : await api("POST", "/admin/classes", data);
       toast("Clase guardada");
@@ -620,7 +634,7 @@ views.reservas = async () => {
   const list = (await api("GET", "/admin/bookings" + q)).filter((b) => state.bookingStatus || b.status !== "cancelled");
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Reservas</h1><p>Las clases en grupo se confirman solas al pagar online, o al reservar si el cliente paga en el taller: márcalas como cobradas cuando te paguen. Las privadas llegan como solicitud: escribe al cliente y confírmalas aquí.</p></div></div>
-    ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["unpaid", "Por cobrar en el taller"], ["confirmed", "Confirmadas"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
+    ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["unpaid", "Por cobrar"], ["confirmed", "Confirmadas"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
     <div class="table-wrap">${list.length ? `<table>
       <thead><tr><th>Clase</th><th>Fecha</th><th>Cliente</th><th class="num">Plazas</th><th>Estado</th><th class="num">Importe</th></tr></thead>
       <tbody>${list.map((b) => `<tr class="is-clickable" data-id="${b.id}">
@@ -639,7 +653,7 @@ function bookingForm(b) {
     <div class="row">${badge(b.status)}${payBadge(b)}<span class="muted">creada ${fmtDate(b.created_at)}</span>${b.privacy_blocked ? '<span class="badge">Datos bloqueados · RGPD</span>' : ""}</div>
     <h3>${esc(b.class_title)}</h3>
     <dl><dt>Cliente</dt><dd>${esc(b.customer.name)}</dd><dt>Email</dt><dd><a href="mailto:${esc(b.customer.email)}">${esc(b.customer.email)}</a></dd><dt>Teléfono</dt><dd>${esc(b.customer.phone) || "—"}</dd>
-      <dt>Plazas</dt><dd>${b.seats}</dd><dt>Importe</dt><dd>${money(b.total_cents)} ${b.paid_at ? `· pagado ${b.payment_method === "in_person" ? "en el taller" : "online"} el ${fmtDate(b.paid_at, false)}` : b.payment_method === "in_person" ? "· se paga en el taller" : ""}</dd>
+      <dt>Plazas</dt><dd>${b.seats}</dd><dt>Importe</dt><dd>${money(b.total_cents)} ${b.payment_method === "subscription" ? `al mes · suscripción ${{ active: "activa", past_due: "con la cuota sin pagar", canceled: "cancelada" }[b.subscription_status] || ""}${b.paid_until ? ` · pagada hasta el ${fmtDate(b.paid_until, false)}` : ""}` : b.paid_at ? `· pagado ${b.payment_method === "in_person" ? "en el taller" : "online"} el ${fmtDate(b.paid_at, false)}` : b.payment_method === "in_person" ? "· se paga en el taller" : ""}</dd>
       ${isPrivate ? `<dt>Preferencia</dt><dd>${fmtDate(b.preferred_date, false)} · ${esc(b.preferred_slot)}</dd>` : `<dt>Horario</dt><dd>${fmtDate(b.starts_at)}</dd>`}</dl>
     <form class="stack" data-form style="margin-top:1.5rem">
       ${isPrivate ? field("Fecha y hora acordadas", input("starts_at", b.starts_at ? b.starts_at.slice(0, 16).replace(" ", "T") : "", 'type="datetime-local"')) : ""}
@@ -652,7 +666,7 @@ function bookingForm(b) {
         <button class="btn" type="submit">Guardar</button>
       </div>
     </form>
-    ${b.paid_at && b.status !== "cancelled" ? `<p class="muted" style="font-size:.82rem;margin-top:1rem">${b.payment_method === "in_person" ? "Si cancelas una reserva ya cobrada, devuelve el dinero en el taller." : "Si cancelas una reserva pagada, haz el reembolso desde Stripe."}</p>` : ""}`);
+    ${b.paid_at && b.status !== "cancelled" ? `<p class="muted" style="font-size:.82rem;margin-top:1rem">${b.payment_method === "in_person" ? "Si cancelas una reserva ya cobrada, devuelve el dinero en el taller." : b.payment_method === "subscription" ? "Cancelar la reserva no da de baja la suscripción: cancélala también en Stripe → Suscripciones." : "Si cancelas una reserva pagada, haz el reembolso desde Stripe."}</p>` : ""}`);
   const form = $("[data-form]", body);
   const save = (extra = {}) => submitting(form, async () => {
     const data = { notes: form.elements.notes.value, ...extra };
@@ -1052,6 +1066,12 @@ views.ajustes = async () => {
         </div>
         ${field("Email", input("PACKLINK_SENDER_EMAIL", v.PACKLINK_SENDER_EMAIL, 'type="email"'))}
         <div class="row"><button type="button" class="btn btn--ghost" data-test="packlink">Probar conexión con Packlink</button></div>
+      </section>
+
+      <section class="stack">
+        <h2 class="settings__title">Tienda</h2>
+        ${toggle("SHOP_OPEN", v.SHOP_OPEN !== "false", "Tienda abierta (compra y cesta activas)")}
+        ${field("Aviso cuando está cerrada", input("SHOP_CLOSED_MESSAGE", v.SHOP_CLOSED_MESSAGE, 'placeholder="No disponible en estos momentos"'), "Se ve en la tienda y en las fichas. Los pedidos ya pagados no cambian.")}
       </section>
 
       <section class="stack">

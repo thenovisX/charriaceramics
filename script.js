@@ -90,13 +90,16 @@ async function loadContent() {
 
 // Las 3 piezas más recientes llevan la etiqueta "Nuevo"; las agotadas, "Agotado".
 // La foto y el nombre llevan a la ficha; si hay segunda foto, aparece al pasar el ratón.
+const shopClosed = () => SITE?.shop_open === false;
+const closedNote = () => `<p class="shop-closed" role="status">${esc(SITE?.shop_message || "No disponible en estos momentos")}</p>`;
+
 const productHTML = (p, i, tall = false) => `
   <article class="product${tall ? " product--tall" : ""}${p.soldOut ? " is-sold-out" : ""}" style="order:${i}" data-category="${esc(p.category)}">
     <a class="product__img" href="${productUrl(p)}" tabindex="-1" aria-hidden="true"><img src="${esc(p.img)}" alt="${esc(p.alt)}" loading="lazy">${p.images[1] ? `<img class="product__img-alt" src="${esc(p.images[1].thumb)}" alt="" loading="lazy">` : ""}</a>
     ${p.soldOut ? '<span class="product__badge product__badge--out">Agotado</span>'
       : p.discount ? `<span class="product__badge">−${p.discount} %</span>`
       : PRODUCTS.indexOf(p) < 3 ? '<span class="product__badge">Nuevo</span>' : ""}
-    ${p.soldOut ? "" : `<button class="btn-primary product__add" type="button" data-add="${esc(p.id)}" data-icon="plus" aria-label="Añadir ${esc(p.name)} a la cesta">Añadir al carrito</button>`}
+    ${p.soldOut || shopClosed() ? "" : `<button class="btn-primary product__add" type="button" data-add="${esc(p.id)}" data-icon="plus" aria-label="Añadir ${esc(p.name)} a la cesta">Añadir al carrito</button>`}
     <div class="product__info">
       <div><p class="product__cat">${esc(p.category)}</p><h3><a href="${productUrl(p)}">${esc(p.name)}</a></h3></div>
       <span class="product__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}</span>
@@ -167,6 +170,12 @@ function renderLegal() {
 
 function renderContent() {
   renderSite();
+  if (shopClosed()) {
+    // Tienda cerrada desde el panel: fuera la cesta y el botón de compra, y aviso en el catálogo
+    document.documentElement.classList.add("shop-is-closed");
+    const catalog = $("[data-catalog]");
+    if (catalog) catalog.insertAdjacentHTML("beforebegin", closedNote());
+  }
   // Portada: solo las 5 piezas más recientes, repartidas en 3 columnas con parallax
   const latest = $("[data-latest-products]");
   if (latest) {
@@ -492,7 +501,8 @@ function renderProductPage() {
     <p class="pdp__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}${p.discount ? ` <span class="pdp__off">−${p.discount} %</span>` : ""}</p>
     <p class="pdp__stock${p.soldOut ? " is-out" : p.lowStock ? " is-low" : ""}">${stockNote}</p>
     <div class="pdp__buy">
-      ${p.soldOut ? `<a class="btn-primary btn-primary--ghost" href="contacto.html">Preguntar por una parecida</a>`
+      ${shopClosed() ? closedNote()
+        : p.soldOut ? `<a class="btn-primary btn-primary--ghost" href="contacto.html">Preguntar por una parecida</a>`
         : `<div class="qty" data-qty><button type="button" data-step="-1" aria-label="Quitar una">−</button><span data-qty-value>1</span><button type="button" data-step="1" aria-label="Añadir una">+</button></div>
            <button class="btn-primary pdp__add" type="button" data-add="${esc(p.id)}" data-icon="plus">Añadir al carrito</button>`}
     </div>
@@ -1040,11 +1050,13 @@ function initPage() {
     const form = $("[data-form]", modal);
     const payField = $("[data-pay-field]", modal);
     const showPay = () => {
-      const inPerson = form.elements.pay.value === "in_person";
-      setButton($("[data-pay-submit]", form), inPerson ? "Reservar" : "Reservar y pagar");
-      $("[data-pay-note]", form).textContent = inPerson
-        ? "Tu plaza queda reservada y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos para liberarla."
-        : "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.";
+      const method = form.elements.pay.value;
+      setButton($("[data-pay-submit]", form), method === "in_person" ? "Reservar" : method === "subscription" ? "Suscribirme y pagar" : "Reservar y pagar");
+      $("[data-pay-note]", form).textContent = {
+        in_person: "Tu plaza queda reservada y pagas en el taller el día de la clase (efectivo, tarjeta o Bizum). Si no puedes venir, avísanos para liberarla.",
+        subscription: "El pago se hace en la página segura de Stripe y la cuota se cobra cada mes en tu tarjeta. Tu plaza queda guardada 30 minutos mientras pagas.",
+        online: "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.",
+      }[method];
     };
     $$("input[name=pay]", form).forEach((r) => r.addEventListener("change", showPay));
     $$("[data-book]").forEach((btn) => {
@@ -1067,11 +1079,18 @@ function initPage() {
           dateField.hidden = true;
         }
         setSession(btn.dataset.book, btn.dataset.seats);
-        // Forma de pago: se elige solo si hay las dos opciones
-        const online = CLASSES?.online_payment !== false;
-        const inPerson = !!slot?.c.pay_in_person;
-        payField.hidden = !(online && inPerson);
-        form.elements.pay.value = online || !inPerson ? "online" : "in_person";
+        // Formas de pago que la clase tiene activadas; se elige solo si hay más de una
+        const stripeOn = CLASSES?.online_payment !== false;
+        const c = slot?.c;
+        const methods = c ? [
+          stripeOn && c.pay_online !== false && "online",
+          stripeOn && c.pay_subscription && c.monthly_price_cents > 0 && "subscription",
+          c.pay_in_person && "in_person",
+        ].filter(Boolean) : ["online"];
+        $$("[data-pay-option]", payField).forEach((o) => { o.hidden = !methods.includes(o.dataset.payOption); });
+        $("[data-sub-price]", payField).textContent = `${c?.monthly_price_cents > 0 ? `${euros(c.monthly_price_cents)} al mes por plaza. ` : ""}Pagas online cada mes con tarjeta en Stripe. Para darte de baja, escríbenos.`;
+        payField.hidden = methods.length < 2;
+        form.elements.pay.value = methods[0] || "online";
         showPay();
         $$(".check input[type=checkbox]", form).forEach((c) => { c.checked = false; c.closest(".check").classList.remove("is-invalid"); });
         $(".form__ok", modal).hidden = true;
