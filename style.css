@@ -151,23 +151,37 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   overflow: hidden;
   color: var(--ivory);
 }
-.hero__media { position: absolute; inset: 0; z-index: 0; }
-/* Velo para que el texto se lea: oscuro arriba (cabecera), limpio en el centro y denso abajo (título) */
+/* Foto de portada (4:3, pared azul petróleo arriba y mesa clara abajo).
+   El título va arriba, sobre la pared oscura, y las tres piezas quedan siempre enteras:
+   - pantallas más anchas que 4:3: la foto se ve entera y los lados se funden con el color de la pared
+   - pantallas más altas que 4:3 (tablet vertical): se recorta solo por los lados, centrada en las piezas */
+.hero__media {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(96,114,126,0) 79%, rgba(96,114,126,.85) 82%, rgba(150,166,180,.9) 100%),
+    linear-gradient(90deg, #12212a, #081012);
+}
 .hero__media::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(22,18,14,.38) 0%, rgba(22,18,14,0) 26%, rgba(22,18,14,0) 42%, rgba(22,18,14,.3) 64%, rgba(22,18,14,.7) 100%),
-    radial-gradient(ellipse 45% 35% at 88% 45%, rgba(22,18,14,.32), rgba(22,18,14,0) 70%);
+  background: linear-gradient(180deg, rgba(8,14,17,.4) 0%, rgba(8,14,17,0) 22%);
 }
-.hero__media img { transform: scale(1.15); }
+.hero__media picture { display: block; width: 100%; height: 100%; }
+.hero__media img { object-position: 56% 50%; }
+@media (min-aspect-ratio: 4/3) {
+  .hero__media picture {
+    width: auto; aspect-ratio: 1195 / 896; margin: 0 auto;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  }
+}
 .hero__title {
   position: absolute;
-  left: var(--side); bottom: 9vh;
+  left: var(--side); top: clamp(5.5rem, 11vh, 8rem);
   z-index: 2;
   display: flex; flex-direction: column; width: max-content;
   font-family: var(--serif);
   font-weight: 400;
-  font-size: var(--fs-h1);
+  font-size: min(var(--fs-h1), 21vh);
   white-space: nowrap;
   line-height: 0.82;
   letter-spacing: -0.02em;
@@ -189,7 +203,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .hero__scroll {
   position: absolute; z-index: 2; left: 50%; bottom: 2.5vh; transform: translateX(-50%);
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.3em;
-  text-shadow: 0 1px 12px rgba(22,18,14,.5);
+  color: var(--ink); text-shadow: 0 0 14px rgba(245,241,234,.6);
 }
 
 /* ---------- Intro ---------- */
@@ -508,7 +522,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 
   /* Hero */
   .hero { height: 100svh; min-height: 520px; }
-  .hero__sub { top: auto; bottom: calc(9vh + 24vw); text-align: left; left: var(--side); right: auto; }
+  .hero__sub { top: calc(clamp(5.5rem, 11vh, 8rem) + min(17vw, 21vh) * .82 + 1.6rem); text-align: left; left: var(--side); right: auto; }
 
   /* Secciones */
   .section-head { grid-template-columns: 1fr; gap: .8rem; }
@@ -620,7 +634,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .hero__media { position: relative; inset: auto; }
   .hero__media::after { background: linear-gradient(180deg, rgba(22,18,14,0) 70%, rgba(22,18,14,.12)); }
   .hero__media img { height: auto; transform: none !important; }
-  .hero__title { position: relative; left: auto; right: auto; bottom: auto; width: max-content; margin: 2rem var(--side) 0; font-size: calc((100vw - 2.5rem) / 4.7); text-shadow: none; transform: none !important; }
+  .hero__title { position: relative; left: auto; right: auto; top: auto; bottom: auto; width: max-content; margin: 2rem var(--side) 0; font-size: calc((100vw - 2.5rem) / 4.7); text-shadow: none; transform: none !important; }
   .hero__sub { position: static; max-width: none; margin: 1.4rem var(--side) 0; text-align: left; color: var(--muted); text-shadow: none; }
   .hero__scroll { display: none; }
 
@@ -660,7 +674,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 /* Pantallas bajas en horizontal (móvil girado) */
 @media (max-height: 500px) and (orientation: landscape) {
   .hero { min-height: 100vh; }
-  .hero__title { font-size: 14vw; bottom: 6vh; }
+  .hero__title { top: 4.4rem; font-size: min(14vw, 15vh); }
   .hero__sub { display: none; }
   .mobile-menu > a { font-size: 2rem; }
 }
