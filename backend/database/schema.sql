@@ -320,6 +320,27 @@ CREATE TABLE IF NOT EXISTS privacy_requests (
   KEY idx_privacy_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Bandeja de Mensajes del panel: formulario de contacto, encargos (peticiones) y
+-- solicitudes de clase privada (estas además tienen su reserva en bookings).
+-- Se borran al año (Privacy::anonymizeExpired) o cuando el remitente pide suprimir sus datos.
+CREATE TABLE IF NOT EXISTS messages (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  type         ENUM('contact','request','private_class') NOT NULL DEFAULT 'contact',
+  subject      VARCHAR(160) NOT NULL DEFAULT '',
+  name         VARCHAR(160) NOT NULL,
+  email        VARCHAR(190) NOT NULL,
+  phone        VARCHAR(40)  NOT NULL DEFAULT '',
+  body         TEXT         NOT NULL,
+  booking_id   INT UNSIGNED NULL,
+  read_at      DATETIME     NULL,
+  handled_at   DATETIME     NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_messages_email (email),
+  KEY idx_messages_booking (booking_id),
+  KEY idx_messages_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Cambios de esquema aplicados a instalaciones antiguas (ver Services/Migrations.php)
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version    INT UNSIGNED NOT NULL,

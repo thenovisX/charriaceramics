@@ -18,6 +18,7 @@ final class Migrations
     /** versión => método. Añadir siempre al final con un número mayor. */
     private const STEPS = [
         1 => 'privacy',
+        2 => 'messages',
     ];
 
     public static function latest(): int
@@ -116,14 +117,38 @@ final class Migrations
             $db->pdo()->exec('ALTER TABLE orders ADD KEY idx_orders_email (customer_email)');
         }
 
-        // Tablas nuevas: mismas definiciones que en schema.sql
+        self::createTables($db, ['consents', 'privacy_requests']);
+        // Los clientes que ya existían se crearon sin pedir permiso: quedan sin perfil
+        // (has_profile = 0) y el panel avisa para que se puedan borrar.
+    }
+
+    /**
+     * 2 · Bandeja de Mensajes: contacto, encargos y clases privadas. Las solicitudes
+     * de clase privada que ya había se copian (leídas si ya no están pendientes).
+     */
+    private static function messages(Database $db): void
+    {
+        self::createTables($db, ['messages']);
+        $db->exec(
+            "INSERT INTO messages (type, subject, name, email, phone, body, booking_id, read_at, handled_at, created_at)
+             SELECT 'private_class', b.class_title, b.customer_name, b.customer_email, b.customer_phone,
+                    CONCAT('Fecha preferida: ', COALESCE(b.preferred_date, '—'), ' (', COALESCE(b.preferred_slot, '—'), ')',
+                           IF(COALESCE(b.notes, '') = '', '', CONCAT('\n\n', b.notes))),
+                    b.id, IF(b.status = 'requested', NULL, b.created_at), IF(b.status = 'requested', NULL, b.created_at), b.created_at
+             FROM bookings b
+             WHERE b.session_id IS NULL AND b.preferred_date IS NOT NULL AND b.customer_email <> ''
+               AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.booking_id = b.id)"
+        );
+    }
+
+    /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */
+    private static function createTables(Database $db, array $tables): void
+    {
         $sql = file_get_contents(BACKEND_DIR . '/database/schema.sql');
-        foreach (['consents', 'privacy_requests'] as $table) {
+        foreach ($tables as $table) {
             if (preg_match('/CREATE TABLE IF NOT EXISTS ' . $table . ' \(.*?\) ENGINE=[^;]+;/s', $sql, $m)) {
                 $db->pdo()->exec(rtrim($m[0], ';'));
             }
         }
-        // Los clientes que ya existían se crearon sin pedir permiso: quedan sin perfil
-        // (has_profile = 0) y el panel avisa para que se puedan borrar.
     }
 }

@@ -11,6 +11,7 @@ use Charria\Services\Catalog;
 use Charria\Services\AppSettings;
 use Charria\Services\Installer;
 use Charria\Services\Mailer;
+use Charria\Services\Messages;
 use Charria\Services\Packlink;
 use Charria\Services\Pricing;
 use Charria\Services\RateLimiter;
@@ -107,7 +108,8 @@ final class PublicController
             $v->addError('consents.privacy', 'Para enviar el mensaje tienes que aceptar la política de privacidad');
         }
         $v->check();
-        Mailer::admin("Web · $reason · $name", "$message\n\n— $name <$email>");
+        Messages::record(Messages::typeForReason($reason), $reason, ['name' => $name, 'email' => $email], $message);
+        Mailer::admin("Web · $reason · $name", "$message\n\n— $name <$email>\n\nLo tienes también en el panel → Mensajes.");
         return Response::created(['sent' => true]);
     }
 }

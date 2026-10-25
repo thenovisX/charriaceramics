@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css?v=5">
+  <link rel="stylesheet" href="admin.css?v=6">
 </head>
 <body>
 
@@ -39,10 +39,11 @@
       <a class="side__logo" href="../index.html" target="_blank" rel="noopener">Charria <span>Ceramics</span></a>
       <!-- Solo en móvil: muestra la sección actual y abre el menú -->
       <button class="side__toggle" type="button" aria-expanded="false" aria-controls="side-menu" data-menu-toggle>
-        <span data-menu-current>Menú</span><span class="side__toggle-icon" aria-hidden="true"></span>
+        <span data-menu-current>Menú</span><span class="count" data-unread hidden></span><span class="side__toggle-icon" aria-hidden="true"></span>
       </button>
       <nav class="side__nav" id="side-menu" data-nav>
         <a href="#resumen">Resumen</a>
+        <a href="#mensajes">Mensajes<span class="count" data-unread hidden></span></a>
         <a href="#pedidos">Pedidos</a>
         <a href="#productos">Productos</a>
         <a href="#clases">Clases y horarios</a>
@@ -71,6 +72,6 @@
 
   <div class="toast" data-toast role="status" hidden></div>
 
-  <script src="admin.js?v=6"></script>
+  <script src="admin.js?v=7"></script>
 </body>
 </html>

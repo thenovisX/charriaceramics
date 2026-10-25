@@ -96,6 +96,17 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: 0; lin
 .side__nav a:hover { background: rgba(26,24,22,.06); }
 .side__nav a[aria-current="page"] { background: var(--ink); color: var(--ivory); }
 .side__nav .badge { margin-left: .4rem; }
+/* Mensajes sin leer (menú y botón del menú en móvil) */
+.count { display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; margin-left: .5rem; padding: 0 .35rem; border-radius: 999px; background: var(--bad); color: #fff; font-size: .68rem; font-weight: 500; line-height: 1; vertical-align: middle; }
+.count[hidden] { display: none; }
+.side__nav .count { float: right; }
+.side__toggle .count { margin-left: -.2rem; }
+/* Bandeja de mensajes */
+tr.is-unread td { font-weight: 500; }
+.dot { display: inline-block; width: .5rem; height: .5rem; margin-right: .45rem; border-radius: 50%; background: var(--bad); vertical-align: middle; }
+.message-body { white-space: pre-wrap; padding: 1rem 1.1rem; border-radius: 8px; background: var(--paper); line-height: 1.6; overflow-wrap: anywhere; }
+.message-preview { display: block; max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) { .message-preview { display: -webkit-box; max-width: none; white-space: normal; -webkit-line-clamp: 3; -webkit-box-orient: vertical; } }
 .side__user { margin-top: auto; font-size: .8rem; color: var(--muted); word-break: break-all; }
 .main { padding: 2.5rem clamp(1rem, 3vw, 3rem) 5rem; min-width: 0; }
 .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; }

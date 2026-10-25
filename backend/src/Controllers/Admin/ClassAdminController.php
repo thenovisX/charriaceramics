@@ -9,6 +9,7 @@ use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Catalog;
 use Charria\Services\ImageProcessor;
+use Charria\Services\Messages;
 use Charria\Validator;
 
 /** Clases, horarios (sesiones) y precios desde el panel. */
@@ -222,6 +223,9 @@ final class ClassAdminController
         ], static fn ($x) => $x !== null);
         $v->check();
         $db->update('bookings', $data, 'id = :id', ['id' => $id]);
+        if (in_array($data['status'] ?? null, ['confirmed', 'cancelled'], true)) {
+            Messages::handleBooking($id);
+        }
         $row = $db->one(
             'SELECT * FROM bookings WHERE id = ?',
             [$id]

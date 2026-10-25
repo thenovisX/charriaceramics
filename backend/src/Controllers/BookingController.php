@@ -11,6 +11,7 @@ use Charria\Services\Catalog;
 use Charria\Services\Consents;
 use Charria\Services\Customers;
 use Charria\Services\Mailer;
+use Charria\Services\Messages;
 use Charria\Services\RateLimiter;
 use Charria\Services\Settings;
 use Charria\Services\Stripe;
@@ -145,6 +146,8 @@ final class BookingController
             'notes' => $notes,
         ]);
         Consents::recordAll($customer['email'], $consents, 'private_booking', $r, ['customer_id' => $customerId, 'booking_id' => $id]);
+        Messages::record('private_class', $class['title'], $customer,
+            "Fecha preferida: $date ($slot)" . ($notes ? "\n\n$notes" : ''), $id);
         Mailer::admin("Solicitud de clase privada $reference",
             "{$class['title']} · " . Mailer::money((int) $class['price_cents']) . "\nFecha preferida: $date ($slot)\n"
             . "Cliente: {$customer['name']} <{$customer['email']}> {$customer['phone']}\n\n" . ($notes ?? ''));
