@@ -135,7 +135,7 @@ final class AppSettings
             'secrets' => $secrets,
             'stripe_mode' => str_contains($stripeKey, '_live_') ? 'live' : ($stripeKey ? 'test' : ''),
             'webhook_url' => Settings::appUrl() . '/api/webhooks/stripe',
-            'webhook_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired'],
+            'webhook_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired', 'invoice.paid', 'invoice.payment_failed', 'customer.subscription.deleted'],
         ];
     }
 

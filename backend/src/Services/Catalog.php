@@ -183,6 +183,9 @@ final class Catalog
                 'price_cents' => (int) $c['price_cents'],
                 'capacity' => (int) $c['capacity'],
                 'pay_in_person' => (bool) ($c['pay_in_person'] ?? true),
+                'pay_online' => (bool) ($c['pay_online'] ?? true),
+                'pay_subscription' => (bool) ($c['pay_subscription'] ?? false),
+                'monthly_price_cents' => isset($c['monthly_price_cents']) ? (int) $c['monthly_price_cents'] : null,
                 'image' => $images[$c['image_id']] ?? null,
                 'sessions' => $byClass[$c['id']] ?? [],
             ];
