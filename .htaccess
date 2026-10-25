@@ -12,6 +12,8 @@ ErrorDocument 404 /404.html
   RewriteRule (^|/)\. - [F,L]
   # Carpeta interna del backend
   RewriteRule ^backend(/|$) - [F,L]
+  # Salidas de herramientas de IA (Repomix, Graphify), por si se suben sin querer
+  RewriteRule ^(graphify-out(/|$)|repomix-output\.|repomix\.config\.json$) - [F,L]
   # Forzar HTTPS (necesario para pagos)
   RewriteCond %{HTTPS} !=on
   RewriteCond %{HTTP:X-Forwarded-Proto} !https

@@ -1,0 +1,25 @@
+# Repomix: lo que NO entra en el paquete para IA (además de .gitignore)
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+**/.env
+backend/storage/
+# Fotos subidas desde el panel y datos de clientes
+uploads/
+# Binarios e imágenes
+assets/
+admin/icons/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.ico
+*.pdf
+*.zip
+# Dependencias y salidas generadas
+vendor/
+node_modules/
+graphify-out/
+repomix-output.*

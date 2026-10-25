@@ -6,3 +6,7 @@ uploads/*
 !uploads/.htaccess
 !uploads/.gitkeep
 .DS_Store
+
+# Herramientas de IA (se regeneran: ver "Herramientas para IA" en README.md)
+repomix-output.*
+graphify-out/
