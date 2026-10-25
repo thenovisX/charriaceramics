@@ -4,6 +4,7 @@ declare(strict_types=1);
 use Charria\Controllers\Admin\ClassAdminController as Classes;
 use Charria\Controllers\Admin\CustomerAdminController as Customers;
 use Charria\Controllers\Admin\GalleryAdminController as Gallery;
+use Charria\Controllers\Admin\MessageAdminController as Messages;
 use Charria\Controllers\Admin\OrderAdminController as Orders;
 use Charria\Controllers\Admin\ProductAdminController as Products;
 use Charria\Controllers\Admin\SettingsController;
@@ -97,6 +98,12 @@ return static function (Router $r): void {
     $r->get('/admin/customers/{id}/export', [Customers::class, 'export'], $admin);
     $r->get('/admin/marketing', [Customers::class, 'marketing'], $admin);
     $r->get('/admin/privacy-requests', [Customers::class, 'requests'], $admin);
+
+    $r->get('/admin/messages', [Messages::class, 'index'], $admin);
+    $r->get('/admin/messages/unread', [Messages::class, 'unread'], $admin);
+    $r->get('/admin/messages/{id}', [Messages::class, 'show'], $admin);
+    $r->patch('/admin/messages/{id}', [Messages::class, 'update'], $admin);
+    $r->delete('/admin/messages/{id}', [Messages::class, 'destroy'], $admin);
 
     $r->get('/admin/settings', [SettingsController::class, 'show'], $admin);
     $r->put('/admin/settings', [SettingsController::class, 'update'], $admin);

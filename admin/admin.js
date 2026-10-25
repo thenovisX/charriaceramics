@@ -110,7 +110,7 @@ const filters = (options, current) => `<div class="filters" data-filters>${optio
    ========================================================== */
 const main = $("[data-main]");
 const views = {};
-let state = { orderStatus: "", bookingStatus: "", customerTab: "profiles" };
+let state = { orderStatus: "", bookingStatus: "", customerTab: "profiles", messageType: "", messageStatus: "open" };
 
 /* ---------- Resumen ---------- */
 views.resumen = async () => {
@@ -122,6 +122,7 @@ views.resumen = async () => {
     ${s.legal_missing.length ? '<p class="notice">Faltan los datos del titular (nombre o razón social, NIF, domicilio y email) que salen en el aviso legal, la privacidad y las condiciones de venta. La ley obliga a mostrarlos: rellénalos en <a href="#ajustes">Ajustes → Datos legales</a>.</p>' : ""}
     ${s.legacy_customers ? `<p class="notice">Hay ${s.legacy_customers} ${s.legacy_customers === 1 ? "cliente guardado" : "clientes guardados"} de antes de pedir permiso para crear perfiles. Revísalo en <a href="#clientes">Clientes</a>.</p>` : ""}
     <div class="cards">
+      <a class="card" href="#mensajes"><span class="eyebrow">Mensajes sin leer</span><p class="card__num">${s.unread_messages}</p></a>
       <a class="card" href="#pedidos"><span class="eyebrow">Pedidos por enviar</span><p class="card__num">${s.orders_to_ship}</p></a>
       <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
       <a class="card" href="#reservas"><span class="eyebrow">Clases privadas por confirmar</span><p class="card__num">${s.private_requests}</p></a>
@@ -134,6 +135,70 @@ views.resumen = async () => {
       `<tr><td>${esc(p.title)}</td><td class="num">${p.stock} ${p.stock === 1 ? "unidad" : "unidades"}</td></tr>`).join("")}</tbody></table></div>`
       : '<p class="muted">Todo bien de stock.</p>'}`;
 };
+
+/* ---------- Mensajes: contacto, encargos y clases privadas ---------- */
+const MESSAGE_TYPE = { contact: ["Contacto", ""], request: ["Encargo", "ink"], private_class: ["Clase privada", "warn"] };
+const messageType = (t) => { const [txt, c] = MESSAGE_TYPE[t] || [t, ""]; return `<span class="badge badge--${c}">${txt}</span>`; };
+
+// Contador de no leídos en el menú (y en el botón del menú en móvil)
+function setUnread(n) {
+  $$("[data-unread]").forEach((el) => { el.textContent = n > 99 ? "99+" : String(n); el.hidden = !n; });
+}
+const refreshUnread = () => api("GET", "/admin/messages/unread").then((r) => setUnread(r.unread)).catch(() => {});
+
+views.mensajes = async () => {
+  const q = new URLSearchParams();
+  if (state.messageType) q.set("type", state.messageType);
+  if (state.messageStatus) q.set("status", state.messageStatus);
+  const list = await api("GET", "/admin/messages" + (q.toString() ? `?${q}` : ""));
+  refreshUnread();
+  main.innerHTML = `
+    <div class="page-head"><div><p class="eyebrow">Bandeja</p><h1>Mensajes</h1><p>Lo que te escriben desde la web: el formulario de contacto, los encargos y las solicitudes de clase privada. Contesta por email o teléfono y márcalo como atendido.</p></div></div>
+    <div data-type>${filters([["", "Todos"], ["contact", "Contacto"], ["request", "Encargos"], ["private_class", "Clases privadas"]], state.messageType)}</div>
+    <div data-status>${filters([["open", "Por atender"], ["unread", "Sin leer"], ["handled", "Atendidos"], ["", "Todos"]], state.messageStatus)}</div>
+    <div class="table-wrap">${list.length ? `<table>
+      <thead><tr><th>De</th><th>Tipo</th><th>Mensaje</th><th>Recibido</th><th>Estado</th></tr></thead>
+      <tbody>${list.map((m) => `<tr class="is-clickable${m.read ? "" : " is-unread"}" data-id="${m.id}">
+        <td>${m.read ? "" : '<span class="dot" title="Sin leer"></span>'}${esc(m.name)}<br><span class="muted">${esc(m.email)}</span></td>
+        <td>${messageType(m.type)}</td>
+        <td><span class="message-preview">${m.subject ? `<strong>${esc(m.subject)}</strong> · ` : ""}${esc(m.body)}</span></td>
+        <td>${fmtDate(m.created_at)}</td>
+        <td>${m.handled ? '<span class="badge badge--ok">Atendido</span>' : m.read ? '<span class="badge">Leído</span>' : '<span class="badge badge--bad">Nuevo</span>'}</td></tr>`).join("")}
+      </tbody></table>` : '<p class="empty">No hay mensajes aquí.</p>'}</div>`;
+  $("[data-type] [data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.messageType = b.dataset.value; views.mensajes().catch(fail); } });
+  $("[data-status] [data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.messageStatus = b.dataset.value; views.mensajes().catch(fail); } });
+  $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openMessage(tr.dataset.id).catch(fail)));
+};
+
+async function openMessage(id) {
+  const m = await api("GET", `/admin/messages/${id}`);
+  refreshUnread();
+  const subject = encodeURIComponent(`Re: ${m.subject || "Tu mensaje"}`);
+  const body = openDrawer(m.type === "private_class" ? "Solicitud de clase privada" : m.type === "request" ? "Encargo" : "Mensaje", `
+    <div class="row" style="margin-bottom:1rem">${messageType(m.type)}<span class="muted">${fmtDate(m.created_at)}</span>${m.handled ? `<span class="badge badge--ok">Atendido ${fmtDate(m.handled_at, false)}</span>` : ""}</div>
+    <dl><dt>Nombre</dt><dd>${esc(m.name)}</dd><dt>Email</dt><dd><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></dd>
+      <dt>Teléfono</dt><dd>${m.phone ? `<a href="tel:${esc(m.phone.replace(/\s+/g, ""))}">${esc(m.phone)}</a>` : "—"}</dd>
+      ${m.subject ? `<dt>${m.type === "private_class" ? "Modalidad" : "Motivo"}</dt><dd>${esc(m.subject)}</dd>` : ""}</dl>
+    <h3>Mensaje</h3>
+    <div class="message-body">${esc(m.body)}</div>
+    ${m.booking_id ? '<p class="muted" style="font-size:.85rem;margin-top:1rem">La reserva está en <a href="#reservas" data-go-bookings>Reservas → Solicitudes privadas</a>: al confirmarla o cancelarla allí, este mensaje queda atendido.</p>' : ""}
+    <div class="row row--end" style="margin-top:1.5rem">
+      <button class="btn btn--danger" type="button" data-delete>Borrar</button>
+      <button class="btn btn--ghost" type="button" data-unread-btn>Marcar como no leído</button>
+      <a class="btn btn--ghost" href="mailto:${esc(m.email)}?subject=${subject}">Responder por email</a>
+      <button class="btn" type="button" data-handled>${m.handled ? "Volver a «por atender»" : "Marcar como atendido"}</button>
+    </div>`);
+  const done = (msg) => { toast(msg); closeDrawer(); views.mensajes().catch(fail); };
+  $("[data-handled]", body).addEventListener("click", () => api("PATCH", `/admin/messages/${m.id}`, { handled: !m.handled })
+    .then(() => done(m.handled ? "Mensaje pendiente otra vez" : "Mensaje atendido")).catch(fail));
+  $("[data-unread-btn]", body).addEventListener("click", () => api("PATCH", `/admin/messages/${m.id}`, { read: false })
+    .then(() => done("Marcado como no leído")).catch(fail));
+  $("[data-delete]", body).addEventListener("click", () => {
+    if (!confirm(m.booking_id ? "¿Borrar el mensaje? La reserva seguirá en Reservas." : "¿Borrar el mensaje? No se puede deshacer.")) return;
+    api("DELETE", `/admin/messages/${m.id}`).then(() => done("Mensaje borrado")).catch(fail);
+  });
+  $("[data-go-bookings]", body)?.addEventListener("click", () => { state.bookingStatus = "requested"; closeDrawer(); });
+}
 
 /* ---------- Pedidos ---------- */
 views.pedidos = async () => {
@@ -955,7 +1020,7 @@ async function route() {
   const view = views[name] || views.resumen;
   $$("[data-nav] a").forEach((a) => a.toggleAttribute("aria-current", a.getAttribute("href") === `#${name}`));
   $$("[data-nav] a[aria-current]").forEach((a) => a.setAttribute("aria-current", "page"));
-  $("[data-menu-current]").textContent = $("[data-nav] a[aria-current]")?.textContent || "Menú";
+  $("[data-menu-current]").textContent = $("[data-nav] a[aria-current]")?.firstChild.textContent.trim() || "Menú";
   toggleMenu(false);
   closeDrawer();
   main.innerHTML = '<p class="muted">Cargando…</p>';
@@ -977,6 +1042,7 @@ async function showApp() {
   $("[data-view-login]").hidden = true;
   $("[data-view-app]").hidden = false;
   if (!imageRules) api("GET", "/admin/image-rules").then((r) => { imageRules = r; }).catch(() => {});
+  refreshUnread();
   route();
 }
 
@@ -1034,6 +1100,9 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 }
 
 window.addEventListener("hashchange", () => { if (token) route(); });
+// Mensajes nuevos: se mira cada minuto mientras el panel está a la vista
+setInterval(() => { if (token && !document.hidden && !$("[data-view-app]").hidden) refreshUnread(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (token && !document.hidden && !$("[data-view-app]").hidden) refreshUnread(); });
 // Primera visita sin instalar: al instalador
 fetch(`${API}/health`).then((r) => r.json()).then((j) => {
   if (j.data?.installed === false) location.replace("setup.html");

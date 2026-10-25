@@ -9,6 +9,7 @@ use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\AppSettings;
 use Charria\Services\Fulfillment;
+use Charria\Services\Messages;
 use Charria\Services\Packlink;
 use Charria\Services\Privacy;
 use Charria\Services\Stripe;
@@ -133,6 +134,7 @@ final class OrderAdminController
             'sales_30d_cents' => (int) $db->value("SELECT COALESCE(SUM(total_cents), 0) FROM orders WHERE status IN ('paid','shipped') AND paid_at > NOW() - INTERVAL 30 DAY"),
             'bookings_30d_cents' => (int) $db->value("SELECT COALESCE(SUM(total_cents), 0) FROM bookings WHERE status = 'confirmed' AND paid_at > NOW() - INTERVAL 30 DAY"),
             'private_requests' => (int) $db->value("SELECT COUNT(*) FROM bookings WHERE status = 'requested'"),
+            'unread_messages' => Messages::unread(),
             'upcoming_sessions' => (int) $db->value('SELECT COUNT(*) FROM class_sessions WHERE is_cancelled = 0 AND starts_at > NOW()'),
             'low_stock' => array_map(static fn ($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'stock' => (int) $p['stock']],
                 $db->all('SELECT id, title, stock FROM products WHERE is_active = 1 AND sold_out = 0 AND stock <= 1 ORDER BY stock, title')),

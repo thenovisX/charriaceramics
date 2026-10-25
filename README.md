@@ -187,6 +187,7 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 ### Reservas
 - **Clases en grupo**: cada clase tiene horarios (`class_sessions`) con plazas y precio propios opcionales. Al reservar se retienen las plazas mientras se paga y la reserva se confirma con el webhook de Stripe. No se puede reservar más de lo que queda (se bloquea el horario en la base de datos).
 - **Clases privadas**: cada modalidad (1 persona, 2 personas, pack…) es una clase de tipo `private`. El cliente envía fecha y franja preferidas; queda como `requested` y el estudio la confirma desde el panel (y cobra en el estudio o con un enlace de pago de Stripe).
+- **Mensajes**: el formulario de contacto (`POST /contact`) y cada solicitud de clase privada se guardan en la tabla `messages` y salen en **Panel → Mensajes** (además del email al estudio si hay `MAIL_ADMIN`). El motivo «Encargo personalizado» se guarda como tipo `request` (encargo); el resto, como `contact`; las clases privadas, como `private_class` enlazadas a su reserva. Confirmar o cancelar la reserva deja el mensaje atendido; borrar el mensaje no toca la reserva. Los motivos que cuentan como encargo están en `Messages::REQUEST_REASONS`.
 - **Repositorio de referencia**: el encargo mencionaba un sistema de reservas anterior, pero no llegó el enlace. Este sistema se ha construido sobre la interfaz de reservas que ya tenía la web; si quieres incorporar algo de ese repositorio, se puede adaptar.
 
 ### Imágenes (galería, productos y clases)
@@ -228,7 +229,7 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 
 **Perfiles**: solo se crea una fila en `customers` si la persona marca «guardar mis datos» (`has_profile`) o acepta comunicaciones (`marketing_opt_in`). Si no, el pedido o la reserva guardan solo sus propios datos de contacto y entrega. Panel → Clientes: perfiles, lista de comunicaciones (exportable a CSV con enlace de baja por persona) y registro de solicitudes.
 
-**Supresión** (`Services/Privacy.php`): desde `mis-datos.html` (enlace de un solo uso enviado al email, 24 h; la acción se ejecuta al pulsar el botón, no al abrir el enlace) o desde el panel (ficha del cliente o «Borrar los datos de un email»). Borra el perfil y el alta en comunicaciones, anonimiza lo no pagado y **bloquea** (LOPDGDD art. 32) los pedidos y reservas pagados: quita teléfono y notas y los conserva 6 años por obligación fiscal y contable (`privacy_blocked_at`). `Privacy::anonymizeExpired()` (lo llaman el resumen del panel y `bin/cleanup.php`) anonimiza los pagados a los 6 años y los no pagados a los 90 días. Para enviar los enlaces hace falta el remitente de emails (Ajustes → Emails); si no está, la página pide escribir al email del titular.
+**Supresión** (`Services/Privacy.php`): desde `mis-datos.html` (enlace de un solo uso enviado al email, 24 h; la acción se ejecuta al pulsar el botón, no al abrir el enlace) o desde el panel (ficha del cliente o «Borrar los datos de un email»). Borra el perfil y el alta en comunicaciones, anonimiza lo no pagado y **bloquea** (LOPDGDD art. 32) los pedidos y reservas pagados: quita teléfono y notas y los conserva 6 años por obligación fiscal y contable (`privacy_blocked_at`). `Privacy::anonymizeExpired()` (lo llaman el resumen del panel y `bin/cleanup.php`) anonimiza los pagados a los 6 años y los no pagados a los 90 días, y borra los mensajes de más de 1 año. La supresión borra también los mensajes de ese email y la copia de datos los incluye. Para enviar los enlaces hace falta el remitente de emails (Ajustes → Emails); si no está, la página pide escribir al email del titular.
 
 **Base de datos**: los cambios para instalaciones ya hechas los aplica `Services/Migrations.php` solo (tabla `schema_migrations`); no hay que hacer nada al actualizar. Si al actualizar ya había clientes, quedan sin perfil y el panel ofrece borrarlos (se crearon sin pedir permiso).
 
@@ -372,9 +373,9 @@ Solicitud de clase privada (`preferred_slot`: `Mañana` o `Tarde`).
 ```
 
 #### `POST /contact`
-Envía el formulario de contacto al email del estudio (no se guarda).
+Guarda el mensaje en Panel → Mensajes (tipo `request` si el motivo es «Encargo personalizado», si no `contact`) y avisa por email al estudio. Pide `consents.privacy`.
 ```json
-{ "name": "Eva", "email": "eva@example.com", "reason": "Encargo personalizado", "message": "Hola…" }
+{ "name": "Eva", "email": "eva@example.com", "reason": "Encargo personalizado", "message": "Hola…", "consents": { "privacy": true } }
 ```
 Respuesta `201 { "data": { "sent": true } }`.
 
@@ -418,6 +419,11 @@ Mientras no hay base de datos configurada (o faltan las tablas), el resto de rut
 | `PUT /admin/settings` | `{ "values": { "STRIPE_SECRET_KEY": "sk_live_…", "SHIPPING_FLAT_CENTS": "690" }, "clear": ["PACKLINK_API_KEY"] }` | Igual que GET. Un secreto vacío no se cambia; un campo normal vacío vuelve al valor por defecto. `422` con `fields` si una clave no tiene el formato correcto |
 | `POST /admin/settings/test` | `{ "service": "stripe" }` o `"packlink"` | `{ "ok": true, "message": "Conectado con Stripe · …" }` · `502` si la clave no funciona |
 | `GET /admin/stats` | — | Pedidos por enviar/recoger, ventas 30 días, solicitudes privadas, stock bajo, si Stripe/Packlink están configurados |
+| `GET /admin/messages?type=contact\|request\|private_class&status=unread\|open\|handled` | — | Bandeja de mensajes (los 300 más recientes) |
+| `GET /admin/messages/unread` | — | `{ "unread": 3 }` (contador del menú) |
+| `GET /admin/messages/{id}` | — | Mensaje; abrirlo lo marca como leído |
+| `PATCH /admin/messages/{id}` | `{ "handled": true }` y/o `{ "read": false }` | Mensaje |
+| `DELETE /admin/messages/{id}` | — | `204` (la reserva de una clase privada se conserva) |
 | `GET /admin/products` | — | Lista con campos internos: `stock`, `held` (en pago), `sold_out_manual`, `is_active`, peso y medidas |
 | `POST /admin/products` | `title`*, `price_cents`*, `description`, `category`, `discount_percent` (0–90), `stock`, `sold_out`, `is_active`, `weight_grams`, `length_cm`, `width_cm`, `height_cm`, `slug` | `201` producto |
 | `GET /admin/products/{id}` | — | Producto |
@@ -473,6 +479,7 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 | `gallery_items` | Obras de la galería |
 | `classes`, `class_sessions` | Clases (grupo/privada) y horarios |
 | `bookings` | Reservas y solicitudes (copian título, fecha y precio) |
+| `messages` | Bandeja de Mensajes: contacto, encargos y solicitudes de clase privada (se borran al año) |
 | `orders`, `order_items` | Pedidos y líneas (copian título y precios del momento) |
 | `stripe_events` | Eventos de Stripe ya procesados |
 
@@ -498,6 +505,7 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **`Fulfillment`** · `paid(sesión)` marca pedido/reserva como pagado, descuenta stock, crea el envío y avisa por email · `failed(sesión)` libera stock o plazas · `createPacklinkDraft(pedido)`.
 - **`ImageProcessor`** · `store(archivo, tipo, alt, recortar)` valida, normaliza y guarda · `delete(id)` · `rules()`.
 - **`Customers`** · `validate` (bloque `customer`) · `upsert` (crea o actualiza por email).
+- **`Messages`** · `record(tipo, asunto, remitente, texto, reserva)` · `typeForReason(motivo)` · `unread()` · `handleBooking(id)` · `present`.
 - **`Mailer`** · `send`, `admin`, `money` · **`Log`** · `error`, `info` · **`Settings`** · `currency`, `appUrl`, `holdMinutes`, `uploadsUrl`, `reference(prefijo)`.
 - **`AppSettings`** · `boot` (carga los ajustes del panel en cada petición) · `forPanel` · `save(valores, borrar)` con validación por tipo · cifrado `sodium_crypto_secretbox` con `APP_KEY`.
 - **`Installer`** · `isInstalled` · `install(db, admin, seed)`: prueba MySQL, escribe el `.env` (permisos 600), crea tablas y el primer admin.
@@ -511,6 +519,7 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **`Admin\SettingsController`**: `show`, `update`, `test`.
 - **`Admin\ProductAdminController`**: `index`, `show`, `store`, `update`, `soldOut`, `destroy`, `uploadImage`, `reorderImages`, `deleteImage`.
 - **`Admin\ClassAdminController`**: `index`, `store`, `update`, `destroy`, `uploadImage`, `storeSession`, `updateSession`, `destroySession`, `bookings`, `updateBooking`.
+- **`Admin\MessageAdminController`**: `index`, `unread`, `show`, `update`, `destroy`.
 - **`Admin\GalleryAdminController`**: `index`, `rules`, `store`, `update`, `reorder`, `destroy`.
 - **`Admin\OrderAdminController`**: `index`, `show`, `update`, `packlink`, `customers`, `stats`.
 
@@ -527,7 +536,8 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 
 `https://tudominio.com/admin/`
 
-- **Resumen**: pedidos por enviar y por recoger, solicitudes de clase privada, próximos horarios, ventas de 30 días, stock bajo y avisos si falta configurar Stripe o Packlink.
+- **Mensajes**: bandeja con todo lo que llega desde la web (contacto, encargos y solicitudes de clase privada). Filtros por tipo y por estado (por atender, sin leer, atendidos), contador de no leídos en el menú (también en el botón del menú del móvil; se actualiza cada minuto), ficha con nombre, email y teléfono, «Responder por email», marcar como atendido o no leído y borrar.
+- **Resumen**: mensajes sin leer, pedidos por enviar y por recoger, solicitudes de clase privada, próximos horarios, ventas de 30 días, stock bajo y avisos si falta configurar Stripe o Packlink.
 - **Pedidos**: filtros por estado; detalle con productos, dirección y pago; marcar como enviado o reembolsado; crear el envío en Packlink.
 - **Productos**: alta, edición y borrado; precio, descuento, stock, peso y medidas del paquete; interruptor **Agotado** directamente en la lista. **Ficha del producto**: medidas de la pieza, material, cuidados y especificaciones libres (Capacidad, Acabado…), que salen en `producto.html?p=slug`. **Fotos**: varias a la vez (también al crear), orden con flechas, portada y texto alternativo; la 1.ª es la portada y la 2.ª aparece al pasar el ratón en la tienda.
 - **Tienda (web)**: los filtros están ocultos tras el botón «Filtrar» (panel lateral): orden (novedades, precio ↑↓, nombre A–Z/Z–A, ofertas), categorías, rango de precio, solo disponibles y solo con descuento. El estado va en la URL (`?cat=Cuencos&orden=precio-asc&min=20&max=80`).
@@ -556,7 +566,7 @@ php -S 127.0.0.1:8099 -t backend/tests backend/tests/mock-stripe.php &
 php -S 127.0.0.1:8000 backend/dev-router.php &
 php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test http://127.0.0.1:8099 admin@email contraseña
 ```
-Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos y cierre de sesión ficha y varias fotos por producto (orden y texto alternativo) (87 comprobaciones). El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
+Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos, ficha y varias fotos por producto (orden y texto alternativo), bandeja de Mensajes (tipos, leído/atendido, borrado y RGPD) y cierre de sesión. El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
 
 Con Live Server (sin PHP) la web sigue funcionando con `data.js`; la cesta muestra “precios orientativos” y no deja pagar.
 
