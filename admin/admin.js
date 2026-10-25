@@ -173,7 +173,7 @@ views.mensajes = async () => {
 async function openMessage(id) {
   const m = await api("GET", `/admin/messages/${id}`);
   refreshUnread();
-  const subject = encodeURIComponent(`Re: ${m.subject || "Tu mensaje"} · Charria Ceramics`);
+  const subject = encodeURIComponent(`Re: ${m.subject || "Tu mensaje"}`);
   const body = openDrawer(m.type === "private_class" ? "Solicitud de clase privada" : m.type === "request" ? "Encargo" : "Mensaje", `
     <div class="row" style="margin-bottom:1rem">${messageType(m.type)}<span class="muted">${fmtDate(m.created_at)}</span>${m.handled ? `<span class="badge badge--ok">Atendido ${fmtDate(m.handled_at, false)}</span>` : ""}</div>
     <dl><dt>Nombre</dt><dd>${esc(m.name)}</dd><dt>Email</dt><dd><a href="mailto:${esc(m.email)}">${esc(m.email)}</a></dd>

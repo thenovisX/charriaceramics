@@ -373,9 +373,9 @@ Solicitud de clase privada (`preferred_slot`: `Mañana` o `Tarde`).
 ```
 
 #### `POST /contact`
-Envía el formulario de contacto al email del estudio (no se guarda).
+Guarda el mensaje en Panel → Mensajes (tipo `request` si el motivo es «Encargo personalizado», si no `contact`) y avisa por email al estudio. Pide `consents.privacy`.
 ```json
-{ "name": "Eva", "email": "eva@example.com", "reason": "Encargo personalizado", "message": "Hola…" }
+{ "name": "Eva", "email": "eva@example.com", "reason": "Encargo personalizado", "message": "Hola…", "consents": { "privacy": true } }
 ```
 Respuesta `201 { "data": { "sent": true } }`.
 
