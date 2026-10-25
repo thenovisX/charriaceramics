@@ -45,8 +45,12 @@ final class ProductAdminController
             'length_cm' => $v->int('length_cm', false, 0, 300),
             'width_cm' => $v->int('width_cm', false, 0, 300),
             'height_cm' => $v->int('height_cm', false, 0, 300),
+            'dimensions' => $v->string('dimensions', false, 160),
+            'material' => $v->string('material', false, 160),
+            'care' => $v->string('care', false, 3000),
         ];
         $slug = $v->string('slug', false, 160);
+        $specs = $v->has('specs') ? $this->specs($v) : null;
         $v->check();
         $data = array_filter($data, static fn ($value) => $value !== null);
         foreach (['sold_out', 'is_active'] as $flag) {
@@ -57,7 +61,33 @@ final class ProductAdminController
         if ($slug) {
             $data['slug'] = Validator::slugify($slug);
         }
+        if ($specs !== null) {
+            $data['specs'] = json_encode($specs, JSON_UNESCAPED_UNICODE);
+        }
         return $data;
+    }
+
+    /** specs: [{label, value}] — las filas vacías se descartan; máximo 20. */
+    private function specs(Validator $v): array
+    {
+        $out = [];
+        foreach ($v->array('specs') ?? [] as $i => $row) {
+            $label = trim((string) (is_array($row) ? ($row['label'] ?? '') : ''));
+            $value = trim((string) (is_array($row) ? ($row['value'] ?? '') : ''));
+            if ($label === '' && $value === '') {
+                continue;
+            }
+            if ($label === '' || $value === '') {
+                $v->addError("specs.$i", 'Rellena el nombre y el valor');
+            } elseif (mb_strlen($label) > 60 || mb_strlen($value) > 200) {
+                $v->addError("specs.$i", 'Máximo 60 caracteres el nombre y 200 el valor');
+            }
+            $out[] = ['label' => $label, 'value' => $value];
+        }
+        if (count($out) > 20) {
+            $v->addError('specs', 'Máximo 20 especificaciones');
+        }
+        return $out;
     }
 
     private function uniqueSlug(string $base, int $exceptId = 0): string
@@ -158,6 +188,21 @@ final class ProductAdminController
         foreach (array_values($ids) as $pos => $imageId) {
             $db->exec('UPDATE product_images SET sort_order = ? WHERE product_id = ? AND image_id = ?', [$pos, $id, (int) $imageId]);
         }
+        return Response::json($this->present($id));
+    }
+
+    /** PATCH /admin/products/{id}/images/{imageId} { alt } — texto alternativo de la foto */
+    public function updateImage(Request $r): Response
+    {
+        $id = $r->intParam('id');
+        $imageId = $r->intParam('imageId');
+        if (!Database::get()->value('SELECT 1 FROM product_images WHERE product_id = ? AND image_id = ?', [$id, $imageId])) {
+            throw HttpError::notFound('Imagen no encontrada');
+        }
+        $v = new Validator($r->body());
+        $alt = $v->string('alt', false, 255);
+        $v->check();
+        Database::get()->exec('UPDATE images SET alt = ? WHERE id = ?', [(string) $alt, $imageId]);
         return Response::json($this->present($id));
     }
 

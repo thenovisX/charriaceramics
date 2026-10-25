@@ -57,7 +57,7 @@ Sin Composer ni dependencias: se sube tal cual a `public_html`.
 
 ```
 public_html/
-├── index.html, productos.html, galeria.html, contacto.html, gracias.html
+├── index.html, productos.html, producto.html, galeria.html, contacto.html, gracias.html
 ├── style.css, script.js, cart.js, gracias.js, data.js (respaldo)
 ├── .htaccess              ← bloquea .env, .git, backend/, *.sql, *.md… y fuerza HTTPS
 ├── api/
@@ -539,7 +539,8 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **Mensajes**: bandeja con todo lo que llega desde la web (contacto, encargos y solicitudes de clase privada). Filtros por tipo y por estado (por atender, sin leer, atendidos), contador de no leídos en el menú (también en el botón del menú del móvil; se actualiza cada minuto), ficha con nombre, email y teléfono, «Responder por email», marcar como atendido o no leído y borrar.
 - **Resumen**: mensajes sin leer, pedidos por enviar y por recoger, solicitudes de clase privada, próximos horarios, ventas de 30 días, stock bajo y avisos si falta configurar Stripe o Packlink.
 - **Pedidos**: filtros por estado; detalle con productos, dirección y pago; marcar como enviado o reembolsado; crear el envío en Packlink.
-- **Productos**: alta, edición y borrado; precio, descuento, stock, peso y medidas; interruptor **Agotado** directamente en la lista; fotos con portada, orden y validación.
+- **Productos**: alta, edición y borrado; precio, descuento, stock, peso y medidas del paquete; interruptor **Agotado** directamente en la lista. **Ficha del producto**: medidas de la pieza, material, cuidados y especificaciones libres (Capacidad, Acabado…), que salen en `producto.html?p=slug`. **Fotos**: varias a la vez (también al crear), orden con flechas, portada y texto alternativo; la 1.ª es la portada y la 2.ª aparece al pasar el ratón en la tienda.
+- **Tienda (web)**: los filtros están ocultos tras el botón «Filtrar» (panel lateral): orden (novedades, precio ↑↓, nombre A–Z/Z–A, ofertas), categorías, rango de precio, solo disponibles y solo con descuento. El estado va en la URL (`?cat=Cuencos&orden=precio-asc&min=20&max=80`).
 - **Clases y horarios**: editar clases y precios; añadir horarios con plazas y precio propios, sueltos o **semanales** (“Repetir cada semana durante 1 mes … 1 año”: se crea un horario por semana, el mismo día y hora, y en la web salen en una sola fila “Cada martes” con un desplegable para elegir el día); cancelar horarios; modalidades de clase privada.
 - **Reservas**: próximas reservas, solicitudes privadas (confirmar con fecha acordada o cancelar) y notas internas.
 - **Galería**: subir obras con validación, editar textos, ocultar/publicar, ordenar y borrar.
@@ -565,7 +566,7 @@ php -S 127.0.0.1:8099 -t backend/tests backend/tests/mock-stripe.php &
 php -S 127.0.0.1:8000 backend/dev-router.php &
 php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test http://127.0.0.1:8099 admin@email contraseña
 ```
-Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos, bandeja de Mensajes (tipos, leído/atendido, borrado y RGPD) y cierre de sesión (95 comprobaciones). El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
+Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos, ficha y varias fotos por producto (orden y texto alternativo), bandeja de Mensajes (tipos, leído/atendido, borrado y RGPD) y cierre de sesión. El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
 
 Con Live Server (sin PHP) la web sigue funcionando con `data.js`; la cesta muestra “precios orientativos” y no deja pagar.
 
@@ -601,7 +602,7 @@ Mapa rápido por zona:
 | Zona | Ficheros |
 |---|---|
 | Panel | `admin/admin.js`, `admin/index.html`, `admin/admin.css`, `backend/src/Controllers/Admin/` |
-| Tienda y pago | `productos.html`, `cart.js`, `gracias.*`, `backend/src/Controllers/{Checkout,Webhook,Public}Controller.php`, `backend/src/Services/{Catalog,Pricing,Shipping,Packlink,Stripe,Fulfillment}.php` |
+| Tienda y pago | `productos.html`, `producto.html`, `cart.js`, `gracias.*`, `backend/src/Controllers/{Checkout,Webhook,Public}Controller.php`, `backend/src/Services/{Catalog,Pricing,Shipping,Packlink,Stripe,Fulfillment}.php` |
 | Páginas públicas | `*.html`, `style.css`, `script.js`, `data.js`, `consent.js`, `mis-datos.js` |
 | API y base de datos | `backend/routes.php`, `backend/src/Http/`, `backend/database/schema.sql` |
 

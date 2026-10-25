@@ -18,7 +18,8 @@ final class Migrations
     /** versión => método. Añadir siempre al final con un número mayor. */
     private const STEPS = [
         1 => 'privacy',
-        3 => 'messages', // el 2 es productDetails (ficha de producto, otra rama)
+        2 => 'productDetails',
+        3 => 'messages',
     ];
 
     public static function latest(): int
@@ -121,6 +122,15 @@ final class Migrations
         self::createTables($db, ['consents', 'privacy_requests']);
         // Los clientes que ya existían se crearon sin pedir permiso: quedan sin perfil
         // (has_profile = 0) y el panel avisa para que se puedan borrar.
+    }
+
+    /** 2 · Ficha de producto: medidas, material, cuidados y especificaciones libres. */
+    private static function productDetails(Database $db): void
+    {
+        self::addColumn($db, 'products', 'dimensions', "VARCHAR(160) NOT NULL DEFAULT '' AFTER height_cm");
+        self::addColumn($db, 'products', 'material', "VARCHAR(160) NOT NULL DEFAULT '' AFTER dimensions");
+        self::addColumn($db, 'products', 'care', 'TEXT NULL AFTER material');
+        self::addColumn($db, 'products', 'specs', 'TEXT NULL AFTER care');
     }
 
     /**

@@ -28,22 +28,29 @@ INSERT INTO images (id, kind, url, width, height, alt) VALUES
   (19, 'class',   'https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=700&q=80', 700, 875, 'Torno de alfarero'),
   (20, 'class',   'https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?auto=format&fit=crop&w=700&q=80', 700, 875, 'Modelado a mano'),
   (21, 'class',   'https://images.unsplash.com/photo-1556011284-54aa6466d402?auto=format&fit=crop&w=700&q=80', 700, 875, 'Esmaltes'),
-  (22, 'class',   'https://images.unsplash.com/photo-1525974160448-038dacadcc71?auto=format&fit=crop&w=700&q=80', 700, 875, 'Curso de torno');
+  (22, 'class',   'https://images.unsplash.com/photo-1525974160448-038dacadcc71?auto=format&fit=crop&w=700&q=80', 700, 875, 'Curso de torno'),
+  -- Segundas fotos de algunas piezas (se ven al pasar el ratón y en la ficha)
+  (23, 'product', 'https://images.unsplash.com/photo-1571950484368-7b15b0a5ad46?auto=format&fit=crop&w=900&h=1125&q=80', 900, 1125, 'Detalle del esmalte'),
+  (24, 'product', 'https://images.unsplash.com/photo-1607344645866-009c320b63e0?auto=format&fit=crop&w=900&h=1125&q=80', 900, 1125, 'Piezas de barro en el estudio'),
+  (25, 'product', 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=900&h=1125&q=80', 900, 1125, 'Piezas de gres blanco'),
+  (26, 'product', 'https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?auto=format&fit=crop&w=900&h=1125&q=80', 900, 1125, 'Plato de la vajilla'),
+  (27, 'product', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?auto=format&fit=crop&w=900&h=1125&q=80', 900, 1125, 'Manos en el torno');
 
-INSERT INTO products (id, slug, title, description, category, price_cents, stock, weight_grams, created_at) VALUES
-  (1,  'cuenco-arena',   'Cuenco Arena',   'Cuenco de gres torneado a mano con esmalte arena.',   'Cuencos',  3800,  3, 600,  '2026-10-20 10:00:00'),
-  (2,  'jarron-duna',    'Jarrón Duna',    'Jarrón de gres con textura de duna.',                 'Jarrones', 7200,  2, 1400, '2026-10-18 10:00:00'),
-  (3,  'taza-niebla',    'Taza Niebla',    'Taza esmaltada en gris niebla, 250 ml.',              'Tazas',    2600,  6, 350,  '2026-10-15 10:00:00'),
-  (4,  'plato-sal',      'Plato Sal',      'Plato llano de 26 cm en blanco sal.',                 'Platos',   3200,  5, 800,  '2026-10-12 10:00:00'),
-  (5,  'set-alba',       'Set Alba',       'Set de dos tazas y dos platos de postre.',            'Sets',     11000, 2, 2200, '2026-10-08 10:00:00'),
-  (6,  'florero-ocre',   'Florero Ocre',   'Florero de barro con engobe ocre.',                   'Jarrones', 5400,  1, 900,  '2026-10-02 10:00:00'),
-  (7,  'cuenco-lino',    'Cuenco Lino',    'Cuenco blanco con borde irregular.',                  'Cuencos',  3400,  4, 550,  '2026-09-26 10:00:00'),
-  (8,  'vasija-raiz',    'Vasija Raíz',    'Pieza escultórica de la serie Raíz.',                 'Jarrones', 9500,  1, 2000, '2026-09-19 10:00:00'),
-  (9,  'vasija-tierra',  'Vasija Tierra',  'Vasija de barro rojo bruñido.',                       'Jarrones', 8400,  1, 1800, '2026-09-10 10:00:00'),
-  (10, 'set-mesa-lenta', 'Set Mesa Lenta', 'Vajilla para dos: platos, cuencos y tazas.',          'Sets',     14000, 1, 4000, '2026-09-01 10:00:00');
+INSERT INTO products (id, slug, title, description, category, price_cents, stock, weight_grams, dimensions, material, care, specs, created_at) VALUES
+  (1, 'cuenco-arena', 'Cuenco Arena', 'Cuenco de gres torneado a mano con esmalte arena.', 'Cuencos', 3800, 3, 600, 'Ø 14 × 7 cm', 'Gres', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Capacidad","value":"450 ml"},{"label":"Acabado","value":"Esmalte satinado arena"},{"label":"Lavavajillas","value":"Sí, programa suave"}]', '2026-10-20 10:00:00'),
+  (2, 'jarron-duna', 'Jarrón Duna', 'Jarrón de gres con textura de duna.', 'Jarrones', 7200, 2, 1400, 'Ø 12 × 28 cm', 'Gres chamotado', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Apto para agua","value":"Sí, interior esmaltado"}]', '2026-10-18 10:00:00'),
+  (3, 'taza-niebla', 'Taza Niebla', 'Taza esmaltada en gris niebla, 250 ml.', 'Tazas', 2600, 6, 350, 'Ø 8 × 9 cm', 'Gres', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Capacidad","value":"250 ml"},{"label":"Microondas","value":"Sí"}]', '2026-10-15 10:00:00'),
+  (4, 'plato-sal', 'Plato Sal', 'Plato llano de 26 cm en blanco sal.', 'Platos', 3200, 5, 800, 'Ø 26 cm', 'Gres blanco', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[]', '2026-10-12 10:00:00'),
+  (5, 'set-alba', 'Set Alba', 'Set de dos tazas y dos platos de postre.', 'Sets', 11000, 2, 2200, 'Tazas Ø 8 × 9 cm · platos Ø 20 cm', 'Gres', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Incluye","value":"2 tazas y 2 platos"}]', '2026-10-08 10:00:00'),
+  (6, 'florero-ocre', 'Florero Ocre', 'Florero de barro con engobe ocre.', 'Jarrones', 5400, 1, 900, 'Ø 10 × 18 cm', 'Barro rojo y engobe', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[]', '2026-10-02 10:00:00'),
+  (7, 'cuenco-lino', 'Cuenco Lino', 'Cuenco blanco con borde irregular.', 'Cuencos', 3400, 4, 550, 'Ø 13 × 6 cm', 'Porcelana', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[]', '2026-09-26 10:00:00'),
+  (8, 'vasija-raiz', 'Vasija Raíz', 'Pieza escultórica de la serie Raíz.', 'Jarrones', 9500, 1, 2000, 'Ø 18 × 32 cm', 'Gres y engobe', 'Limpiar con un paño seco. Pieza decorativa: no apta para alimentos.', '[{"label":"Uso","value":"Decorativo"}]', '2026-09-19 10:00:00'),
+  (9, 'vasija-tierra', 'Vasija Tierra', 'Vasija de barro rojo bruñido.', 'Jarrones', 8400, 1, 1800, 'Ø 20 × 26 cm', 'Barro rojo bruñido', 'Limpiar con un paño seco. Pieza decorativa: no apta para alimentos.', '[{"label":"Uso","value":"Decorativo"}]', '2026-09-10 10:00:00'),
+  (10, 'set-mesa-lenta', 'Set Mesa Lenta', 'Vajilla para dos: platos, cuencos y tazas.', 'Sets', 14000, 1, 4000, 'Platos Ø 26 cm · cuencos Ø 14 cm · tazas Ø 8 cm', 'Gres', 'Lavar a mano o en programa suave. Evita los cambios bruscos de temperatura.', '[{"label":"Incluye","value":"2 platos, 2 cuencos y 2 tazas"}]', '2026-09-01 10:00:00');
 
 INSERT INTO product_images (product_id, image_id, sort_order) VALUES
-  (1, 1, 0), (2, 2, 0), (3, 3, 0), (4, 4, 0), (5, 5, 0), (6, 6, 0), (7, 7, 0), (8, 8, 0), (9, 9, 0), (10, 10, 0);
+  (1, 1, 0), (2, 2, 0), (3, 3, 0), (4, 4, 0), (5, 5, 0), (6, 6, 0), (7, 7, 0), (8, 8, 0), (9, 9, 0), (10, 10, 0),
+  (1, 23, 1), (2, 24, 1), (7, 25, 1), (10, 26, 1), (3, 27, 1);
 
 INSERT INTO gallery_items (image_id, title, technique, year, sort_order) VALUES
   (11, 'Serie Raíz',        'Gres y engobe',           '2025', 1),

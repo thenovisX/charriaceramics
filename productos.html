@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
 
@@ -50,13 +50,32 @@
       <p class="page-head__desc">Cuencos, jarrones y vajilla torneados y esmaltados en el estudio. Cada pieza es única: tamaño y color pueden variar ligeramente.</p>
     </section>
 
-    <div class="filters" data-filters role="group" aria-label="Filtrar por categoría">
-      <span class="filters__count" data-filter-count aria-live="polite"></span>
+    <!-- Barra de la tienda: el panel de filtros y orden está oculto hasta pulsar «Filtrar» -->
+    <div class="shop-bar">
+      <button class="shop-bar__btn" type="button" data-filter-open aria-expanded="false" aria-controls="filtros">Filtrar <span data-filter-active></span></button>
+      <div class="shop-bar__chips" data-filter-chips aria-label="Filtros activos"></div>
+      <span class="shop-bar__count" data-filter-count aria-live="polite"></span>
     </div>
 
     <section class="catalog" data-catalog aria-label="Productos"></section>
 
   </main>
+
+  <!-- Panel lateral de filtros (lo rellena script.js con las categorías y precios reales) -->
+  <aside class="sheet" id="filtros" data-filter-sheet aria-hidden="true">
+    <div class="sheet__backdrop" data-filter-close></div>
+    <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="filtros-title" tabindex="-1">
+      <div class="sheet__head">
+        <div><p class="eyebrow">Tienda</p><h2 class="sheet__title" id="filtros-title">Filtrar y ordenar</h2></div>
+        <button class="sheet__close" type="button" data-filter-close aria-label="Cerrar filtros">×</button>
+      </div>
+      <form class="sheet__body" data-filter-form onsubmit="return false"></form>
+      <div class="sheet__foot">
+        <button class="link-btn" type="button" data-filter-clear>Borrar todo</button>
+        <button class="btn-primary" type="button" data-filter-close data-filter-apply>Ver piezas</button>
+      </div>
+    </div>
+  </aside>
 
   <footer class="footer">
     <p class="footer__big" data-split>Hecho a mano, con calma.</p>
@@ -85,8 +104,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
-  <script src="data.js?v=8"></script>
-  <script src="script.js?v=13"></script>
+  <script src="data.js?v=9"></script>
+  <script src="script.js?v=14"></script>
   <script src="cart.js?v=9"></script>
   <script src="consent.js?v=1"></script>
 </body>
