@@ -91,7 +91,8 @@ final class Privacy
                  WHERE customer_email = ? AND status = 'confirmed' AND paid_at IS NOT NULL",
                 [$now, $email]
             );
-            // Lo que no se llegó a pagar no hace falta para nada: se anonimiza
+            // Lo que no se llegó a pagar no hace falta para nada: se anonimiza y, si aún estaba
+            // en pie (solicitud privada o plaza para pagar en el taller), se cancela y libera la plaza
             $anonOrders = $db->exec(
                 "UPDATE orders SET customer_name = ?, customer_email = '', customer_phone = '', ship_street = '', ship_city = '',
                    ship_postal_code = '', privacy_blocked_at = COALESCE(privacy_blocked_at, ?)
@@ -100,7 +101,7 @@ final class Privacy
             );
             $anonBookings = $db->exec(
                 "UPDATE bookings SET customer_name = ?, customer_email = '', customer_phone = '', notes = NULL,
-                   status = IF(status = 'requested', 'cancelled', status), privacy_blocked_at = COALESCE(privacy_blocked_at, ?)
+                   status = IF(status IN ('requested','confirmed'), 'cancelled', status), privacy_blocked_at = COALESCE(privacy_blocked_at, ?)
                  WHERE customer_email = ? AND NOT (status = 'confirmed' AND paid_at IS NOT NULL)",
                 [self::ANON, $now, $email]
             );

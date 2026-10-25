@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS classes (
   duration_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 120,
   price_cents      INT UNSIGNED NOT NULL,
   capacity         SMALLINT UNSIGNED NOT NULL DEFAULT 6,
+  pay_in_person    TINYINT(1)   NOT NULL DEFAULT 1,  -- se puede reservar y pagar en el taller
   image_id         INT UNSIGNED NULL,
   is_active        TINYINT(1)   NOT NULL DEFAULT 1,
   sort_order       INT          NOT NULL DEFAULT 0,
@@ -191,6 +192,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   seats             SMALLINT UNSIGNED NOT NULL DEFAULT 1,
   unit_price_cents  INT UNSIGNED NOT NULL DEFAULT 0,
   total_cents       INT UNSIGNED NOT NULL DEFAULT 0,
+  payment_method    ENUM('online','in_person') NOT NULL DEFAULT 'online',  -- in_person: confirmada sin pagar; paid_at al cobrarla en el taller
   status            ENUM('requested','pending_payment','confirmed','cancelled') NOT NULL,
   preferred_date    DATE         NULL,  -- solo clases privadas
   preferred_slot    VARCHAR(40)  NOT NULL DEFAULT '',

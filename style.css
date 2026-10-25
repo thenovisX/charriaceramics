@@ -796,6 +796,13 @@ html.cart-open { overflow: hidden; }
 .check input:checked { background: var(--ink); border-color: var(--ink); }
 .check input:checked::after { transform: translateY(-1px) rotate(45deg) scale(1); }
 .check input:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
+/* Forma de pago de una clase: online o en el taller */
+.pay-choice { padding: 0; margin: 0; min-width: 0; }
+.pay-choice[hidden] { display: none; }
+.pay-choice legend { padding: 0; margin-bottom: .9rem; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted); }
+.check input[type=radio] { border-radius: 50%; }
+.check input[type=radio]::after { width: .45rem; height: .45rem; border: 0; border-radius: 50%; background: var(--ivory); transform: scale(0); }
+.check input[type=radio]:checked::after { transform: scale(1); }
 .check a { border-bottom: 1px solid rgba(26,24,22,.35); }
 .check small { display: block; color: var(--muted); font-size: var(--fs-label); letter-spacing: .04em; }
 .check.is-invalid input { border-color: #9c3d2e; }
