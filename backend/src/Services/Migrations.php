@@ -22,6 +22,7 @@ final class Migrations
         3 => 'messages',
         4 => 'payInPerson',
         5 => 'classPayments',
+        6 => 'bookingCalendar',
     ];
 
     public static function latest(): int
@@ -189,6 +190,17 @@ final class Migrations
         if (!$db->value("SHOW INDEX FROM bookings WHERE Key_name = 'idx_bookings_subscription'")) {
             $db->pdo()->exec('ALTER TABLE bookings ADD KEY idx_bookings_subscription (stripe_subscription_id)');
         }
+    }
+
+    /**
+     * 6 · Calendario de reservas: tipo de cobro (pago único o suscripción mensual),
+     * origen (web o añadida a mano) y fecha del último aviso de impago.
+     */
+    private static function bookingCalendar(Database $db): void
+    {
+        self::addColumn($db, 'bookings', 'billing_type', "ENUM('single','subscription') NOT NULL DEFAULT 'single' AFTER payment_method");
+        self::addColumn($db, 'bookings', 'source', "ENUM('web','manual') NOT NULL DEFAULT 'web' AFTER billing_type");
+        self::addColumn($db, 'bookings', 'payment_alert_at', 'DATETIME NULL AFTER paid_at');
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

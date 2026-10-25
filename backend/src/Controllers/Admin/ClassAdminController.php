@@ -256,6 +256,7 @@ final class ClassAdminController
             'status' => $v->enum('status', ['requested', 'confirmed', 'cancelled']),
             'notes' => $v->string('notes', false, 2000),
             'starts_at' => $v->datetime('starts_at'),
+            'billing_type' => $v->enum('billing_type', ['single', 'subscription']),
         ], static fn ($x) => $x !== null);
         $paid = $v->bool('paid');
         if ($paid !== null && $booking['payment_method'] !== 'in_person') {
@@ -263,7 +264,10 @@ final class ClassAdminController
         }
         $v->check();
         if ($paid !== null) {
-            $data['paid_at'] = $paid ? ($booking['paid_at'] ?? date('Y-m-d H:i:s')) : null;
+            // Una suscripción se cobra cada mes: «cobrada» renueva la fecha salvo que ya conste este mes
+            $keep = $booking['paid_at'] && ($booking['billing_type'] !== 'subscription' || $booking['paid_at'] >= date('Y-m-01'));
+            $data['paid_at'] = $paid ? ($keep ? $booking['paid_at'] : date('Y-m-d H:i:s')) : null;
+            $data['payment_alert_at'] = null;
         }
         $db->update('bookings', $data, 'id = :id', ['id' => $id]);
         if (in_array($data['status'] ?? null, ['confirmed', 'cancelled'], true)) {
@@ -291,6 +295,8 @@ final class ClassAdminController
             'seats' => (int) $b['seats'],
             'total_cents' => (int) $b['total_cents'],
             'payment_method' => $b['payment_method'] ?? 'online',
+            'billing_type' => $b['billing_type'] ?? 'single',
+            'source' => $b['source'] ?? 'web',
             'subscription_status' => (string) ($b['subscription_status'] ?? ''),
             'paid_until' => $b['paid_until'] ?? null,
             'notes' => (string) $b['notes'],

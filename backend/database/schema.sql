@@ -196,6 +196,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   unit_price_cents  INT UNSIGNED NOT NULL DEFAULT 0,
   total_cents       INT UNSIGNED NOT NULL DEFAULT 0,
   payment_method    ENUM('online','in_person','subscription') NOT NULL DEFAULT 'online',  -- in_person: confirmada sin pagar; paid_at al cobrarla en el taller · subscription: cuota mensual de Stripe
+  billing_type      ENUM('single','subscription') NOT NULL DEFAULT 'single',  -- subscription: cuota mensual, se repite cada semana en el calendario hasta cancelarla
+  source            ENUM('web','manual') NOT NULL DEFAULT 'web',  -- manual: añadida a mano desde el calendario del panel
   status            ENUM('requested','pending_payment','confirmed','cancelled') NOT NULL,
   preferred_date    DATE         NULL,  -- solo clases privadas
   preferred_slot    VARCHAR(40)  NOT NULL DEFAULT '',
@@ -205,7 +207,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   subscription_status VARCHAR(20) NOT NULL DEFAULT '',  -- active | past_due | canceled (solo suscripciones)
   paid_until        DATETIME     NULL,  -- fin del periodo mensual ya pagado (suscripciones)
   expires_at        DATETIME     NULL,  -- fin de la retención de plazas mientras se paga
-  paid_at           DATETIME     NULL,  -- último cobro; en suscripciones vuelve a NULL si falla la cuota
+  paid_at           DATETIME     NULL,  -- en una suscripción, la fecha del último cobro
+  payment_alert_at  DATETIME     NULL,  -- último aviso por email de impago
   privacy_blocked_at DATETIME    NULL,  -- el cliente pidió borrar sus datos: se conservan bloqueados por obligación legal
   created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
