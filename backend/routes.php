@@ -8,6 +8,7 @@ use Charria\Controllers\Admin\GalleryAdminController as Gallery;
 use Charria\Controllers\Admin\MessageAdminController as Messages;
 use Charria\Controllers\Admin\OrderAdminController as Orders;
 use Charria\Controllers\Admin\ProductAdminController as Products;
+use Charria\Controllers\Admin\ReviewAdminController as Reviews;
 use Charria\Controllers\Admin\SettingsController;
 use Charria\Controllers\AuthController;
 use Charria\Controllers\BookingController;
@@ -26,6 +27,7 @@ return static function (Router $r): void {
     $r->get('/products', [PublicController::class, 'products']);
     $r->get('/products/{id}', [PublicController::class, 'product']);
     $r->get('/gallery', [PublicController::class, 'gallery']);
+    $r->get('/reviews', [PublicController::class, 'reviews']);
     $r->get('/classes', [PublicController::class, 'classes']);
     $r->post('/cart/quote', [PublicController::class, 'cartQuote']);
     $r->post('/shipping/quote', [CheckoutController::class, 'shippingQuote']);
@@ -88,6 +90,13 @@ return static function (Router $r): void {
     $r->delete('/admin/gallery/{id}', [Gallery::class, 'destroy'], $admin);
     $r->get('/admin/image-rules', [Gallery::class, 'rules'], $admin);
 
+    $r->get('/admin/reviews', [Reviews::class, 'index'], $admin);
+    $r->post('/admin/reviews', [Reviews::class, 'store'], $admin);
+    $r->put('/admin/reviews/order', [Reviews::class, 'reorder'], $admin);
+    $r->put('/admin/reviews/{id}', [Reviews::class, 'update'], $admin);
+    $r->patch('/admin/reviews/{id}', [Reviews::class, 'update'], $admin);
+    $r->delete('/admin/reviews/{id}', [Reviews::class, 'destroy'], $admin);
+
     $r->get('/admin/orders', [Orders::class, 'index'], $admin);
     $r->get('/admin/orders/{id}', [Orders::class, 'show'], $admin);
     $r->patch('/admin/orders/{id}', [Orders::class, 'update'], $admin);
@@ -112,4 +121,6 @@ return static function (Router $r): void {
     $r->get('/admin/settings', [SettingsController::class, 'show'], $admin);
     $r->put('/admin/settings', [SettingsController::class, 'update'], $admin);
     $r->post('/admin/settings/test', [SettingsController::class, 'test'], $admin);
+    $r->post('/admin/settings/studio-image', [SettingsController::class, 'studioImage'], $admin);
+    $r->delete('/admin/settings/studio-image', [SettingsController::class, 'deleteStudioImage'], $admin);
 };

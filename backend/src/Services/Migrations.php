@@ -23,6 +23,8 @@ final class Migrations
         4 => 'payInPerson',
         5 => 'classPayments',
         6 => 'bookingCalendar',
+        7 => 'weekendHours',
+        8 => 'webContent',
     ];
 
     public static function latest(): int
@@ -201,6 +203,45 @@ final class Migrations
         self::addColumn($db, 'bookings', 'billing_type', "ENUM('single','subscription') NOT NULL DEFAULT 'single' AFTER payment_method");
         self::addColumn($db, 'bookings', 'source', "ENUM('web','manual') NOT NULL DEFAULT 'web' AFTER billing_type");
         self::addColumn($db, 'bookings', 'payment_alert_at', 'DATETIME NULL AFTER paid_at');
+    }
+
+    /**
+     * 7 · Horario: «Sábados - Domingos: Cerrado» pasa a explicar que el fin de semana
+     * se abre solo para clases con reserva. Solo cambia esa línea si está tal cual en
+     * Panel → Ajustes → Datos de la web; el resto del horario se queda como esté.
+     */
+    private static function weekendHours(Database $db): void
+    {
+        $hours = $db->value("SELECT value FROM settings WHERE name = 'SITE_HOURS'");
+        if (!is_string($hours) || $hours === '') {
+            return;
+        }
+        $new = preg_replace(
+            '/^(\h*S[áa]bados?\h*[-–—y]\h*Domingos?\h*:?\h*Cerrado)\.?\h*(?=\r?$)/imu',
+            '$1 (Abierto exclusivamente para clases programadas con reserva)',
+            $hours
+        );
+        if (is_string($new) && $new !== $hours) {
+            $db->exec("UPDATE settings SET value = ? WHERE name = 'SITE_HOURS'", [$new]);
+        }
+    }
+
+    /**
+     * 8 · Contenido de la web: peso de la pieza en la ficha, etiqueta de
+     * disponibilidad de cada obra de la galería, fotos sueltas de la web
+     * (la del estudio) y reseñas de clientes.
+     */
+    private static function webContent(Database $db): void
+    {
+        self::addColumn($db, 'products', 'piece_weight_grams', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER material');
+        self::addColumn($db, 'gallery_items', 'availability', "ENUM('unique','on_request','none') NOT NULL DEFAULT 'unique' AFTER year");
+        $type = (string) $db->value(
+            "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'images' AND COLUMN_NAME = 'kind'"
+        );
+        if (!str_contains($type, "'site'")) {
+            $db->pdo()->exec("ALTER TABLE images MODIFY COLUMN kind ENUM('product','gallery','class','site') NOT NULL");
+        }
+        self::createTables($db, ['reviews']);
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

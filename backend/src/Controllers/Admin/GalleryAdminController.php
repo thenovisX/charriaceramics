@@ -14,6 +14,9 @@ use Charria\Validator;
 /** Galería: subir (con validación de formato, peso y proporción), editar, ordenar y borrar. */
 final class GalleryAdminController
 {
+    /** Etiqueta bajo la obra: Obra única (No disponible) · Disponible bajo pedido · ninguna */
+    public const AVAILABILITY = ['unique', 'on_request', 'none'];
+
     private const SELECT = 'SELECT g.*, i.url, i.thumb_url, i.width, i.height, i.alt FROM gallery_items g JOIN images i ON i.id = g.image_id';
 
     private function present(int $id): array
@@ -37,13 +40,14 @@ final class GalleryAdminController
         return Response::json(ImageProcessor::rules());
     }
 
-    /** POST /admin/gallery (multipart: image, title, technique, year, alt, crop=1, is_published) */
+    /** POST /admin/gallery (multipart: image, title, technique, year, availability, alt, crop=1, is_published) */
     public function store(Request $r): Response
     {
         $v = new Validator($r->post);
         $title = $v->string('title', true, 160);
         $technique = $v->string('technique', false, 160) ?? '';
         $year = $v->string('year', false, 10) ?? date('Y');
+        $availability = $v->enum('availability', self::AVAILABILITY) ?: 'unique';
         $alt = $v->string('alt', false, 255) ?? '';
         $published = $v->bool('is_published') ?? true;
         $v->check();
@@ -55,6 +59,7 @@ final class GalleryAdminController
             'title' => $title,
             'technique' => $technique,
             'year' => $year,
+            'availability' => $availability,
             'is_published' => (int) $published,
             'sort_order' => (int) $db->value('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM gallery_items'),
         ]);
@@ -70,6 +75,7 @@ final class GalleryAdminController
             'title' => $v->string('title', false, 160, 1),
             'technique' => $v->string('technique', false, 160),
             'year' => $v->string('year', false, 10),
+            'availability' => $v->enum('availability', self::AVAILABILITY) ?: null,
             'is_published' => ($b = $v->bool('is_published')) === null ? null : (int) $b,
         ], static fn ($x) => $x !== null);
         $alt = $v->string('alt', false, 255);

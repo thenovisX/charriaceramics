@@ -201,6 +201,7 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 | Producto | 4:5 | 800 px | 1600 px | ~350 KB |
 | Galería | 16:10, 3:4, 4:5, 1:1, 21:9, 4:3, 3:2, 2:3 | 1200 px | 2200 px | ~650 KB |
 | Clase | 4:5, 1:1, 4:3, 3:4 | 600 px | 1200 px | ~250 KB |
+| Web (foto del estudio) | 4:5, 3:4, 1:1, 4:3, 3:2 | 1000 px | 2000 px | ~450 KB |
 
 - Formato comprobado por el contenido real del archivo (JPG, PNG o WebP); un `.php` renombrado a `.jpg` se rechaza.
 - Peso máximo de subida `UPLOAD_MAX_MB`; tamaño máximo 36 megapíxeles.
@@ -267,11 +268,14 @@ Estado del servicio.
 ```
 
 #### `GET /site`
-Datos de contacto que se editan en **Panel → Ajustes → Datos de la web**. Lo que no se ha rellenado viene a `null` y la web deja el texto del HTML.
+Datos de contacto que se editan en **Panel → Ajustes → Datos de la web**. Lo que no se ha rellenado viene a `null` y la web deja el texto del HTML. También trae `studio_text` y `studio_image` (`{url, thumb_url, width, height, alt}` o `null`) de la sección «El estudio».
+
+#### `GET /reviews`
+Reseñas publicadas, en el orden del panel: `[{ "id", "author", "context", "body", "rating", "review_date" }]`. Vacío = la portada no enseña la sección.
 
 **Cerrar la tienda**: Panel → Ajustes → **Tienda** tiene el interruptor «Tienda abierta» (`SHOP_OPEN`) y un aviso opcional (`SHOP_CLOSED_MESSAGE`, por defecto «No disponible en estos momentos»). Cerrada, `/site` devuelve `shop_open: false`, la web oculta la cesta y los botones de compra y enseña el aviso en la tienda y las fichas, y `POST /checkout` responde 503 `shop_closed`. Los pedidos ya pagados no se tocan; el resto del sitio (clases, galería, contacto) sigue igual.
 ```json
-{ "data": { "address": "Calle del Barro 12", "city": "28012 Madrid", "hours": "Mar–Sáb · 10:00–20:00\nDom y Lun · cerrado",
+{ "data": { "address": "Calle del Barro 12", "city": "36740 Tomiño (Pontevedra)", "hours": "Lunes - Viernes: 10:00–20:00\nSábados - Domingos: Cerrado (Abierto exclusivamente para clases programadas con reserva)",
   "email": "hola@charriaceramics.com", "phone": "+34 600 000 000", "whatsapp": null,
   "instagram": "https://www.instagram.com/ch.ceramics/", "facebook": null, "tiktok": null, "maps_url": null } }
 ```
@@ -424,6 +428,8 @@ Mientras no hay base de datos configurada (o faltan las tablas), el resto de rut
 |---|---|---|
 | `GET /admin/settings` | — | Ajustes del panel: `values` (remitente, envíos, emails), `secrets` (solo `set`, `hint` “…1234” y `source` panel/env, **nunca la clave**), `stripe_mode`, `webhook_url`, `webhook_events` |
 | `PUT /admin/settings` | `{ "values": { "STRIPE_SECRET_KEY": "sk_live_…", "SHIPPING_FLAT_CENTS": "690" }, "clear": ["PACKLINK_API_KEY"] }` | Igual que GET. Un secreto vacío no se cambia; un campo normal vacío vuelve al valor por defecto. `422` con `fields` si una clave no tiene el formato correcto |
+| `POST /admin/settings/studio-image` | multipart: `image`, `alt`, `crop=1` | Igual que GET, con `studio_image`. Borra la foto anterior. `DELETE` la quita (vuelve la de ejemplo) |
+| `GET /admin/reviews` · `POST` · `PATCH /admin/reviews/{id}` · `DELETE` · `PUT /admin/reviews/order` | `{ "author", "context", "body", "rating": 1–5 o "", "review_date", "is_published" }` | Reseñas para la portada |
 | `POST /admin/settings/test` | `{ "service": "stripe" }` o `"packlink"` | `{ "ok": true, "message": "Conectado con Stripe · …" }` · `502` si la clave no funciona |
 | `GET /admin/stats` | — | Pedidos por enviar/recoger, ventas 30 días, solicitudes privadas, stock bajo, si Stripe/Packlink están configurados |
 | `GET /admin/messages?type=contact\|request\|private_class&status=unread\|open\|handled` | — | Bandeja de mensajes (los 300 más recientes) |
@@ -546,13 +552,14 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **Mensajes**: bandeja con todo lo que llega desde la web (contacto, encargos y solicitudes de clase privada). Filtros por tipo y por estado (por atender, sin leer, atendidos), contador de no leídos en el menú (también en el botón del menú del móvil; se actualiza cada minuto), ficha con nombre, email y teléfono, «Responder por email», marcar como atendido o no leído y borrar.
 - **Resumen**: mensajes sin leer, pedidos por enviar y por recoger, solicitudes de clase privada, próximos horarios, ventas de 30 días, stock bajo y avisos si falta configurar Stripe o Packlink.
 - **Pedidos**: filtros por estado; detalle con productos, dirección y pago; marcar como enviado o reembolsado; crear el envío en Packlink.
-- **Productos**: alta, edición y borrado; precio, descuento, stock, peso y medidas del paquete; interruptor **Agotado** directamente en la lista. **Ficha del producto**: medidas de la pieza, material, cuidados y especificaciones libres (Capacidad, Acabado…), que salen en `producto.html?p=slug`. **Fotos**: varias a la vez (también al crear), orden con flechas, portada y texto alternativo; la 1.ª es la portada y la 2.ª aparece al pasar el ratón en la tienda.
+- **Productos**: alta, edición y borrado; precio, descuento, stock, peso y medidas del paquete; interruptor **Agotado** directamente en la lista. **Ficha del producto**: medidas de la pieza (alto × diámetro), peso de la pieza, material, cuidados (al crear viene «Apto para lavavajillas y microondas.») y especificaciones libres (Capacidad, Acabado…), que salen en `producto.html?p=slug` junto con «Envío: 2–5 días laborables» si está disponible. El peso del envío es otro campo (con embalaje) y no se enseña. **Fotos**: varias a la vez (también al crear), orden con flechas, portada y texto alternativo; la 1.ª es la portada y la 2.ª aparece al pasar el ratón en la tienda.
 - **Tienda (web)**: los filtros están ocultos tras el botón «Filtrar» (panel lateral): orden (novedades, precio ↑↓, nombre A–Z/Z–A, ofertas), categorías, rango de precio, solo disponibles y solo con descuento. El estado va en la URL (`?cat=Cuencos&orden=precio-asc&min=20&max=80`).
 - **Clases y horarios**: editar clases y precios; añadir horarios con plazas y precio propios, sueltos o **semanales** (“Repetir cada semana durante 1 mes … 1 año”: se crea un horario por semana, el mismo día y hora, y en la web salen en una sola fila “Cada martes” con un desplegable para elegir el día); cancelar horarios; modalidades de clase privada.
 - **Reservas**: próximas reservas, solicitudes privadas (confirmar con fecha acordada o cancelar), reservas por cobrar en el taller («Marcar como cobrada») y notas internas.
-- **Galería**: subir obras con validación, editar textos, ocultar/publicar, ordenar y borrar.
+- **Galería**: subir obras con validación, editar textos, ocultar/publicar, ordenar y borrar. Cada obra lleva una etiqueta: «Obra única (No disponible)» (por defecto), «Disponible bajo pedido (Consultar precios)», que enlaza a Contacto con el formulario ya rellenado (`contacto.html?obra=…`), o ninguna (para fotos del taller).
+- **Reseñas**: opiniones reales de compradores y alumnos (nombre, quién es, texto, estrellas opcionales), publicar/ocultar, ordenar y borrar. La sección «Opiniones» de la portada solo aparece si hay alguna publicada.
 - **Clientes**.
-- **Ajustes**: **datos de la web** (dirección, ciudad, horario, email, teléfono, WhatsApp, Instagram, Facebook, TikTok y enlace de Google Maps, que salen en el pie, el menú del móvil y Contacto); claves de Stripe (con la URL y los eventos del webhook para copiar, modo prueba/real y botón de prueba), API key y remitente de Packlink, opciones de envío y emails.
+- **Ajustes**: **datos de la web** (dirección, ciudad, horario, email, teléfono, WhatsApp, Instagram, Facebook, TikTok y enlace de Google Maps, que salen en el pie, el menú del móvil y Contacto); **El estudio** (texto y foto de la sección «Del barro a tu mesa» de la portada; sin rellenar se ven los de ejemplo); claves de Stripe (con la URL y los eventos del webhook para copiar, modo prueba/real y botón de prueba), API key y remitente de Packlink, opciones de envío y emails.
 - **Cuenta**: cambiar contraseña, cerrar sesión.
 
 ## Desarrollo local y tests
@@ -649,4 +656,6 @@ Para un panel en otra web basta con llamar a `POST /auth/login` y enviar `Author
 - **Envíos a punto de recogida de Packlink**: de momento no se ofrecen (necesitan elegir un punto en un mapa); solo entrega a domicilio y recogida en el estudio.
 - **Logs**: `backend/storage/logs/app.log` (Stripe, Packlink, errores) y `php-errors.log`.
 - **Olvidé la contraseña**: `php backend/bin/create-admin.php tu@email.com` por SSH, o borra tu fila de `admins` en phpMyAdmin y vuelve a `admin/setup.html` con los mismos datos de MySQL.
+- **Open Graph (vista previa al compartir)**: cada página tiene su `<title>` y sus etiquetas `og:*` / `twitter:card` en el `<head>`; la imagen es `assets/og-charria.jpg` (1200×630). WhatsApp, LinkedIn y Facebook piden que `og:image` sea una URL absoluta: cuando la web tenga su dominio definitivo, cambia `content="/assets/og-charria.jpg"` por `content="https://tudominio/assets/og-charria.jpg"` en todas las páginas y añade `<meta property="og:url" content="https://tudominio/pagina.html">`.
+- **Fechas, plazas y horario**: las clases (fechas, plazas libres y precios) salen siempre de Panel → Clases; el HTML no lleva fechas escritas a mano. Dirección, ciudad y horario salen de Panel → Ajustes → Datos de la web; el texto del HTML solo se ve si eso está vacío o la API no responde.
 - **Cambiar la contraseña de MySQL**: edita `DB_PASS` en el `.env` (Administrador de archivos, carpeta por encima de `public_html`).

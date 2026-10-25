@@ -47,6 +47,7 @@ final class ProductAdminController
             'height_cm' => $v->int('height_cm', false, 0, 300),
             'dimensions' => $v->string('dimensions', false, 160),
             'material' => $v->string('material', false, 160),
+            'piece_weight_grams' => $v->has('piece_weight_grams') ? ($v->int('piece_weight_grams', false, 0, 100_000) ?? 0) : null,
             'care' => $v->string('care', false, 3000),
         ];
         $slug = $v->string('slug', false, 160);

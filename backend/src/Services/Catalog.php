@@ -68,6 +68,7 @@ final class Catalog
             'images' => $images,
             'dimensions' => (string) ($p['dimensions'] ?? ''),
             'material' => (string) ($p['material'] ?? ''),
+            'piece_weight_grams' => (int) ($p['piece_weight_grams'] ?? 0),
             'care' => (string) ($p['care'] ?? ''),
             'specs' => self::specs($p['specs'] ?? null),
             'created_at' => $p['created_at'],
@@ -205,12 +206,27 @@ final class Catalog
             'title' => $row['title'],
             'technique' => $row['technique'],
             'year' => $row['year'],
+            'availability' => $row['availability'] ?? 'unique',
             'sort_order' => (int) $row['sort_order'],
             'is_published' => (bool) $row['is_published'],
             'image' => self::image([
                 'id' => $row['image_id'], 'url' => $row['url'], 'thumb_url' => $row['thumb_url'],
                 'width' => $row['width'], 'height' => $row['height'], 'alt' => $row['alt'],
             ]),
+        ];
+    }
+
+    public static function review(array $row): array
+    {
+        return [
+            'id' => (int) $row['id'],
+            'author' => $row['author'],
+            'context' => $row['context'],
+            'body' => $row['body'],
+            'rating' => $row['rating'] === null ? null : (int) $row['rating'],
+            'review_date' => $row['review_date'],
+            'sort_order' => (int) $row['sort_order'],
+            'is_published' => (bool) $row['is_published'],
         ];
     }
 }

@@ -27,6 +27,7 @@ final class ImageProcessor
         'product' => ['ratios' => ['4:5'], 'min_width' => 800, 'max_side' => 1600, 'thumb' => 600, 'target_kb' => 350],
         'gallery' => ['ratios' => ['16:10', '3:4', '4:5', '1:1', '21:9', '4:3', '3:2', '2:3'], 'min_width' => 1200, 'max_side' => 2200, 'thumb' => 1000, 'target_kb' => 650],
         'class'   => ['ratios' => ['4:5', '1:1', '4:3', '3:4'], 'min_width' => 600, 'max_side' => 1200, 'thumb' => 700, 'target_kb' => 250],
+        'site'    => ['ratios' => ['4:5', '3:4', '1:1', '4:3', '3:2'], 'min_width' => 1000, 'max_side' => 2000, 'thumb' => 900, 'target_kb' => 450],
     ];
     private const TOLERANCE = 0.02;   // 2 % de margen en la proporción
     private const MAX_PIXELS = 36_000_000;
@@ -174,7 +175,7 @@ final class ImageProcessor
 
     private static function label(string $kind): string
     {
-        return ['product' => 'productos', 'gallery' => 'la galería', 'class' => 'clases'][$kind];
+        return ['product' => 'productos', 'gallery' => 'la galería', 'class' => 'clases', 'site' => 'la foto del estudio'][$kind];
     }
 
     private static function ratioValue(string $ratio): float

@@ -76,6 +76,13 @@ final class PublicController
         return Response::json(array_map([Catalog::class, 'galleryItem'], $rows));
     }
 
+    /** GET /reviews → reseñas publicadas, en el orden del panel */
+    public function reviews(Request $r): Response
+    {
+        $rows = Database::get()->all('SELECT * FROM reviews WHERE is_published = 1 ORDER BY sort_order, id');
+        return Response::json(array_map([Catalog::class, 'review'], $rows));
+    }
+
     /**
      * GET /classes → clases en grupo con sus próximos horarios y modalidades privadas.
      * online_payment: Stripe está listo; cada clase dice si admite pagar en el taller (pay_in_person).
