@@ -211,26 +211,56 @@ views.productos = async () => {
   });
 };
 
+// Fila de especificación libre (Capacidad, Acabado, Apto lavavajillas…)
+const specRow = (sp = {}) => `<div class="spec-row" data-spec>
+  <input name="spec_label" value="${esc(sp.label)}" placeholder="Nombre (p. ej. Capacidad)" maxlength="60" aria-label="Nombre">
+  <input name="spec_value" value="${esc(sp.value)}" placeholder="Valor (p. ej. 350 ml)" maxlength="200" aria-label="Valor">
+  <button type="button" class="icon-btn" data-spec-del aria-label="Quitar">×</button></div>`;
+
 function productForm(p) {
   const body = openDrawer(p ? p.title : "Nuevo producto", `
     <form class="stack" data-form novalidate>
       ${field("Título", input("title", p?.title, "required maxlength=160"))}
       <div class="grid-2">
-        ${field("Categoría", input("category", p?.category, 'maxlength=80 list="cats"'), "Cuencos, Jarrones, Tazas, Platos, Sets…")}
+        ${field("Categoría", input("category", p?.category, 'maxlength=80 list="cats"'), "Cuencos, Jarrones, Tazas, Platos, Sets… (sale como filtro en la tienda)")}
         ${field("Precio (€)", input("price", eurosInput(p?.price_cents), 'inputmode="decimal" required'))}
         ${field("Descuento (%)", input("discount_percent", p?.discount_percent ?? 0, 'type=number min=0 max=90'))}
         ${field("Stock (unidades)", input("stock", p?.stock ?? 1, "type=number min=0"))}
       </div>
-      ${field("Descripción", `<textarea name="description" maxlength="5000">${esc(p?.description)}</textarea>`)}
+      ${field("Descripción", `<textarea name="description" maxlength="5000">${esc(p?.description)}</textarea>`, "Se ve en la ficha del producto. Deja una línea en blanco para separar párrafos.")}
+
+      <h3 class="form-section">Ficha del producto</h3>
+      <div class="grid-2">
+        ${field("Medidas de la pieza", input("dimensions", p?.dimensions, 'maxlength=160 placeholder="Ø 14 × 7 cm"'), "Tal y como quieres que se lea en la ficha")}
+        ${field("Material", input("material", p?.material, 'maxlength=160 placeholder="Gres, porcelana, barro rojo…"'))}
+      </div>
+      ${field("Cuidados", `<textarea name="care" maxlength="3000" rows="3" placeholder="Apto para lavavajillas en programa suave…">${esc(p?.care)}</textarea>`)}
+      <div class="field"><span>Más especificaciones</span>
+        <div class="specs" data-specs>${(p?.specs || []).map(specRow).join("")}</div>
+        <input type="hidden" name="specs">
+        <button type="button" class="btn btn--small btn--ghost" data-spec-add>+ Añadir especificación</button>
+        <small>Capacidad, acabado, técnica, apto para microondas… Se muestran en una tabla en la ficha.</small>
+      </div>
+
+      <h3 class="form-section">Envío</h3>
       <div class="grid-2">
         ${field("Peso (g)", input("weight_grams", p?.weight_grams ?? 1000, "type=number min=1"), "Para calcular el envío")}
-        ${field("Medidas L × An × Al (cm)", `<div class="row" style="flex-wrap:nowrap">${input("length_cm", p?.length_cm ?? 0, "type=number min=0 aria-label=Largo")}${input("width_cm", p?.width_cm ?? 0, "type=number min=0 aria-label=Ancho")}${input("height_cm", p?.height_cm ?? 0, "type=number min=0 aria-label=Alto")}</div>`)}
+        ${field("Paquete L × An × Al (cm)", `<div class="row" style="flex-wrap:nowrap">${input("length_cm", p?.length_cm ?? 0, "type=number min=0 aria-label=Largo")}${input("width_cm", p?.width_cm ?? 0, "type=number min=0 aria-label=Ancho")}${input("height_cm", p?.height_cm ?? 0, "type=number min=0 aria-label=Alto")}</div>`, "Medidas de la caja, no se enseñan en la web")}
       </div>
+      ${p ? "" : `<h3 class="form-section">Fotos</h3>
+        ${field("Fotos (puedes elegir varias)", '<input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple>', "La primera será la portada. Luego podrás cambiar el orden.")}
+        <label class="check"><input type="checkbox" name="crop" value="1" checked> Recortar automáticamente a 4:5 si no encajan</label>`}
       <div class="row" style="gap:2rem">${toggle("is_active", p ? p.is_active : true, "Visible en la tienda")}${toggle("sold_out", p?.sold_out_manual, "Agotado", "switch--bad")}</div>
       <div class="row row--end">${p ? '<button class="btn btn--danger" type="button" data-delete>Borrar</button>' : ""}<button class="btn" type="submit">${p ? "Guardar cambios" : "Crear producto"}</button></div>
     </form>
-    ${p ? `<h3>Fotos</h3><div data-images></div>` : '<p class="muted" style="margin-top:1.5rem">Podrás subir fotos después de crear el producto.</p>'}`);
+    ${p ? `<h3>Fotos</h3><p class="muted" style="margin:-.4rem 0 1rem">La primera es la portada (y la de la cesta); la segunda aparece al pasar el ratón en la tienda. Ordénalas con las flechas.</p><div data-images></div>` : ""}`);
   const form = $("[data-form]", body);
+  const specs = $("[data-specs]", form);
+  $("[data-spec-add]", form).addEventListener("click", () => {
+    specs.insertAdjacentHTML("beforeend", specRow());
+    $$("[data-spec]", specs).at(-1).querySelector("input").focus();
+  });
+  specs.addEventListener("click", (e) => { if (e.target.closest("[data-spec-del]")) e.target.closest("[data-spec]").remove(); });
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     submitting(form, async () => {
@@ -239,12 +269,31 @@ function productForm(p) {
         title: f.title.value, category: f.category.value, description: f.description.value,
         price_cents: f.price.value ? toCents(f.price.value) : null,
         discount_percent: Number(f.discount_percent.value || 0), stock: Number(f.stock.value || 0),
+        dimensions: f.dimensions.value, material: f.material.value, care: f.care.value,
+        specs: $$("[data-spec]", specs).map((row) => ({ label: $("[name=spec_label]", row).value, value: $("[name=spec_value]", row).value })),
         weight_grams: Number(f.weight_grams.value || 1000), length_cm: Number(f.length_cm.value || 0),
         width_cm: Number(f.width_cm.value || 0), height_cm: Number(f.height_cm.value || 0),
         is_active: f.is_active.checked, sold_out: f.sold_out.checked,
       };
       if (Number.isNaN(data.price_cents)) return showFieldErrors(form, { price: "Precio no válido" });
-      const saved = p ? await api("PATCH", `/admin/products/${p.id}`, data) : await api("POST", "/admin/products", data);
+      let saved;
+      try {
+        saved = p ? await api("PATCH", `/admin/products/${p.id}`, data) : await api("POST", "/admin/products", data);
+      } catch (err) {
+        // Los errores de cada fila (specs.0, specs.1…) se muestran juntos bajo la lista
+        if (err.fields) Object.keys(err.fields).filter((k) => k.startsWith("specs.")).forEach((k) => { err.fields.specs ??= err.fields[k]; delete err.fields[k]; });
+        throw err;
+      }
+      const files = p ? [] : [...(f.images?.files || [])];
+      for (const [i, file] of files.entries()) {
+        toast(`Subiendo foto ${i + 1} de ${files.length}…`);
+        const fd = new FormData();
+        fd.append("image", file);
+        fd.append("alt", saved.title);
+        if (f.crop.checked) fd.append("crop", "1");
+        try { saved = await api("POST", `/admin/products/${saved.id}/images`, fd); }
+        catch (err) { toast(`“${file.name}”: ${err.fields?.image || err.message}`, true); }
+      }
       toast(p ? "Producto guardado" : "Producto creado");
       views.productos();
       productForm(saved);
@@ -258,19 +307,66 @@ function productForm(p) {
 }
 
 function renderProductImages(p, box) {
+  const n = p.images.length;
   box.innerHTML = `
-    <div class="img-list">${p.images.map((img, i) => `<figure>
-      ${i === 0 ? '<span class="badge badge--ink cover">Portada</span>' : ""}<img src="${esc(img.thumb_url)}" alt="">
-      <figcaption>${i ? `<button type="button" data-first="${img.id}">Portada</button>` : "<span></span>"}<button type="button" data-del="${img.id}">Quitar</button></figcaption></figure>`).join("")}</div>
+    ${n ? `<ol class="img-list img-list--sortable">${p.images.map((img, i) => `<li data-img="${img.id}">
+      ${i === 0 ? '<span class="badge badge--ink cover">Portada</span>' : `<span class="badge cover">${i + 1}</span>`}<img src="${esc(img.thumb_url)}" alt="">
+      <div class="img-list__tools">
+        <button type="button" data-move="-1" ${i ? "" : "disabled"} aria-label="Mover a la izquierda">←</button>
+        <button type="button" data-move="1" ${i < n - 1 ? "" : "disabled"} aria-label="Mover a la derecha">→</button>
+        ${i ? '<button type="button" data-first>Portada</button>' : ""}
+        <button type="button" data-del>Quitar</button>
+      </div>
+      <input class="img-list__alt" value="${esc(img.alt)}" maxlength="255" placeholder="Descripción de la foto" aria-label="Texto alternativo de la foto ${i + 1}">
+    </li>`).join("")}</ol>` : '<p class="muted">Aún no tiene fotos.</p>'}
     ${uploadForm("product")}`;
-  wireUpload(box, `/admin/products/${p.id}/images`, (saved) => { renderProductImages(saved, box); views.productos(); });
-  $$("[data-del]", box).forEach((b) => b.addEventListener("click", async () => {
-    try { renderProductImages(await api("DELETE", `/admin/products/${p.id}/images/${b.dataset.del}`), box); views.productos(); } catch (e) { fail(e); }
-  }));
-  $$("[data-first]", box).forEach((b) => b.addEventListener("click", async () => {
-    const ids = [Number(b.dataset.first), ...p.images.map((i) => i.id).filter((id) => id !== Number(b.dataset.first))];
-    try { renderProductImages(await api("PUT", `/admin/products/${p.id}/images`, { ids }), box); views.productos(); } catch (e) { fail(e); }
-  }));
+  const fileInput = $("[data-upload] input[type=file]", box);
+  fileInput.multiple = true;
+  $("[data-upload] .field > span", box).textContent = "Añadir fotos (puedes elegir varias)";
+  const ids = p.images.map((i) => i.id);
+  const refresh = (saved) => { renderProductImages(saved, box); views.productos(); };
+  const reorder = async (order) => { try { refresh(await api("PUT", `/admin/products/${p.id}/images`, { ids: order })); } catch (e) { fail(e); } };
+  $$("[data-img]", box).forEach((li) => {
+    const id = Number(li.dataset.img);
+    const pos = ids.indexOf(id);
+    $$("[data-move]", li).forEach((b) => b.addEventListener("click", () => {
+      const order = [...ids];
+      const to = pos + Number(b.dataset.move);
+      [order[pos], order[to]] = [order[to], order[pos]];
+      reorder(order);
+    }));
+    $("[data-first]", li)?.addEventListener("click", () => reorder([id, ...ids.filter((x) => x !== id)]));
+    $("[data-del]", li).addEventListener("click", async () => {
+      if (!confirm("¿Quitar esta foto?")) return;
+      try { refresh(await api("DELETE", `/admin/products/${p.id}/images/${id}`)); } catch (e) { fail(e); }
+    });
+    const alt = $(".img-list__alt", li);
+    alt.addEventListener("change", async () => {
+      try { await api("PATCH", `/admin/products/${p.id}/images/${id}`, { alt: alt.value }); toast("Descripción guardada"); } catch (e) { fail(e); }
+    });
+  });
+  // Varias fotos de una vez: se suben una a una con las mismas reglas
+  const form = $("[data-upload]", box);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitting(form, async () => {
+      const files = [...fileInput.files];
+      if (!files.length) return showFieldErrors(form, { image: "Elige una o varias fotos" });
+      const max = imageRules?.product.max_upload_mb;
+      let saved = p;
+      for (const [i, file] of files.entries()) {
+        if (max && file.size > max * 1048576) { toast(`“${file.name}” pesa más de ${max} MB`, true); continue; }
+        if (files.length > 1) toast(`Subiendo foto ${i + 1} de ${files.length}…`);
+        const fd = new FormData();
+        fd.append("image", file);
+        fd.append("alt", p.title);
+        if (form.elements.crop.checked) fd.append("crop", "1");
+        try { saved = await api("POST", `/admin/products/${p.id}/images`, fd); }
+        catch (err) { toast(`“${file.name}”: ${err.fields?.image || err.message}`, true); }
+      }
+      if (saved !== p) { toast(files.length > 1 ? "Fotos subidas" : "Foto subida"); refresh(saved); }
+    });
+  });
 }
 
 /* ---------- Subida de imágenes (con las reglas del servidor) ---------- */

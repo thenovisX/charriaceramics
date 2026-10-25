@@ -52,12 +52,19 @@ const euros = (cents) => (cents / 100).toLocaleString("es-ES", { minimumFraction
 
 // Formato común para productos y obras, vengan de la API o de data.js
 const fromApiProduct = (p) => ({
-  id: p.id, name: p.title, category: p.category, added: p.created_at,
+  id: p.id, slug: p.slug, name: p.title, category: p.category, added: p.created_at,
   price: p.final_price_cents / 100, priceCents: p.final_price_cents, originalCents: p.price_cents,
   discount: p.discount_percent, soldOut: p.sold_out, lowStock: p.low_stock,
   img: p.images[0]?.url || "", alt: p.images[0]?.alt || p.title,
+  images: p.images.map((i) => ({ url: i.url, thumb: i.thumb_url, alt: i.alt || p.title })),
+  description: p.description || "", dimensions: p.dimensions || "", material: p.material || "", care: p.care || "", specs: p.specs || [],
 });
-const fromLocalProduct = (p) => ({ ...p, priceCents: Math.round(p.price * 100), originalCents: Math.round(p.price * 100), discount: 0, soldOut: false });
+const fromLocalProduct = (p) => ({
+  description: "", dimensions: "", material: "", care: "", specs: [], ...p, slug: p.id,
+  priceCents: Math.round(p.price * 100), originalCents: Math.round(p.price * 100), discount: 0, soldOut: false,
+  images: (p.images || [p.img]).map((url) => ({ url, thumb: url, alt: p.alt })),
+});
+const productUrl = (p) => `producto.html?p=${encodeURIComponent(p.slug)}`;
 const fromApiGallery = (g) => ({ title: g.title, year: g.year, technique: g.technique, img: g.image.url, thumb: g.image.thumb_url, alt: g.image.alt || g.title });
 
 let PRODUCTS = [];
@@ -69,7 +76,7 @@ let SLOTS = new Map(); // filas de clases: un horario suelto o todas las semanas
 async function loadContent() {
   const wants = (sel) => !!document.querySelector(sel);
   const [products, gallery, classes, site] = await Promise.all([
-    wants("[data-latest-products], [data-catalog]") ? apiFetch("products").catch(() => null) : null,
+    wants("[data-latest-products], [data-catalog], [data-product-page]") ? apiFetch("products").catch(() => null) : null,
     wants("[data-gallery-track], [data-ed-gallery]") ? apiFetch("gallery").catch(() => null) : null,
     wants(".class-list, [data-private-form]") ? apiFetch("classes").catch(() => null) : null,
     apiFetch("site").catch(() => null),
@@ -81,16 +88,17 @@ async function loadContent() {
   CLASSES = classes;
 }
 
-// Las 3 piezas más recientes llevan la etiqueta "Nuevo"; las agotadas, "Agotado"
+// Las 3 piezas más recientes llevan la etiqueta "Nuevo"; las agotadas, "Agotado".
+// La foto y el nombre llevan a la ficha; si hay segunda foto, aparece al pasar el ratón.
 const productHTML = (p, i, tall = false) => `
   <article class="product${tall ? " product--tall" : ""}${p.soldOut ? " is-sold-out" : ""}" style="order:${i}" data-category="${esc(p.category)}">
-    <div class="product__img"><img src="${esc(p.img)}" alt="${esc(p.alt)}" loading="lazy"></div>
+    <a class="product__img" href="${productUrl(p)}" tabindex="-1" aria-hidden="true"><img src="${esc(p.img)}" alt="${esc(p.alt)}" loading="lazy">${p.images[1] ? `<img class="product__img-alt" src="${esc(p.images[1].thumb)}" alt="" loading="lazy">` : ""}</a>
     ${p.soldOut ? '<span class="product__badge product__badge--out">Agotado</span>'
       : p.discount ? `<span class="product__badge">−${p.discount} %</span>`
       : PRODUCTS.indexOf(p) < 3 ? '<span class="product__badge">Nuevo</span>' : ""}
     ${p.soldOut ? "" : `<button class="btn-primary product__add" type="button" data-add="${esc(p.id)}" data-icon="plus" aria-label="Añadir ${esc(p.name)} a la cesta">Añadir al carrito</button>`}
     <div class="product__info">
-      <div><p class="product__cat">${esc(p.category)}</p><h3>${esc(p.name)}</h3></div>
+      <div><p class="product__cat">${esc(p.category)}</p><h3><a href="${productUrl(p)}">${esc(p.name)}</a></h3></div>
       <span class="product__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}</span>
     </div>
   </article>`;
@@ -173,32 +181,11 @@ function renderContent() {
     ).join("");
   }
 
-  // productos.html: catálogo completo con filtros por categoría
-  const catalog = $("[data-catalog]");
-  if (catalog) {
-    catalog.innerHTML = PRODUCTS.map((p, i) => productHTML(p, i)).join("");
-    const filters = $("[data-filters]");
-    const count = $("[data-filter-count]");
-    const categories = ["Todo", ...new Set(PRODUCTS.map((p) => p.category).filter(Boolean))];
-    filters.insertAdjacentHTML("afterbegin", categories.map((c, i) =>
-      `<button type="button" data-filter="${esc(c)}" aria-pressed="${i === 0}">${esc(c)}</button>`).join(""));
-    const applyFilter = (cat) => {
-      let shown = 0;
-      $$(".product", catalog).forEach((el) => {
-        const hide = cat !== "Todo" && el.dataset.category !== cat;
-        el.hidden = hide;
-        if (!hide) shown++;
-      });
-      $$("[data-filter]", filters).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === cat)));
-      count.textContent = `${shown} ${shown === 1 ? "pieza" : "piezas"}`;
-      if (hasGsap) {
-        gsap.fromTo($$(".product:not([hidden])", catalog), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .7, stagger: .05, ease: "power3.out", clearProps: "transform,opacity" });
-        ScrollTrigger.refresh();
-      }
-    };
-    filters.addEventListener("click", (e) => { const b = e.target.closest("[data-filter]"); if (b) applyFilter(b.dataset.filter); });
-    applyFilter("Todo");
-  }
+  // productos.html: catálogo completo; filtros y orden en un panel que se abre con «Filtrar»
+  if ($("[data-catalog]")) initCatalog();
+
+  // producto.html: ficha con galería y especificaciones
+  if ($("[data-product-page]")) renderProductPage();
 
   // Portada: galería (cada foto lleva a galeria.html)
   const galleryTrack = $("[data-gallery-track]");
@@ -268,6 +255,274 @@ function renderContent() {
 }
 
 /* ==========================================================
+   Tienda (productos.html): filtrar por categoría, precio y
+   disponibilidad, y ordenar. El estado va en la URL (?cat=…&orden=…)
+   para que al volver de una ficha se mantenga.
+   ========================================================== */
+const SORTS = {
+  novedades: ["Novedades", (a, b) => b.added.localeCompare(a.added)],
+  "precio-asc": ["Precio: de menor a mayor", (a, b) => a.priceCents - b.priceCents],
+  "precio-desc": ["Precio: de mayor a menor", (a, b) => b.priceCents - a.priceCents],
+  "nombre-asc": ["Nombre: de la A a la Z", (a, b) => a.name.localeCompare(b.name, "es")],
+  "nombre-desc": ["Nombre: de la Z a la A", (a, b) => b.name.localeCompare(a.name, "es")],
+  ofertas: ["Ofertas primero", (a, b) => (b.discount - a.discount) || b.added.localeCompare(a.added)],
+};
+const FILTER_ICON = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M2 6h16M2 14h16"/><circle cx="7" cy="6" r="2.2" fill="var(--ivory)"/><circle cx="13" cy="14" r="2.2" fill="var(--ivory)"/></svg>';
+
+function initCatalog() {
+  const catalog = $("[data-catalog]");
+  const sheet = $("[data-filter-sheet]");
+  const form = $("[data-filter-form]", sheet);
+  const count = $("[data-filter-count]");
+  const chips = $("[data-filter-chips]");
+  const openBtn = $("[data-filter-open]");
+  const applyBtn = $("[data-filter-apply]");
+
+  const euroOf = (cents) => cents / 100;
+  const priced = PRODUCTS.map((p) => euroOf(p.priceCents));
+  const lo = Math.floor(Math.min(...priced, 0) / 5) * 5;
+  const hi = Math.max(lo + 5, Math.ceil(Math.max(...priced, 0) / 5) * 5);
+  const categories = [...new Set(PRODUCTS.map((p) => p.category).filter(Boolean))];
+
+  // Estado inicial desde la URL
+  const q = new URLSearchParams(location.search);
+  const state = {
+    sort: SORTS[q.get("orden")] ? q.get("orden") : "novedades",
+    cats: new Set((q.get("cat") || "").split(",").filter((c) => categories.includes(c))),
+    min: Math.max(lo, Math.min(hi, Number(q.get("min")) || lo)),
+    max: Math.max(lo, Math.min(hi, Number(q.get("max")) || hi)),
+    stock: q.get("disponibles") === "1",
+    sale: q.get("ofertas") === "1",
+  };
+
+  openBtn.insertAdjacentHTML("afterbegin", FILTER_ICON);
+  form.innerHTML = `
+    <fieldset class="facet">
+      <legend class="eyebrow">Ordenar por</legend>
+      <div class="facet__list">${Object.entries(SORTS).map(([k, [label]]) =>
+        `<label class="facet__radio"><input type="radio" name="sort" value="${k}"><span>${label}</span></label>`).join("")}</div>
+    </fieldset>
+    ${categories.length ? `<fieldset class="facet">
+      <legend class="eyebrow">Categoría</legend>
+      <div class="facet__chips">${categories.map((c) =>
+        `<label class="facet__chip"><input type="checkbox" name="cat" value="${esc(c)}"><span>${esc(c)}</span></label>`).join("")}</div>
+    </fieldset>` : ""}
+    <fieldset class="facet">
+      <legend class="eyebrow">Precio</legend>
+      <p class="facet__price"><span data-price-min></span><span aria-hidden="true">—</span><span data-price-max></span></p>
+      <div class="range" style="--lo:0;--hi:1">
+        <input type="range" name="min" min="${lo}" max="${hi}" step="1" aria-label="Precio mínimo">
+        <input type="range" name="max" min="${lo}" max="${hi}" step="1" aria-label="Precio máximo">
+      </div>
+    </fieldset>
+    <fieldset class="facet">
+      <legend class="eyebrow">Mostrar</legend>
+      <label class="facet__check"><input type="checkbox" name="stock"><span>Solo piezas disponibles</span></label>
+      <label class="facet__check"><input type="checkbox" name="sale"><span>Solo piezas con descuento</span></label>
+    </fieldset>`;
+  const f = form.elements;
+  const range = $(".range", form);
+
+  const syncForm = () => {
+    $$("input[name=sort]", form).forEach((r) => { r.checked = r.value === state.sort; });
+    $$("input[name=cat]", form).forEach((c) => { c.checked = state.cats.has(c.value); });
+    f.min.value = state.min; f.max.value = state.max;
+    f.stock.checked = state.stock; f.sale.checked = state.sale;
+    paintRange();
+  };
+  const paintRange = () => {
+    range.style.setProperty("--lo", (state.min - lo) / (hi - lo));
+    range.style.setProperty("--hi", (state.max - lo) / (hi - lo));
+    $("[data-price-min]", form).textContent = euros(state.min * 100);
+    $("[data-price-max]", form).textContent = euros(state.max * 100) + (state.max === hi ? "+" : "");
+  };
+  const priceActive = () => state.min > lo || state.max < hi;
+  const results = () => PRODUCTS
+    .filter((p) => (!state.cats.size || state.cats.has(p.category))
+      && euroOf(p.priceCents) >= state.min && (state.max === hi || euroOf(p.priceCents) <= state.max)
+      && (!state.stock || !p.soldOut) && (!state.sale || p.discount > 0))
+    .sort(SORTS[state.sort][1]);
+
+  const writeUrl = () => {
+    const u = new URLSearchParams();
+    if (state.sort !== "novedades") u.set("orden", state.sort);
+    if (state.cats.size) u.set("cat", [...state.cats].join(","));
+    if (state.min > lo) u.set("min", state.min);
+    if (state.max < hi) u.set("max", state.max);
+    if (state.stock) u.set("disponibles", "1");
+    if (state.sale) u.set("ofertas", "1");
+    history.replaceState(null, "", location.pathname + (u.toString() ? `?${u}` : ""));
+  };
+
+  // Etiquetas de lo que está filtrado, junto al botón (cada una se quita con un clic)
+  const renderChips = () => {
+    const list = [
+      ...[...state.cats].map((c) => [`cat:${c}`, c]),
+      priceActive() && ["price", `${euros(state.min * 100)} – ${euros(state.max * 100)}${state.max === hi ? "+" : ""}`],
+      state.stock && ["stock", "Disponibles"],
+      state.sale && ["sale", "Con descuento"],
+      state.sort !== "novedades" && ["sort", SORTS[state.sort][0]],
+    ].filter(Boolean);
+    chips.innerHTML = list.map(([k, t]) => `<button type="button" data-chip="${esc(k)}" aria-label="Quitar ${esc(t)}">${esc(t)}<span aria-hidden="true">×</span></button>`).join("");
+    const active = list.filter(([k]) => k !== "sort").length;
+    $("[data-filter-active]", openBtn).textContent = active ? `(${active})` : "";
+  };
+
+  let first = true;
+  const render = () => {
+    const items = results();
+    catalog.innerHTML = items.length
+      ? items.map((p, i) => productHTML(p, i)).join("")
+      : `<div class="catalog__empty"><p>No hay piezas con estos filtros.</p><button type="button" class="link-btn" data-filter-clear>Borrar filtros</button></div>`;
+    count.textContent = `${items.length} ${items.length === 1 ? "pieza" : "piezas"}`;
+    if (applyBtn) setButton(applyBtn, items.length ? `Ver ${items.length} ${items.length === 1 ? "pieza" : "piezas"}` : "Sin resultados");
+    renderChips();
+    if (!first) {
+      decorateProducts(catalog);
+      writeUrl();
+      if (hasGsap) {
+        gsap.fromTo($$(".product", catalog), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .6, stagger: .04, ease: "power3.out", clearProps: "transform,opacity" });
+        ScrollTrigger.refresh();
+      }
+    }
+    first = false;
+  };
+
+  const clearAll = () => {
+    Object.assign(state, { sort: "novedades", min: lo, max: hi, stock: false, sale: false });
+    state.cats.clear();
+    syncForm();
+    render();
+  };
+
+  form.addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.name === "sort") state.sort = t.value;
+    if (t.name === "cat") t.checked ? state.cats.add(t.value) : state.cats.delete(t.value);
+    if (t.name === "min") { state.min = Math.min(Number(t.value), state.max); t.value = state.min; }
+    if (t.name === "max") { state.max = Math.max(Number(t.value), state.min); t.value = state.max; }
+    if (t.name === "stock") state.stock = t.checked;
+    if (t.name === "sale") state.sale = t.checked;
+    if (t.type === "range") paintRange();
+    render();
+  });
+  // El tirador que se toca queda encima (si los dos están en el mismo punto)
+  range.addEventListener("pointerdown", (e) => {
+    const r = range.getBoundingClientRect();
+    const v = lo + (hi - lo) * ((e.clientX - r.left) / r.width);
+    const useMax = Math.abs(v - state.max) < Math.abs(v - state.min) || (state.min === state.max && v > state.max);
+    f.max.style.zIndex = useMax ? 3 : 1;
+    f.min.style.zIndex = useMax ? 1 : 3;
+  });
+  chips.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-chip]");
+    if (!b) return;
+    const k = b.dataset.chip;
+    if (k.startsWith("cat:")) state.cats.delete(k.slice(4));
+    if (k === "price") { state.min = lo; state.max = hi; }
+    if (k === "stock") state.stock = false;
+    if (k === "sale") state.sale = false;
+    if (k === "sort") state.sort = "novedades";
+    syncForm();
+    render();
+  });
+  document.addEventListener("click", (e) => { if (e.target.closest("[data-filter-clear]")) clearAll(); });
+
+  // Panel lateral
+  let lastFocus = null;
+  const setOpen = (open) => {
+    sheet.classList.toggle("is-open", open);
+    sheet.setAttribute("aria-hidden", String(!open));
+    openBtn.setAttribute("aria-expanded", String(open));
+    document.documentElement.classList.toggle("cart-open", open);
+    document.dispatchEvent(new CustomEvent(open ? "cart:open" : "cart:close"));
+    if (open) {
+      lastFocus = document.activeElement;
+      $(".sheet__panel", sheet).focus();
+      if (hasGsap && !reduceMotion) gsap.fromTo($$(".facet", sheet), { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: .6, stagger: .06, delay: .15, ease: "power3.out", clearProps: "all" });
+    } else {
+      lastFocus?.focus();
+    }
+  };
+  openBtn.addEventListener("click", () => setOpen(true));
+  $$("[data-filter-close]", sheet).forEach((b) => b.addEventListener("click", () => setOpen(false)));
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheet.classList.contains("is-open")) setOpen(false); });
+
+  syncForm();
+  render();
+}
+
+/* ==========================================================
+   Ficha de producto (producto.html?p=slug): galería de fotos,
+   precio, cesta, descripción, especificaciones y piezas parecidas
+   ========================================================== */
+let PRODUCT = null;
+function renderProductPage() {
+  const page = $("[data-product-page]");
+  const key = new URLSearchParams(location.search).get("p") || "";
+  const p = PRODUCT = PRODUCTS.find((x) => String(x.slug) === key || String(x.id) === key);
+  if (!p) {
+    page.innerHTML = `<section class="pdp-missing"><p class="eyebrow">Tienda</p><h1 class="pdp__title">Esta pieza ya no está</h1>
+      <p>Puede que se haya vendido o que el enlace no sea correcto.</p><a class="btn-primary" href="productos.html">Ver todas las piezas</a></section>`;
+    return;
+  }
+  document.title = `${p.name} · Charria Ceramics`;
+  const desc = $('meta[name="description"]');
+  if (desc) desc.content = (p.description || `${p.name}, cerámica hecha a mano en Charria Ceramics.`).slice(0, 160);
+
+  const images = p.images.length ? p.images : [{ url: p.img, thumb: p.img, alt: p.alt }];
+  const specs = [
+    p.dimensions && ["Medidas", p.dimensions],
+    p.material && ["Material", p.material],
+    ...p.specs.map((s) => [s.label, s.value]),
+  ].filter(Boolean);
+  const paragraphs = (t) => String(t).split(/\n{2,}|\n/).map((l) => l.trim()).filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join("");
+  const stockNote = p.soldOut ? "Agotada · escríbenos si quieres una parecida" : p.lowStock ? "Últimas unidades" : "Disponible · envío en 2–5 días laborables";
+
+  $("[data-pdp-crumb]").innerHTML = `<a href="productos.html">Tienda</a><span aria-hidden="true">/</span>${p.category ? `<a href="productos.html?cat=${encodeURIComponent(p.category)}">${esc(p.category)}</a><span aria-hidden="true">/</span>` : ""}<span aria-current="page">${esc(p.name)}</span>`;
+  $("[data-pdp-gallery]").innerHTML = `
+    ${images.length > 1 ? `<div class="pdp__thumbs" role="tablist" aria-label="Fotos">${images.map((img, i) =>
+      `<button type="button" role="tab" data-thumb="${i}" aria-selected="${i === 0}" aria-label="Foto ${i + 1} de ${images.length}"><img src="${esc(img.thumb)}" alt=""></button>`).join("")}</div>` : ""}
+    <div class="pdp__stage" data-pdp-stage>${images.map((img, i) =>
+      `<button type="button" class="pdp__photo" data-photo="${i}" aria-label="Ampliar foto ${i + 1}"><img src="${esc(img.url)}" alt="${esc(img.alt)}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}></button>`).join("")}</div>
+    ${images.length > 1 ? `<p class="pdp__count" aria-hidden="true"><span data-pdp-index>01</span> / ${pad(images.length)}</p>` : ""}`;
+  $("[data-pdp-info]").innerHTML = `
+    <p class="eyebrow">${esc(p.category || "Pieza única")}</p>
+    <h1 class="pdp__title" data-split>${esc(p.name)}</h1>
+    <p class="pdp__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}${p.discount ? ` <span class="pdp__off">−${p.discount} %</span>` : ""}</p>
+    <p class="pdp__stock${p.soldOut ? " is-out" : p.lowStock ? " is-low" : ""}">${stockNote}</p>
+    <div class="pdp__buy">
+      ${p.soldOut ? `<a class="btn-primary btn-primary--ghost" href="contacto.html">Preguntar por una parecida</a>`
+        : `<div class="qty" data-qty><button type="button" data-step="-1" aria-label="Quitar una">−</button><span data-qty-value>1</span><button type="button" data-step="1" aria-label="Añadir una">+</button></div>
+           <button class="btn-primary pdp__add" type="button" data-add="${esc(p.id)}" data-icon="plus">Añadir al carrito</button>`}
+    </div>
+    ${p.description ? `<div class="pdp__desc">${paragraphs(p.description)}</div>` : ""}
+    ${specs.length ? `<dl class="pdp__specs">${specs.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>` : ""}
+    <div class="pdp__more">
+      ${p.care ? `<details><summary>Cuidados</summary><div>${paragraphs(p.care)}</div></details>` : ""}
+      <details><summary>Envío y devoluciones</summary><div><p>Cada pieza se embala a mano y sale del estudio en 2–5 días laborables. Tienes 14 días para devolverla desde que la recibes.</p><p><a href="condiciones.html">Condiciones de venta</a></p></div></details>
+      <details><summary>Hecho a mano</summary><div><p>Torneada y esmaltada una a una en el estudio: el tamaño, el color y el esmalte pueden variar ligeramente respecto a las fotos. Eso la hace única.</p></div></details>
+    </div>`;
+
+  // Piezas parecidas: misma categoría primero, luego las más recientes
+  const related = PRODUCTS.filter((x) => x !== p)
+    .sort((a, b) => ((b.category === p.category) - (a.category === p.category)) || b.added.localeCompare(a.added))
+    .slice(0, 4);
+  const rel = $("[data-pdp-related]");
+  if (rel) {
+    rel.hidden = !related.length;
+    $(".catalog", rel).innerHTML = related.map((x, i) => productHTML(x, i)).join("");
+  }
+}
+
+// Botones de las fichas pintadas después de cargar (filtros, piezas parecidas)
+const roundAdd = window.matchMedia("(max-width: 1024px), (hover: none)");
+function decorateProducts(root = document) {
+  $$(".btn-primary", root).forEach((btn) => { if (!btn.querySelector(".btn-primary__label")) setButton(btn, btn.textContent.trim()); });
+  $$(".product__add", root).forEach((b) => b.classList.toggle("btn-primary--round", roundAdd.matches));
+}
+
+/* ==========================================================
    Botones: texto que rueda + círculo con icono (ver .btn-primary en style.css)
    ========================================================== */
 const ICONS = {
@@ -290,10 +545,8 @@ function initPage() {
 
   $$(".btn-primary").forEach((btn) => setButton(btn, btn.textContent.trim()));
   // En móvil y tablet el botón "Añadir" de las fichas es solo el círculo sobre la foto
-  const roundAdd = window.matchMedia("(max-width: 1024px), (hover: none)");
-  const syncAddButtons = () => $$(".product__add").forEach((b) => b.classList.toggle("btn-primary--round", roundAdd.matches));
-  roundAdd.addEventListener("change", syncAddButtons);
-  syncAddButtons();
+  roundAdd.addEventListener("change", () => decorateProducts());
+  decorateProducts();
 
   // Estantería de la tienda en móvil: contador y barra según el desplazamiento
   const shelf = $("[data-latest-products]");
@@ -442,7 +695,7 @@ function initPage() {
     }
 
     // Títulos de sección y de página: letra a letra
-    $$(".section-head__title, .footer__big, .page-head__title").forEach((el) => {
+    $$(".section-head__title, .footer__big, .page-head__title, .pdp__title").forEach((el) => {
       const s = split(el, "chars");
       if (!s) return;
       gsap.from(s.chars, {
@@ -559,7 +812,12 @@ function initPage() {
      Visor a pantalla completa (galeria.html)
      ========================================================== */
   const lightbox = $("[data-lightbox]");
-  if (lightbox && edGallery) {
+  const pdpStage = $("[data-pdp-stage]");
+  // La galería muestra las obras; la ficha de producto, sus fotos
+  const LB_ITEMS = edGallery
+    ? GALLERY.map((g) => ({ src: g.img.replace("w=1600", "w=2200"), alt: g.alt, title: g.title, meta: `${g.technique} · ${g.year}` }))
+    : PRODUCT ? PRODUCT.images.map((img, i) => ({ src: img.url, alt: img.alt, title: PRODUCT.name, meta: `Foto ${i + 1}` })) : [];
+  if (lightbox && LB_ITEMS.length && (edGallery || pdpStage)) {
     const img = $("[data-lb-img]", lightbox);
     const title = $("[data-lb-title]", lightbox);
     const meta = $("[data-lb-meta]", lightbox);
@@ -568,14 +826,14 @@ function initPage() {
     let lastFocus = null;
 
     const show = (i, dir = 0) => {
-      index = (i + GALLERY.length) % GALLERY.length;
-      const g = GALLERY[index];
+      index = (i + LB_ITEMS.length) % LB_ITEMS.length;
+      const g = LB_ITEMS[index];
       const swap = () => {
-        img.src = g.img.replace("w=1600", "w=2200");
+        img.src = g.src;
         img.alt = g.alt;
         title.textContent = g.title;
-        meta.textContent = `${g.technique} · ${g.year}`;
-        counter.textContent = `${pad(index + 1)} / ${pad(GALLERY.length)}`;
+        meta.textContent = g.meta;
+        counter.textContent = `${pad(index + 1)} / ${pad(LB_ITEMS.length)}`;
       };
       if (!hasGsap || !dir) { swap(); return; }
       gsap.timeline()
@@ -596,11 +854,14 @@ function initPage() {
       else done();
     };
 
-    edGallery.addEventListener("click", (e) => { const f = e.target.closest(".ed-item"); if (f) open(Number(f.dataset.index)); });
-    edGallery.addEventListener("keydown", (e) => {
-      const f = e.target.closest(".ed-item");
-      if (f && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(Number(f.dataset.index)); }
-    });
+    if (edGallery) {
+      edGallery.addEventListener("click", (e) => { const f = e.target.closest(".ed-item"); if (f) open(Number(f.dataset.index)); });
+      edGallery.addEventListener("keydown", (e) => {
+        const f = e.target.closest(".ed-item");
+        if (f && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(Number(f.dataset.index)); }
+      });
+    }
+    if (pdpStage) pdpStage.addEventListener("click", (e) => { const b = e.target.closest("[data-photo]"); if (b) open(Number(b.dataset.photo)); });
     $("[data-lb-close]", lightbox).addEventListener("click", close);
     $("[data-lb-prev]", lightbox).addEventListener("click", () => show(index - 1, -1));
     $("[data-lb-next]", lightbox).addEventListener("click", () => show(index + 1, 1));
@@ -620,6 +881,50 @@ function initPage() {
       if (Math.abs(dx) > 50) dx < 0 ? show(index + 1, 1) : show(index - 1, -1);
       startX = null;
     });
+  }
+
+  /* ==========================================================
+     Ficha de producto: miniaturas, foto activa y cantidad
+     ========================================================== */
+  if (pdpStage) {
+    const photos = $$("[data-photo]", pdpStage);
+    const thumbs = $$("[data-thumb]");
+    const indexEl = $("[data-pdp-index]");
+    const horizontal = () => pdpStage.scrollWidth > pdpStage.clientWidth + 4; // móvil: carrusel
+    const setActive = (i) => {
+      thumbs.forEach((t, j) => t.setAttribute("aria-selected", String(j === i)));
+      if (indexEl) indexEl.textContent = pad(i + 1);
+    };
+    thumbs.forEach((t) => t.addEventListener("click", () => {
+      const photo = photos[Number(t.dataset.thumb)];
+      if (horizontal()) pdpStage.scrollTo({ left: photo.offsetLeft, behavior: reduceMotion ? "auto" : "smooth" });
+      else if (lenis) lenis.scrollTo(photo, { offset: -90 });
+      else photo.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+    }));
+    if ("IntersectionObserver" in window && photos.length > 1) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((en) => { if (en.isIntersecting) setActive(photos.indexOf(en.target)); });
+      }, { root: null, threshold: 0.55 });
+      photos.forEach((ph) => io.observe(ph));
+    }
+    const qty = $("[data-qty]");
+    if (qty) {
+      const value = $("[data-qty-value]", qty);
+      const update = (n) => {
+        value.textContent = n;
+        $('[data-step="-1"]', qty).disabled = n <= 1;
+        $('[data-step="1"]', qty).disabled = n >= 10;
+      };
+      qty.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-step]");
+        if (b) update(Math.min(10, Math.max(1, Number(value.textContent) + Number(b.dataset.step))));
+      });
+      update(1);
+    }
+    if (hasGsap && !reduceMotion) {
+      gsap.from(".pdp__info > *:not(.pdp__title)", { opacity: 0, y: 20, duration: .7, stagger: .06, delay: .2, ease: "power3.out", clearProps: "all" });
+      gsap.from(photos[0], { clipPath: "inset(8% 8% 8% 8%)", duration: 1, ease: "expo.out", clearProps: "clipPath" });
+    }
   }
 
   /* ==========================================================
@@ -680,7 +985,8 @@ function initPage() {
     if (!btn || !window.Cart) return;
     const p = PRODUCTS.find((x) => String(x.id) === btn.dataset.add);
     if (!p) return;
-    window.Cart.add({ id: p.id, title: p.name, price_cents: p.priceCents, img: p.img });
+    const qty = btn.closest(".pdp__buy") ? Number($("[data-qty-value]").textContent) || 1 : 1;
+    window.Cart.add({ id: p.id, title: p.name, price_cents: p.priceCents, img: p.img }, qty);
     setButton(btn, "Añadido", "check");
     btn.classList.add("is-added");
     const count = $("[data-cart-count]");
