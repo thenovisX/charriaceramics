@@ -39,6 +39,7 @@ final class ClassAdminController
             'duration_minutes' => $v->int('duration_minutes', false, 15, 6000),
             'price_cents' => $v->int('price_cents', $creating, 0, 10_000_000),
             'capacity' => $v->int('capacity', false, 1, 100),
+            'pay_in_person' => ($b = $v->bool('pay_in_person')) === null ? null : (int) $b,
             'is_active' => ($b = $v->bool('is_active')) === null ? null : (int) $b,
             'sort_order' => $v->int('sort_order', false, -1000, 1000),
         ], static fn ($x) => $x !== null);
@@ -182,7 +183,7 @@ final class ClassAdminController
 
     /* ---------------- Reservas ---------------- */
 
-    /** GET /admin/bookings?status=confirmed&upcoming=1 */
+    /** GET /admin/bookings?status=confirmed&upcoming=1 (status=unpaid: confirmadas para pagar en el taller y aún sin cobrar) */
     public function bookings(Request $r): Response
     {
         $where = ['1 = 1'];
@@ -191,6 +192,8 @@ final class ClassAdminController
         if (in_array($status, ['requested', 'pending_payment', 'confirmed', 'cancelled'], true)) {
             $where[] = 'b.status = ?';
             $params[] = $status;
+        } elseif ($status === 'unpaid') {
+            $where[] = "b.status = 'confirmed' AND b.payment_method = 'in_person' AND b.paid_at IS NULL";
         }
         if (!empty($r->query['session_id']) && ctype_digit((string) $r->query['session_id'])) {
             $where[] = 'b.session_id = ?';
@@ -207,12 +210,16 @@ final class ClassAdminController
         return Response::json(array_map([self::class, 'booking'], $rows));
     }
 
-    /** PATCH /admin/bookings/{id} { status, notes, starts_at } — confirmar o cancelar (p. ej. una clase privada) */
+    /**
+     * PATCH /admin/bookings/{id} { status, notes, starts_at, paid } — confirmar o cancelar (p. ej. una clase privada)
+     * y, en las que se pagan en el taller, marcarlas como cobradas (paid: true) o deshacerlo (paid: false).
+     */
     public function updateBooking(Request $r): Response
     {
         $id = $r->intParam('id');
         $db = Database::get();
-        if (!$db->value('SELECT 1 FROM bookings WHERE id = ?', [$id])) {
+        $booking = $db->one('SELECT * FROM bookings WHERE id = ?', [$id]);
+        if (!$booking) {
             throw HttpError::notFound('Reserva no encontrada');
         }
         $v = new Validator($r->body());
@@ -221,7 +228,14 @@ final class ClassAdminController
             'notes' => $v->string('notes', false, 2000),
             'starts_at' => $v->datetime('starts_at'),
         ], static fn ($x) => $x !== null);
+        $paid = $v->bool('paid');
+        if ($paid !== null && $booking['payment_method'] !== 'in_person') {
+            $v->addError('paid', 'Las reservas pagadas online se confirman solas con Stripe');
+        }
         $v->check();
+        if ($paid !== null) {
+            $data['paid_at'] = $paid ? ($booking['paid_at'] ?? date('Y-m-d H:i:s')) : null;
+        }
         $db->update('bookings', $data, 'id = :id', ['id' => $id]);
         if (in_array($data['status'] ?? null, ['confirmed', 'cancelled'], true)) {
             Messages::handleBooking($id);
@@ -247,6 +261,7 @@ final class ClassAdminController
             'preferred_slot' => $b['preferred_slot'],
             'seats' => (int) $b['seats'],
             'total_cents' => (int) $b['total_cents'],
+            'payment_method' => $b['payment_method'] ?? 'online',
             'notes' => (string) $b['notes'],
             'customer' => ['name' => $b['customer_name'], 'email' => $b['customer_email'], 'phone' => $b['customer_phone']],
             'privacy_blocked' => !empty($b['privacy_blocked_at']),

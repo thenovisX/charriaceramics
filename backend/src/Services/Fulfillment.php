@@ -117,10 +117,21 @@ final class Fulfillment
             return;
         }
         $db->update('bookings', ['status' => 'confirmed', 'paid_at' => date('Y-m-d H:i:s')], 'id = :id', ['id' => $booking['id']]);
+        self::bookingConfirmedEmails($booking);
+    }
+
+    /** Emails de reserva confirmada (al cliente y al estudio), pagada online o por pagar en el taller. */
+    public static function bookingConfirmedEmails(array $booking): void
+    {
+        $inPerson = ($booking['payment_method'] ?? 'online') === 'in_person';
         $when = $booking['starts_at'] ? date('d/m/Y H:i', strtotime($booking['starts_at'])) : '';
-        $text = "Reserva {$booking['reference']}\n{$booking['class_title']} · $when\nPlazas: {$booking['seats']}\nTotal: " . Mailer::money((int) $booking['total_cents']);
+        $text = "Reserva {$booking['reference']}\n{$booking['class_title']} · $when\nPlazas: {$booking['seats']}\nTotal: " . Mailer::money((int) $booking['total_cents'])
+            . ($inPerson ? "\nPago: en el taller, el día de la clase (pendiente)" : "\nPago: online (pagado)");
         Mailer::send($booking['customer_email'], "Reserva confirmada · {$booking['class_title']}",
-            "Hola {$booking['customer_name']},\n\nTu plaza está confirmada.\n\n$text\n\nNos vemos en el estudio.\nCharria Ceramics");
-        Mailer::admin("Nueva reserva {$booking['reference']}", "$text\nCliente: {$booking['customer_name']} <{$booking['customer_email']}> {$booking['customer_phone']}");
+            "Hola {$booking['customer_name']},\n\nTu plaza está confirmada."
+            . ($inPerson ? ' Pagas en el taller el día de la clase. Si no puedes venir, avísanos para liberar la plaza.' : '')
+            . "\n\n$text\n\nNos vemos en el estudio.\nCharria Ceramics");
+        Mailer::admin(($inPerson ? 'Nueva reserva (pago en el taller) ' : 'Nueva reserva ') . $booking['reference'],
+            "$text\nCliente: {$booking['customer_name']} <{$booking['customer_email']}> {$booking['customer_phone']}");
     }
 }

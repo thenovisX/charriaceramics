@@ -5,8 +5,8 @@
    La API (/api) NUNCA pasa por aquí: pedidos, clientes y sesiones siempre
    se piden al servidor y no se guardan en el móvil.
    ========================================================== */
-const CACHE = "charria-panel-v4";
-const SHELL = ["./", "index.html", "admin.css?v=7", "admin.js?v=8", "manifest.webmanifest", "icons/icon-192.png"];
+const CACHE = "charria-panel-v5";
+const SHELL = ["./", "index.html", "admin.css?v=7", "admin.js?v=9", "manifest.webmanifest", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -264,6 +264,52 @@ check('la reserva queda confirmada', ($j['data'][0]['status'] ?? '') === 'confir
 [$s, $j] = call('DELETE', "$base/admin/sessions/$sid", null, $token);
 check('no se borra un horario con reservas', $s === 409, $j);
 
+echo "Pagar en el taller\n";
+[$s, $j] = call('GET', "$base/classes");
+$cls = array_values(array_filter($j['data']['group'] ?? [], fn ($c) => $c['id'] === $cid))[0] ?? null;
+check('la web sabe si hay pago online y si la clase admite pagar en el taller', ($j['data']['online_payment'] ?? null) === true && ($cls['pay_in_person'] ?? null) === true, $j);
+[$s, $j] = call('POST', "$base/admin/sessions", ['class_id' => $cid, 'starts_at' => date('Y-m-d', strtotime('+12 days')) . 'T18:00', 'capacity' => 3], $token);
+$sid2 = $j['data']['id'] ?? 0;
+$nora = ['session_id' => $sid2, 'seats' => 2, 'payment_method' => 'in_person', 'customer' => ['name' => 'Nora', 'email' => 'nora@example.com'], 'consents' => ['terms' => true]];
+[$s, $j] = call('POST', "$base/bookings", $nora);
+check('reservar para pagar en el taller: confirmada al momento y sin Stripe', $s === 201 && $j['data']['status'] === 'confirmed' && $j['data']['payment_method'] === 'in_person' && !isset($j['data']['checkout_url']) && $j['data']['total_cents'] === 8000, $j);
+[, $j] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
+$noraB = $j['data'][0] ?? [];
+check('…ocupa plazas y queda sin cobrar', ($noraB['payment_method'] ?? '') === 'in_person' && $noraB['paid_at'] === null && $noraB['status'] === 'confirmed', $j);
+[, $j] = call('GET', "$base/classes");
+$left = null;
+foreach ($j['data']['group'] as $c) {
+    foreach ($c['sessions'] as $x) {
+        if ($x['id'] === $sid2) {
+            $left = $x['seats_left'];
+        }
+    }
+}
+check('…y la plaza queda ocupada', $left === 1, $left);
+[, $j] = call('GET', "$base/admin/bookings?status=unpaid", null, $token);
+check('filtro «por cobrar en el taller»', count(array_filter($j['data'] ?? [], fn ($b) => $b['id'] === $noraB['id'])) === 1, $j);
+[, $j] = call('GET', "$base/admin/stats", null, $token);
+check('el resumen cuenta las reservas por cobrar', ($j['data']['bookings_unpaid'] ?? 0) >= 1, $j);
+[$s, $j] = call('PATCH', "$base/admin/bookings/{$noraB['id']}", ['paid' => true], $token);
+check('marcar como cobrada', $s === 200 && $j['data']['paid_at'] !== null && $j['data']['status'] === 'confirmed', $j);
+[, $j] = call('GET', "$base/admin/bookings?status=unpaid", null, $token);
+check('…y sale de «por cobrar»', !array_filter($j['data'] ?? [], fn ($b) => $b['id'] === $noraB['id']), $j);
+[$s, $j] = call('PATCH', "$base/admin/bookings/{$noraB['id']}", ['paid' => false], $token);
+check('deshacer el cobro', $s === 200 && $j['data']['paid_at'] === null, $j);
+[, $j] = call('GET', "$base/admin/bookings?session_id=$sid", null, $token);
+[$s, $j] = call('PATCH', "$base/admin/bookings/{$j['data'][0]['id']}", ['paid' => false], $token);
+check('una reserva pagada online no se marca a mano', $s === 422, $j);
+[$s, $j] = call('POST', "$base/bookings", array_merge($nora, ['seats' => 2]));
+check('pagar en el taller respeta las plazas libres', $s === 409, $j);
+[$s, $j] = call('PATCH', "$base/admin/classes/$cid", ['pay_in_person' => false], $token);
+check('apagar «se puede pagar en el taller» en la clase', $s === 200 && $j['data']['pay_in_person'] === false, $j);
+[$s, $j] = call('POST', "$base/bookings", array_merge($nora, ['seats' => 1]));
+check('…y ya no deja reservar sin pagar online', $s === 422 && isset($j['error']['fields']['payment_method']), $j);
+call('PATCH', "$base/admin/classes/$cid", ['pay_in_person' => true], $token);
+[$s, $j] = call('POST', "$base/admin/customers/erase", ['email' => 'nora@example.com'], $token);
+[, $b] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
+check('RGPD: borrar libera la plaza sin pagar del taller', $s === 200 && ($b['data'][0]['status'] ?? '') === 'cancelled', $b);
+
 [$s, $j] = call('GET', "$base/classes");
 $privateId = $j['data']['private'][0]['id'] ?? 0;
 [$s, $j] = call('POST', "$base/bookings/private", ['class_id' => $privateId, 'preferred_date' => date('Y-m-d', strtotime('+5 days')), 'preferred_slot' => 'Tarde', 'customer' => ['name' => 'Eva', 'email' => 'eva@example.com'], 'consents' => ['terms' => true]]);

@@ -102,6 +102,10 @@ const STATUS = {
   requested: ["Solicitada", "warn"], pending_payment: ["Pagando", "warn"], confirmed: ["Confirmada", "ok"],
 };
 const badge = (s) => { const [t, c] = STATUS[s] || [s, ""]; return `<span class="badge badge--${c}">${t}</span>`; };
+// Reserva para pagar en el taller: confirmada pero sin cobrar hasta que se marca como pagada
+const inPersonUnpaid = (b) => b.payment_method === "in_person" && !b.paid_at && b.status !== "cancelled";
+const payBadge = (b) => b.payment_method !== "in_person" || b.status === "cancelled" ? ""
+  : b.paid_at ? '<span class="badge badge--ok">Cobrada en el taller</span>' : '<span class="badge badge--warn">Pagar en el taller</span>';
 const filters = (options, current) => `<div class="filters" data-filters>${options.map(([v, t]) =>
   `<button type="button" data-value="${v}" aria-pressed="${v === current}">${t}</button>`).join("")}</div>`;
 
@@ -126,6 +130,7 @@ views.resumen = async () => {
       <a class="card" href="#pedidos"><span class="eyebrow">Pedidos por enviar</span><p class="card__num">${s.orders_to_ship}</p></a>
       <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
       <a class="card" href="#reservas"><span class="eyebrow">Clases privadas por confirmar</span><p class="card__num">${s.private_requests}</p></a>
+      <a class="card" href="#reservas" data-unpaid><span class="eyebrow">Reservas por cobrar en el taller</span><p class="card__num">${s.bookings_unpaid}</p></a>
       <a class="card" href="#clases"><span class="eyebrow">Próximos horarios</span><p class="card__num">${s.upcoming_sessions}</p></a>
       <div class="card"><span class="eyebrow">Ventas tienda · 30 días</span><p class="card__num">${money(s.sales_30d_cents)}</p></div>
       <div class="card"><span class="eyebrow">Clases cobradas · 30 días</span><p class="card__num">${money(s.bookings_30d_cents)}</p></div>
@@ -134,6 +139,7 @@ views.resumen = async () => {
     ${s.low_stock.length ? `<div class="table-wrap"><table><tbody>${s.low_stock.map((p) =>
       `<tr><td>${esc(p.title)}</td><td class="num">${p.stock} ${p.stock === 1 ? "unidad" : "unidades"}</td></tr>`).join("")}</tbody></table></div>`
       : '<p class="muted">Todo bien de stock.</p>'}`;
+  $("[data-unpaid]")?.addEventListener("click", () => { state.bookingStatus = "unpaid"; });
 };
 
 /* ---------- Mensajes: contacto, encargos y clases privadas ---------- */
@@ -534,7 +540,7 @@ function classCard(c) {
 function classForm(c) {
   const body = openDrawer(c ? c.title : "Nueva clase", `
     <form class="stack" data-form novalidate>
-      ${c ? "" : field("Tipo", '<select name="kind"><option value="group">Clase en grupo (con horarios y pago online)</option><option value="private">Modalidad de clase privada (se solicita)</option></select>')}
+      ${c ? "" : field("Tipo", '<select name="kind"><option value="group">Clase en grupo (con horarios y pago online)</option><option value="private">Modalidad de clase privada (se solicita y se paga en el taller)</option></select>')}
       ${field("Título", input("title", c?.title, "required maxlength=160"))}
       <div class="grid-3">
         ${field("Precio (€)", input("price", eurosInput(c?.price_cents), 'inputmode="decimal" required'))}
@@ -544,6 +550,7 @@ function classForm(c) {
       ${field("Descripción", `<textarea name="description">${esc(c?.description)}</textarea>`)}
       ${field("Orden", input("sort_order", c?.sort_order ?? 0, "type=number"), "Las clases se muestran de menor a mayor")}
       ${toggle("is_active", c ? c.is_active : true, "Visible en la web")}
+      ${c?.kind === "private" ? "" : `<div data-pay-toggle>${toggle("pay_in_person", c ? c.pay_in_person : true, "Se puede pagar en el taller")}<p class="muted" style="font-size:.82rem">Al reservar, el cliente elige pagar online o en el taller. Si paga en el taller la plaza queda reservada y la marcas como cobrada en Reservas.</p></div>`}
       <div class="row row--end">${c ? '<button class="btn btn--danger" type="button" data-delete>Borrar</button>' : ""}<button class="btn" type="submit">Guardar</button></div>
     </form>
     ${c?.kind === "group" ? `<h3>Foto (se ve al pasar el ratón)</h3>${c.image ? `<img src="${esc(c.image.thumb_url)}" alt="" style="width:120px;border-radius:4px;margin-bottom:1rem">` : ""}<div data-img>${uploadForm("class")}</div>` : ""}`);
@@ -557,6 +564,7 @@ function classForm(c) {
         capacity: Number(f.capacity.value), duration_minutes: Number(f.duration_minutes.value),
         sort_order: Number(f.sort_order.value || 0), is_active: f.is_active.checked,
       };
+      if (f.pay_in_person) data.pay_in_person = f.pay_in_person.checked;
       if (!c) data.kind = f.kind.value;
       c ? await api("PATCH", `/admin/classes/${c.id}`, data) : await api("POST", "/admin/classes", data);
       toast("Clase guardada");
@@ -610,15 +618,15 @@ views.reservas = async () => {
   const q = state.bookingStatus ? `?status=${state.bookingStatus}` : "?upcoming=1";
   const list = (await api("GET", "/admin/bookings" + q)).filter((b) => state.bookingStatus || b.status !== "cancelled");
   main.innerHTML = `
-    <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Reservas</h1><p>Las clases en grupo se confirman solas al pagar. Las privadas llegan como solicitud: escribe al cliente y confírmalas aquí.</p></div></div>
-    ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["confirmed", "Confirmadas"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
+    <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Reservas</h1><p>Las clases en grupo se confirman solas al pagar online, o al reservar si el cliente paga en el taller: márcalas como cobradas cuando te paguen. Las privadas llegan como solicitud: escribe al cliente y confírmalas aquí.</p></div></div>
+    ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["unpaid", "Por cobrar en el taller"], ["confirmed", "Confirmadas"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
     <div class="table-wrap">${list.length ? `<table>
       <thead><tr><th>Clase</th><th>Fecha</th><th>Cliente</th><th class="num">Plazas</th><th>Estado</th><th class="num">Importe</th></tr></thead>
       <tbody>${list.map((b) => `<tr class="is-clickable" data-id="${b.id}">
         <td>${esc(b.class_title)}<br><span class="muted">${esc(b.reference)}</span></td>
         <td>${b.starts_at ? fmtDate(b.starts_at) : `${fmtDate(b.preferred_date, false)} · ${esc(b.preferred_slot)}<br><span class="muted">preferida</span>`}</td>
         <td>${esc(b.customer.name)}<br><span class="muted">${esc(b.customer.email)}</span></td>
-        <td class="num">${b.seats}</td><td>${badge(b.status)}</td><td class="num">${money(b.total_cents)}</td></tr>`).join("")}
+        <td class="num">${b.seats}</td><td>${badge(b.status)} ${payBadge(b)}</td><td class="num">${money(b.total_cents)}</td></tr>`).join("")}
       </tbody></table>` : '<p class="empty">No hay reservas aquí.</p>'}</div>`;
   $("[data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.bookingStatus = b.dataset.value; views.reservas().catch(fail); } });
   $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => bookingForm(list.find((b) => b.id === Number(tr.dataset.id)))));
@@ -627,10 +635,10 @@ views.reservas = async () => {
 function bookingForm(b) {
   const isPrivate = !b.session_id;
   const body = openDrawer(`Reserva ${b.reference}`, `
-    <div class="row">${badge(b.status)}<span class="muted">creada ${fmtDate(b.created_at)}</span>${b.privacy_blocked ? '<span class="badge">Datos bloqueados · RGPD</span>' : ""}</div>
+    <div class="row">${badge(b.status)}${payBadge(b)}<span class="muted">creada ${fmtDate(b.created_at)}</span>${b.privacy_blocked ? '<span class="badge">Datos bloqueados · RGPD</span>' : ""}</div>
     <h3>${esc(b.class_title)}</h3>
     <dl><dt>Cliente</dt><dd>${esc(b.customer.name)}</dd><dt>Email</dt><dd><a href="mailto:${esc(b.customer.email)}">${esc(b.customer.email)}</a></dd><dt>Teléfono</dt><dd>${esc(b.customer.phone) || "—"}</dd>
-      <dt>Plazas</dt><dd>${b.seats}</dd><dt>Importe</dt><dd>${money(b.total_cents)} ${b.paid_at ? "· pagado" : isPrivate ? "· se cobra en el estudio o por enlace" : ""}</dd>
+      <dt>Plazas</dt><dd>${b.seats}</dd><dt>Importe</dt><dd>${money(b.total_cents)} ${b.paid_at ? `· pagado ${b.payment_method === "in_person" ? "en el taller" : "online"} el ${fmtDate(b.paid_at, false)}` : b.payment_method === "in_person" ? "· se paga en el taller" : ""}</dd>
       ${isPrivate ? `<dt>Preferencia</dt><dd>${fmtDate(b.preferred_date, false)} · ${esc(b.preferred_slot)}</dd>` : `<dt>Horario</dt><dd>${fmtDate(b.starts_at)}</dd>`}</dl>
     <form class="stack" data-form style="margin-top:1.5rem">
       ${isPrivate ? field("Fecha y hora acordadas", input("starts_at", b.starts_at ? b.starts_at.slice(0, 16).replace(" ", "T") : "", 'type="datetime-local"')) : ""}
@@ -638,10 +646,12 @@ function bookingForm(b) {
       <div class="row row--end">
         ${b.status !== "cancelled" ? '<button class="btn btn--danger" type="button" data-status="cancelled">Cancelar reserva</button>' : ""}
         ${isPrivate && b.status === "requested" ? '<button class="btn btn--ghost" type="button" data-status="confirmed">Confirmar</button>' : ""}
+        ${inPersonUnpaid(b) ? '<button class="btn btn--ghost" type="button" data-paid="1">Marcar como cobrada</button>' : ""}
+        ${b.payment_method === "in_person" && b.paid_at && b.status !== "cancelled" ? '<button class="btn btn--ghost" type="button" data-paid="0">Deshacer cobro</button>' : ""}
         <button class="btn" type="submit">Guardar</button>
       </div>
     </form>
-    ${b.paid_at && b.status !== "cancelled" ? '<p class="muted" style="font-size:.82rem;margin-top:1rem">Si cancelas una reserva pagada, haz el reembolso desde Stripe.</p>' : ""}`);
+    ${b.paid_at && b.status !== "cancelled" ? `<p class="muted" style="font-size:.82rem;margin-top:1rem">${b.payment_method === "in_person" ? "Si cancelas una reserva ya cobrada, devuelve el dinero en el taller." : "Si cancelas una reserva pagada, haz el reembolso desde Stripe."}</p>` : ""}`);
   const form = $("[data-form]", body);
   const save = (extra = {}) => submitting(form, async () => {
     const data = { notes: form.elements.notes.value, ...extra };
@@ -654,6 +664,7 @@ function bookingForm(b) {
     if (btn.dataset.status === "cancelled" && !confirm("¿Cancelar la reserva? Las plazas quedarán libres.")) return;
     save({ status: btn.dataset.status });
   }));
+  $$("[data-paid]", body).forEach((btn) => btn.addEventListener("click", () => save({ paid: btn.dataset.paid === "1" })));
 }
 
 /* ---------- Galería ---------- */

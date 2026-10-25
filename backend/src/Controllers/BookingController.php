@@ -10,6 +10,7 @@ use Charria\Http\Response;
 use Charria\Services\Catalog;
 use Charria\Services\Consents;
 use Charria\Services\Customers;
+use Charria\Services\Fulfillment;
 use Charria\Services\Mailer;
 use Charria\Services\Messages;
 use Charria\Services\RateLimiter;
@@ -21,19 +22,26 @@ use Charria\Validator;
  * Reservas públicas.
  * - Clases en grupo: se reservan plazas de un horario concreto y se pagan con Stripe.
  *   Las plazas quedan retenidas mientras se paga (CHECKOUT_HOLD_MINUTES).
+ *   Si la clase lo admite (pay_in_person) se puede elegir pagar en el taller: la
+ *   reserva queda confirmada sin caducidad y el panel la marca como pagada al cobrarla.
  * - Clases privadas: se envía una solicitud (fecha y franja preferidas) y el estudio
  *   la confirma desde el panel.
  */
 final class BookingController
 {
-    /** POST /bookings { session_id, seats, customer: {name, email, phone}, consents: {terms, marketing, profile} } */
+    /** POST /bookings { session_id, seats, payment_method: online|in_person, customer: {name, email, phone}, consents: {terms, marketing, profile} } */
     public function createGroup(Request $r): Response
     {
-        if (!Stripe::isConfigured()) {
+        $v = new Validator($r->body());
+        $inPerson = ($v->enum('payment_method', ['online', 'in_person']) ?? 'online') === 'in_person';
+        if (!$inPerson && !Stripe::isConfigured()) {
             throw new HttpError(503, 'payments_unavailable', 'Las reservas online aún no están activas. Escríbenos para reservar.');
         }
         RateLimiter::hit('booking:' . $r->ip, 15, 600);
-        $v = new Validator($r->body());
+        if ($inPerson) {
+            // Sin pago no hay nada que frene a quien aparta plazas por diversión
+            RateLimiter::hit('booking-in-person:' . $r->ip, 5, 3600);
+        }
         $sessionId = $v->int('session_id', true, 1);
         $seats = $v->int('seats', true, 1, 10);
         $customer = Customers::validate($v);
@@ -42,12 +50,15 @@ final class BookingController
 
         $db = Database::get();
         $hold = Settings::holdMinutes();
-        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r) {
+        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r, $inPerson) {
             // Bloquea el horario para que dos personas no se lleven la última plaza a la vez
             $session = $db->one('SELECT * FROM class_sessions WHERE id = ? FOR UPDATE', [$sessionId]);
             $class = $session ? $db->one("SELECT * FROM classes WHERE id = ? AND kind = 'group' AND is_active = 1", [$session['class_id']]) : null;
             if (!$session || !$class || $session['is_cancelled'] || strtotime($session['starts_at']) <= time()) {
                 throw HttpError::notFound('Este horario ya no está disponible');
+            }
+            if ($inPerson && !$class['pay_in_person']) {
+                throw HttpError::validation(['payment_method' => 'Esta clase solo se puede pagar online']);
             }
             $info = Catalog::session($session, $class, Catalog::seatsTaken([$session['id']]));
             if ($info['seats_left'] < $seats) {
@@ -70,12 +81,24 @@ final class BookingController
                 'seats' => $seats,
                 'unit_price_cents' => $info['price_cents'],
                 'total_cents' => $info['price_cents'] * $seats,
-                'status' => 'pending_payment',
-                'expires_at' => date('Y-m-d H:i:s', time() + $hold * 60),
+                'payment_method' => $inPerson ? 'in_person' : 'online',
+                // En el taller la plaza queda guardada ya; online, solo mientras se paga
+                'status' => $inPerson ? 'confirmed' : 'pending_payment',
+                'expires_at' => $inPerson ? null : date('Y-m-d H:i:s', time() + $hold * 60),
             ]);
             Consents::recordAll($customer['email'], $consents, 'booking', $r, ['customer_id' => $customerId, 'booking_id' => $id]);
             return ['id' => $id, 'reference' => $reference, 'class' => $class, 'session' => $session, 'price' => $info['price_cents']];
         });
+
+        if ($inPerson) {
+            Fulfillment::bookingConfirmedEmails($db->one('SELECT * FROM bookings WHERE id = ?', [$booking['id']]));
+            return Response::created([
+                'reference' => $booking['reference'],
+                'total_cents' => $booking['price'] * $seats,
+                'status' => 'confirmed',
+                'payment_method' => 'in_person',
+            ]);
+        }
 
         $base = Settings::appUrl();
         $when = date('d/m/Y H:i', strtotime($booking['session']['starts_at']));
@@ -102,6 +125,7 @@ final class BookingController
         return Response::created([
             'reference' => $booking['reference'],
             'total_cents' => $booking['price'] * $seats,
+            'payment_method' => 'online',
             'checkout_url' => $stripe['url'],
         ]);
     }
@@ -140,6 +164,7 @@ final class BookingController
             'seats' => 1,
             'unit_price_cents' => $class['price_cents'],
             'total_cents' => $class['price_cents'],
+            'payment_method' => 'in_person',
             'status' => 'requested',
             'preferred_date' => $date,
             'preferred_slot' => $slot,
@@ -152,7 +177,7 @@ final class BookingController
             "{$class['title']} · " . Mailer::money((int) $class['price_cents']) . "\nFecha preferida: $date ($slot)\n"
             . "Cliente: {$customer['name']} <{$customer['email']}> {$customer['phone']}\n\n" . ($notes ?? ''));
         Mailer::send($customer['email'], 'Hemos recibido tu solicitud · Charria Ceramics',
-            "Hola {$customer['name']},\n\nGracias por tu interés en la clase privada ({$class['title']}).\nTe escribiremos en menos de 24 h para confirmar la fecha.\n\nCharria Ceramics");
+            "Hola {$customer['name']},\n\nGracias por tu interés en la clase privada ({$class['title']}).\nTe escribiremos en menos de 24 h para confirmar la fecha.\nLa clase se paga en el taller.\n\nCharria Ceramics");
 
         return Response::created(['reference' => $reference, 'status' => 'requested']);
     }

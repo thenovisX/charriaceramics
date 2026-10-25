@@ -20,6 +20,7 @@ final class Migrations
         1 => 'privacy',
         2 => 'productDetails',
         3 => 'messages',
+        4 => 'payInPerson',
     ];
 
     public static function latest(): int
@@ -150,6 +151,19 @@ final class Migrations
              WHERE b.session_id IS NULL AND b.preferred_date IS NOT NULL AND b.customer_email <> ''
                AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.booking_id = b.id)"
         );
+    }
+
+    /**
+     * 4 · Pagar en el taller: cada clase dice si lo admite y cada reserva guarda
+     * cómo se paga. Las clases privadas siempre se han cobrado en el estudio.
+     */
+    private static function payInPerson(Database $db): void
+    {
+        self::addColumn($db, 'classes', 'pay_in_person', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER capacity');
+        if (!self::hasColumn($db, 'bookings', 'payment_method')) {
+            self::addColumn($db, 'bookings', 'payment_method', "ENUM('online','in_person') NOT NULL DEFAULT 'online' AFTER total_cents");
+            $db->exec("UPDATE bookings SET payment_method = 'in_person' WHERE preferred_date IS NOT NULL AND stripe_session_id IS NULL");
+        }
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

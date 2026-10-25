@@ -1033,10 +1033,20 @@ function initPage() {
     }
   });
 
-  // Reserva de clase en grupo: se paga en Stripe; las plazas se retienen mientras tanto
+  // Reserva de clase en grupo: se paga en Stripe (las plazas se retienen mientras tanto)
+  // o, si la clase lo admite, en el taller (la plaza queda reservada sin pagar)
   const modal = $("[data-modal]");
   if (modal) {
     const form = $("[data-form]", modal);
+    const payField = $("[data-pay-field]", modal);
+    const showPay = () => {
+      const inPerson = form.elements.pay.value === "in_person";
+      setButton($("[data-pay-submit]", form), inPerson ? "Reservar" : "Reservar y pagar");
+      $("[data-pay-note]", form).textContent = inPerson
+        ? "Tu plaza queda reservada y pagas en el taller el día de la clase. Si no puedes venir, avísanos para liberarla."
+        : "El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.";
+    };
+    $$("input[name=pay]", form).forEach((r) => r.addEventListener("change", showPay));
     $$("[data-book]").forEach((btn) => {
       btn.addEventListener("click", () => {
         $("[data-modal-title]", modal).textContent = btn.dataset.title || btn.dataset.book;
@@ -1057,7 +1067,13 @@ function initPage() {
           dateField.hidden = true;
         }
         setSession(btn.dataset.book, btn.dataset.seats);
-        $$(".check input", form).forEach((c) => { c.checked = false; c.closest(".check").classList.remove("is-invalid"); });
+        // Forma de pago: se elige solo si hay las dos opciones
+        const online = CLASSES?.online_payment !== false;
+        const inPerson = !!slot?.c.pay_in_person;
+        payField.hidden = !(online && inPerson);
+        form.elements.pay.value = online || !inPerson ? "online" : "in_person";
+        showPay();
+        $$(".check input[type=checkbox]", form).forEach((c) => { c.checked = false; c.closest(".check").classList.remove("is-invalid"); });
         $(".form__ok", modal).hidden = true;
         modal.hidden = false;
         lenis && lenis.stop();
@@ -1072,12 +1088,17 @@ function initPage() {
       if (!CLASSES) throw new Error();
       requireCheck(f.terms, "Para reservar tienes que aceptar las condiciones de las clases y la política de privacidad.");
       const res = await apiPost("bookings", {
-        session_id: Number(form.dataset.session), seats: Number(f.seats.value),
+        session_id: Number(form.dataset.session), seats: Number(f.seats.value), payment_method: f.pay.value,
         customer: { name: f.name.value, email: f.email.value, phone: f.phone.value },
         consents: consentsOf(f),
       });
-      formMessage(form, "Te llevamos al pago seguro…");
-      window.location.href = res.checkout_url;
+      if (res.checkout_url) {
+        formMessage(form, "Te llevamos al pago seguro…");
+        window.location.href = res.checkout_url;
+        return;
+      }
+      formMessage(form, `Reserva ${res.reference} confirmada. Pagas ${euros(res.total_cents)} en el taller el día de la clase. Te hemos enviado un email con los detalles.`);
+      $$("input[type=checkbox]", form).forEach((c) => { c.checked = false; });
     });
   }
 

@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
   <link rel="preload" as="image" type="image/webp" imagesrcset="assets/inicio-800.webp 800w, assets/inicio-1195.webp 1195w" imagesizes="100vw" fetchpriority="high">
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -171,6 +171,7 @@
           </div>
           <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar la reserva y escribirte para confirmarla. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
           <button class="btn-primary" type="submit">Solicitar reserva</button>
+          <p class="form__note">La clase privada se paga en el taller.</p>
           <p class="form__ok" hidden></p>
         </form>
       </div>
@@ -230,14 +231,19 @@
         <label class="form__field"><span>Nombre</span><input type="text" name="name" autocomplete="name" required></label>
         <label class="form__field"><span>Email</span><input type="email" name="email" autocomplete="email" required></label>
         <label class="form__field"><span>Teléfono (opcional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+        <fieldset class="checks pay-choice" data-pay-field hidden>
+          <legend>Forma de pago</legend>
+          <label class="check"><input type="radio" name="pay" value="online" checked><span>Pagar ahora online<small>Con tarjeta en la página segura de Stripe.</small></span></label>
+          <label class="check"><input type="radio" name="pay" value="in_person"><span>Pagar en el taller<small>Tu plaza queda reservada y pagas el día de la clase.</small></span></label>
+        </fieldset>
         <div class="checks">
           <label class="check"><input type="checkbox" name="terms"><span>He leído y acepto las <a href="condiciones.html#clases" target="_blank">condiciones de las clases</a> y la <a href="privacidad.html" target="_blank">política de privacidad</a>.</span></label>
           <label class="check"><input type="checkbox" name="marketing"><span>Quiero recibir por email novedades, piezas nuevas, talleres y ofertas de Charria Ceramics.<small>Opcional. Puedes darte de baja cuando quieras.</small></span></label>
           <label class="check"><input type="checkbox" name="profile"><span>Guardar mis datos y crear mi perfil de cliente para próximas reservas.<small>Opcional. Si no lo marcas, solo guardamos lo necesario para esta reserva.</small></span></label>
         </div>
-        <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar la reserva y su factura; el pago lo procesa Stripe. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
-        <button class="btn-primary" type="submit">Reservar y pagar</button>
-        <p class="form__note">El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.</p>
+        <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar la reserva y su factura; el pago online lo procesa Stripe. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
+        <button class="btn-primary" type="submit" data-pay-submit>Reservar y pagar</button>
+        <p class="form__note" data-pay-note>El pago se hace en la página segura de Stripe. Tu plaza queda guardada 30 minutos mientras pagas.</p>
         <p class="form__ok" hidden></p>
       </form>
     </div>
@@ -251,7 +257,7 @@
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
   <script src="data.js?v=9"></script>
-  <script src="script.js?v=14"></script>
+  <script src="script.js?v=15"></script>
   <script src="cart.js?v=9"></script>
   <script src="consent.js?v=1"></script>
 </body>

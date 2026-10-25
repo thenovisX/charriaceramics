@@ -182,6 +182,7 @@ final class Catalog
                 'duration_minutes' => (int) $c['duration_minutes'],
                 'price_cents' => (int) $c['price_cents'],
                 'capacity' => (int) $c['capacity'],
+                'pay_in_person' => (bool) ($c['pay_in_person'] ?? true),
                 'image' => $images[$c['image_id']] ?? null,
                 'sessions' => $byClass[$c['id']] ?? [],
             ];
