@@ -11,6 +11,7 @@ use Charria\Services\AppSettings;
 use Charria\Services\Fulfillment;
 use Charria\Services\Messages;
 use Charria\Services\Packlink;
+use Charria\Services\PaymentAlerts;
 use Charria\Services\Privacy;
 use Charria\Services\Stripe;
 use Charria\Validator;
@@ -134,6 +135,7 @@ final class OrderAdminController
             'sales_30d_cents' => (int) $db->value("SELECT COALESCE(SUM(total_cents), 0) FROM orders WHERE status IN ('paid','shipped') AND paid_at > NOW() - INTERVAL 30 DAY"),
             'bookings_30d_cents' => (int) $db->value("SELECT COALESCE(SUM(total_cents), 0) FROM bookings WHERE status = 'confirmed' AND paid_at > NOW() - INTERVAL 30 DAY"),
             'bookings_unpaid' => (int) $db->value("SELECT COUNT(*) FROM bookings WHERE status = 'confirmed' AND payment_method = 'in_person' AND paid_at IS NULL AND (starts_at IS NULL OR starts_at >= CURDATE())"),
+            'payments_overdue' => count(PaymentAlerts::overdue()),
             'private_requests' => (int) $db->value("SELECT COUNT(*) FROM bookings WHERE status = 'requested'"),
             'unread_messages' => Messages::unread(),
             'upcoming_sessions' => (int) $db->value('SELECT COUNT(*) FROM class_sessions WHERE is_cancelled = 0 AND starts_at > NOW()'),

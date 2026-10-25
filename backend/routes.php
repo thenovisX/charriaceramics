@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Charria\Controllers\Admin\CalendarAdminController as Calendar;
 use Charria\Controllers\Admin\ClassAdminController as Classes;
 use Charria\Controllers\Admin\CustomerAdminController as Customers;
 use Charria\Controllers\Admin\GalleryAdminController as Gallery;
@@ -74,7 +75,10 @@ return static function (Router $r): void {
     $r->patch('/admin/sessions/{id}', [Classes::class, 'updateSession'], $admin);
     $r->delete('/admin/sessions/{id}', [Classes::class, 'destroySession'], $admin);
     $r->get('/admin/bookings', [Classes::class, 'bookings'], $admin);
+    $r->post('/admin/bookings', [Calendar::class, 'store'], $admin);
     $r->patch('/admin/bookings/{id}', [Classes::class, 'updateBooking'], $admin);
+    $r->get('/admin/calendar', [Calendar::class, 'index'], $admin);
+    $r->get('/admin/payment-alerts', [Calendar::class, 'alerts'], $admin);
 
     $r->get('/admin/gallery', [Gallery::class, 'index'], $admin);
     $r->post('/admin/gallery', [Gallery::class, 'store'], $admin);

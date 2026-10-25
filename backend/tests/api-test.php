@@ -405,6 +405,47 @@ check('RGPD: borrar por email borra sus mensajes', $s === 200 && $j['data']['mes
 call('POST', "$base/admin/customers/erase", ['email' => 'mia@example.com'], $token);
 call('POST', "$base/admin/customers/erase", ['email' => 'eva@example.com'], $token);
 
+echo "Calendario de reservas y avisos de pago\n";
+$today = new DateTimeImmutable('today');
+$manual = static fn (array $x) => call('POST', "$base/admin/bookings", $x + ['customer_name' => 'Ana Prueba', 'class_title' => 'Torno semanal', 'total_cents' => 8000], $token);
+[$s, $j] = $manual(['starts_at' => $today->modify('+2 days')->format('Y-m-d') . ' 18:00', 'billing_type' => 'single']);
+$single = $j['data'] ?? [];
+check('añadir reserva a mano (pago único, sin pagar)', $s === 201 && $single['source'] === 'manual' && $single['billing_type'] === 'single' && !$single['paid_at'] && $single['status'] === 'confirmed', $j);
+[$s] = $manual(['starts_at' => 'mañana', 'billing_type' => 'single']);
+check('reserva a mano: fecha no válida → 422', $s === 422);
+[$s] = call('POST', "$base/admin/bookings", ['starts_at' => $today->format('Y-m-d') . ' 10:00'], $token);
+check('reserva a mano: faltan nombre y clase → 422', $s === 422);
+[$s, $j] = $manual(['starts_at' => $today->modify('-10 days')->format('Y-m-d') . ' 11:00', 'billing_type' => 'subscription', 'paid' => true]);
+$sub = $j['data'] ?? [];
+check('añadir suscripción ya pagada', $s === 201 && $sub['billing_type'] === 'subscription' && $sub['paid_at'], $j);
+$from = $today->format('Y-m-d');
+$to = $today->modify('+20 days')->format('Y-m-d');
+[$s, $j] = call('GET', "$base/admin/calendar?from=$from&to=$to", null, $token);
+$cal = $j['data'] ?? [];
+$subDays = array_values(array_filter($cal, static fn ($e) => $e['booking']['id'] === $sub['id']));
+$singleDay = array_values(array_filter($cal, static fn ($e) => $e['booking']['id'] === $single['id']));
+check('calendario: la reserva única sale su día', $s === 200 && count($singleDay) === 1 && $singleDay[0]['date'] === $today->modify('+2 days')->format('Y-m-d') && $singleDay[0]['time'] === '18:00' && $singleDay[0]['paid'] === false, $j);
+check('calendario: la suscripción se repite cada semana', count($subDays) >= 2 && $subDays[0]['recurring'] && (new DateTimeImmutable($subDays[1]['date']))->diff(new DateTimeImmutable($subDays[0]['date']))->days === 7 && (new DateTimeImmutable($subDays[0]['date']))->format('N') === (new DateTimeImmutable($sub['starts_at']))->format('N'), $subDays);
+[$s] = call('GET', "$base/admin/calendar?from=$from&to=" . $today->modify('+400 days')->format('Y-m-d'), null, $token);
+check('calendario: rango demasiado largo → 422', $s === 422);
+[$s, $j] = call('GET', "$base/admin/payment-alerts", null, $token);
+$ids = array_column($j['data'] ?? [], 'id');
+check('aviso: ni la reserva futura ni la suscripción cobrada avisan', $s === 200 && !in_array($single['id'], $ids, true) && !in_array($sub['id'], $ids, true), $j);
+[$s, $j] = $manual(['starts_at' => $today->modify('-3 days')->format('Y-m-d') . ' 17:00', 'billing_type' => 'single']);
+$past = $j['data'] ?? [];
+[, $j] = call('GET', "$base/admin/payment-alerts", null, $token);
+check('aviso: clase pasada sin cobrar', in_array($past['id'] ?? 0, array_column($j['data'] ?? [], 'id'), true), $j);
+[$s, $j] = call('PATCH', "$base/admin/bookings/{$past['id']}", ['paid' => true], $token);
+[, $j] = call('GET', "$base/admin/payment-alerts", null, $token);
+check('marcar cobrada quita el aviso', $s === 200 && $j['data'] !== null && !in_array($past['id'], array_column($j['data'], 'id'), true), $j);
+[$s, $j] = call('PATCH', "$base/admin/bookings/{$single['id']}", ['billing_type' => 'subscription'], $token);
+check('cambiar entre pago único y suscripción', $s === 200 && $j['data']['billing_type'] === 'subscription', $j);
+[, $j] = call('GET', "$base/admin/stats", null, $token);
+check('resumen: cuenta los cobros atrasados', is_int($j['data']['payments_overdue'] ?? null), $j);
+foreach ([$single, $sub, $past] as $b) {
+    call('PATCH', "$base/admin/bookings/{$b['id']}", ['status' => 'cancelled'], $token);
+}
+
 echo "Limpieza\n";
 [$s] = call('DELETE', "$base/admin/products/$pid", null, $token);
 check('borrar producto', $s === 204);

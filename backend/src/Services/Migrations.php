@@ -21,6 +21,7 @@ final class Migrations
         2 => 'productDetails',
         3 => 'messages',
         4 => 'payInPerson',
+        5 => 'bookingCalendar',
     ];
 
     public static function latest(): int
@@ -164,6 +165,17 @@ final class Migrations
             self::addColumn($db, 'bookings', 'payment_method', "ENUM('online','in_person') NOT NULL DEFAULT 'online' AFTER total_cents");
             $db->exec("UPDATE bookings SET payment_method = 'in_person' WHERE preferred_date IS NOT NULL AND stripe_session_id IS NULL");
         }
+    }
+
+    /**
+     * 5 · Calendario de reservas: tipo de cobro (pago único o suscripción mensual),
+     * origen (web o añadida a mano) y fecha del último aviso de impago.
+     */
+    private static function bookingCalendar(Database $db): void
+    {
+        self::addColumn($db, 'bookings', 'billing_type', "ENUM('single','subscription') NOT NULL DEFAULT 'single' AFTER payment_method");
+        self::addColumn($db, 'bookings', 'source', "ENUM('web','manual') NOT NULL DEFAULT 'web' AFTER billing_type");
+        self::addColumn($db, 'bookings', 'payment_alert_at', 'DATETIME NULL AFTER paid_at');
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

@@ -41,6 +41,7 @@ Charria\Services\AppSettings::boot();
 if (Env::get('DB_NAME')) {
     try {
         Charria\Services\Migrations::run();
+        Charria\Services\PaymentAlerts::notify(); // email de cobros atrasados (sin cron: salta con la primera visita)
     } catch (\Throwable $e) {
         Log::error('Migrations', ['error' => $e->getMessage()]);
     }
