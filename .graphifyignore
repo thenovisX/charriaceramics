@@ -8,3 +8,4 @@ node_modules/
 assets/
 admin/icons/
 repomix-output.*
+repomix.config.json
