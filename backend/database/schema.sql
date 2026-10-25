@@ -101,6 +101,11 @@ CREATE TABLE IF NOT EXISTS products (
   length_cm        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   width_cm         SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   height_cm        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  -- Ficha de la pieza (lo que ve el cliente; las medidas de arriba son las del paquete)
+  dimensions       VARCHAR(160) NOT NULL DEFAULT '',  -- "Ø 14 × 7 cm"
+  material         VARCHAR(160) NOT NULL DEFAULT '',
+  care             TEXT         NULL,                 -- cuidados
+  specs            TEXT         NULL,                 -- JSON [{"label":"Capacidad","value":"350 ml"}]
   created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

@@ -59,6 +59,7 @@ return static function (Router $r): void {
     $r->patch('/admin/products/{id}/sold-out', [Products::class, 'soldOut'], $admin);
     $r->post('/admin/products/{id}/images', [Products::class, 'uploadImage'], $admin);
     $r->put('/admin/products/{id}/images', [Products::class, 'reorderImages'], $admin);
+    $r->patch('/admin/products/{id}/images/{imageId}', [Products::class, 'updateImage'], $admin);
     $r->delete('/admin/products/{id}/images/{imageId}', [Products::class, 'deleteImage'], $admin);
 
     $r->get('/admin/classes', [Classes::class, 'index'], $admin);

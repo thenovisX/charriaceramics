@@ -66,6 +66,10 @@ final class Catalog
             'final_price_cents' => $final,
             'sold_out' => (bool) $p['sold_out'] || $available === 0,
             'images' => $images,
+            'dimensions' => (string) ($p['dimensions'] ?? ''),
+            'material' => (string) ($p['material'] ?? ''),
+            'care' => (string) ($p['care'] ?? ''),
+            'specs' => self::specs($p['specs'] ?? null),
             'created_at' => $p['created_at'],
         ];
         if ($admin) {
@@ -85,6 +89,13 @@ final class Catalog
             $out['low_stock'] = !$out['sold_out'] && $available <= 2;
         }
         return $out;
+    }
+
+    /** Especificaciones libres guardadas como JSON: [{label, value}] */
+    public static function specs(?string $json): array
+    {
+        $list = $json ? json_decode($json, true) : null;
+        return is_array($list) ? array_values(array_filter($list, static fn ($s) => is_array($s) && isset($s['label'], $s['value']))) : [];
     }
 
     public static function products(array $rows, bool $admin = false): array
