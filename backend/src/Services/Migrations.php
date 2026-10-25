@@ -18,7 +18,7 @@ final class Migrations
     /** versión => método. Añadir siempre al final con un número mayor. */
     private const STEPS = [
         1 => 'privacy',
-        2 => 'messages',
+        3 => 'messages', // el 2 es productDetails (ficha de producto, otra rama)
     ];
 
     public static function latest(): int
@@ -31,7 +31,7 @@ final class Migrations
     {
         $db = Database::get();
         try {
-            $current = (int) $db->value('SELECT MAX(version) FROM schema_migrations');
+            $applied = array_map('intval', array_column($db->all('SELECT version FROM schema_migrations'), 'version'));
         } catch (\PDOException $e) {
             if (($e->errorInfo[0] ?? '') !== '42S02') {
                 throw $e;
@@ -40,10 +40,11 @@ final class Migrations
                 return; // aún sin instalar: lo hará el instalador con schema.sql
             }
             self::createTable();
-            $current = 0;
+            $applied = [];
         }
+        // Se mira cada paso (no solo el mayor): así da igual en qué orden se fusionen las ramas que añaden pasos
         foreach (self::STEPS as $version => $method) {
-            if ($version <= $current) {
+            if (in_array($version, $applied, true)) {
                 continue;
             }
             self::$method($db);
@@ -123,7 +124,7 @@ final class Migrations
     }
 
     /**
-     * 2 · Bandeja de Mensajes: contacto, encargos y clases privadas. Las solicitudes
+     * 3 · Bandeja de Mensajes: contacto, encargos y clases privadas. Las solicitudes
      * de clase privada que ya había se copian (leídas si ya no están pendientes).
      */
     private static function messages(Database $db): void
