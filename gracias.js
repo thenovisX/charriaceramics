@@ -31,6 +31,13 @@
         if (!order && window.setButton) { cta.href = "index.html#clases"; window.setButton(cta, "Ver más clases"); }
         return;
       }
+      if (data?.review) {
+        eyebrow.textContent = "Pago recibido";
+        text.textContent = "Hemos recibido tu pago, pero tenemos que comprobar un detalle antes de confirmártelo. Te escribiremos en menos de 24 horas.";
+        ref.textContent = `Referencia ${data.reference} · ${money(data.total_cents)}`;
+        ref.hidden = false;
+        return;
+      }
       if (data && ["cancelled", "refunded"].includes(data.status)) {
         eyebrow.textContent = "Pago no completado";
         text.textContent = "El pago no se ha completado o ha caducado. No se ha cobrado nada; puedes intentarlo de nuevo.";

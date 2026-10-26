@@ -218,7 +218,7 @@ final class ClassAdminController
         $where = ['1 = 1'];
         $params = [];
         $status = $r->query['status'] ?? '';
-        if (in_array($status, ['requested', 'pending_payment', 'confirmed', 'cancelled'], true)) {
+        if (in_array($status, ['requested', 'pending_payment', 'confirmed', 'review', 'cancelled'], true)) {
             $where[] = 'b.status = ?';
             $params[] = $status;
         } elseif ($status === 'unpaid') {

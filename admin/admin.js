@@ -99,7 +99,7 @@ const input = (name, value = "", attrs = "") => `<input name="${name}" value="${
 const toggle = (name, checked, label, extra = "") => `<label class="switch ${extra}"><input type="checkbox" name="${name}" ${checked ? "checked" : ""}><span class="switch__track"></span>${label}</label>`;
 const STATUS = {
   pending: ["Sin pagar", "warn"], paid: ["Pagado", "ok"], shipped: ["Enviado", "ink"], cancelled: ["Cancelado", "bad"], refunded: ["Reembolsado", "bad"],
-  requested: ["Solicitada", "warn"], pending_payment: ["Pagando", "warn"], confirmed: ["Confirmada", "ok"],
+  requested: ["Solicitada", "warn"], pending_payment: ["Pagando", "warn"], confirmed: ["Confirmada", "ok"], review: ["Revisar", "bad"],
 };
 const badge = (s) => { const [t, c] = STATUS[s] || [s, ""]; return `<span class="badge badge--${c}">${t}</span>`; };
 // Reserva para pagar en el taller: confirmada pero sin cobrar hasta que se marca como pagada
@@ -130,6 +130,7 @@ views.resumen = async () => {
     ${s.legacy_customers ? `<p class="notice">Hay ${s.legacy_customers} ${s.legacy_customers === 1 ? "cliente guardado" : "clientes guardados"} de antes de pedir permiso para crear perfiles. Revísalo en <a href="#clientes">Clientes</a>.</p>` : ""}
     <div class="cards">
       <a class="card" href="#mensajes"><span class="eyebrow">Mensajes sin leer</span><p class="card__num">${s.unread_messages}</p></a>
+      ${s.orders_to_review ? `<a class="card" href="#pedidos"><span class="eyebrow">Pagos a revisar</span><p class="card__num">${s.orders_to_review}</p></a>` : ""}
       <a class="card" href="#pedidos"><span class="eyebrow">Pedidos por enviar</span><p class="card__num">${s.orders_to_ship}</p></a>
       <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
       <a class="card" href="#reservas"><span class="eyebrow">Clases privadas por confirmar</span><p class="card__num">${s.private_requests}</p></a>
@@ -216,7 +217,7 @@ views.pedidos = async () => {
   const orders = await api("GET", "/admin/orders" + q);
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Tienda</p><h1>Pedidos</h1></div></div>
-    ${filters([["", "Activos"], ["paid", "Pagados"], ["shipped", "Enviados"], ["pending", "Sin pagar"], ["cancelled", "Cancelados"], ["refunded", "Reembolsados"]], state.orderStatus)}
+    ${filters([["", "Activos"], ["paid", "Pagados"], ["shipped", "Enviados"], ["pending", "Sin pagar"], ["review", "Revisar"], ["cancelled", "Cancelados"], ["refunded", "Reembolsados"]], state.orderStatus)}
     <div class="table-wrap">${orders.length ? `<table>
       <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Entrega</th><th>Estado</th><th class="num">Total</th></tr></thead>
       <tbody>${orders.map((o) => `<tr class="is-clickable" data-id="${o.id}">
@@ -248,7 +249,8 @@ async function openOrder(id) {
       ${o.status === "paid" ? '<button class="btn" data-status="shipped">Marcar como enviado</button>' : ""}
       ${o.status === "paid" && s.method === "delivery" && !s.packlink_reference ? '<button class="btn btn--ghost" data-packlink>Crear envío en Packlink</button>' : ""}
       ${["paid", "shipped"].includes(o.status) ? '<button class="btn btn--danger" data-status="refunded">Marcar reembolsado</button>' : ""}
-      ${o.status === "pending" ? '<button class="btn btn--danger" data-status="cancelled">Cancelar</button>' : ""}
+      ${o.status === "review" ? '<button class="btn" data-status="paid">Dar por bueno (pagado)</button>' : ""}
+      ${["pending", "review"].includes(o.status) ? '<button class="btn btn--danger" data-status="cancelled">Cancelar</button>' : ""}
     </div>
     <p class="muted" style="margin-top:1rem;font-size:.82rem">El reembolso del dinero se hace desde el panel de Stripe; aquí solo se marca el pedido.</p>`);
   $$("[data-status]", body).forEach((b) => b.addEventListener("click", async () => {
@@ -636,7 +638,7 @@ views.reservas = async () => {
   const list = (await api("GET", "/admin/bookings" + q)).filter((b) => state.bookingStatus || b.status !== "cancelled");
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Reservas</h1><p>Las clases en grupo se confirman solas al pagar online, o al reservar si el cliente paga en el taller: márcalas como cobradas cuando te paguen. Las privadas llegan como solicitud: escribe al cliente y confírmalas aquí.</p></div></div>
-    ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["unpaid", "Por cobrar"], ["confirmed", "Confirmadas"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
+    ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["unpaid", "Por cobrar"], ["confirmed", "Confirmadas"], ["review", "Revisar"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
     <div class="table-wrap">${list.length ? `<table>
       <thead><tr><th>Clase</th><th>Fecha</th><th>Cliente</th><th class="num">Plazas</th><th>Estado</th><th class="num">Importe</th></tr></thead>
       <tbody>${list.map((b) => `<tr class="is-clickable" data-id="${b.id}">
@@ -662,7 +664,7 @@ function bookingForm(b) {
       ${field("Notas internas", `<textarea name="notes">${esc(b.notes)}</textarea>`)}
       <div class="row row--end">
         ${b.status !== "cancelled" ? '<button class="btn btn--danger" type="button" data-status="cancelled">Cancelar reserva</button>' : ""}
-        ${isPrivate && b.status === "requested" ? '<button class="btn btn--ghost" type="button" data-status="confirmed">Confirmar</button>' : ""}
+        ${(isPrivate && b.status === "requested") || b.status === "review" ? '<button class="btn btn--ghost" type="button" data-status="confirmed">Confirmar</button>' : ""}
         ${inPersonUnpaid(b) ? '<button class="btn btn--ghost" type="button" data-paid="1">Marcar como cobrada</button>' : ""}
         ${b.payment_method === "in_person" && b.paid_at && b.status !== "cancelled" ? '<button class="btn btn--ghost" type="button" data-paid="0">Deshacer cobro</button>' : ""}
         <button class="btn" type="submit">Guardar</button>

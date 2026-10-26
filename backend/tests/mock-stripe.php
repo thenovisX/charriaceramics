@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $path === '/v1/checkout/sessions') 
     }
     $total += (int) ($p['shipping_options'][0]['shipping_rate_data']['fixed_amount']['amount'] ?? 0);
     $sessions[$id] = ['id' => $id, 'object' => 'checkout.session', 'url' => "https://checkout.stripe.test/$id",
-        'amount_total' => $total, 'payment_status' => 'unpaid', 'metadata' => $p['metadata'],
+        'amount_total' => $total, 'currency' => $p['line_items'][0]['price_data']['currency'] ?? 'eur', 'payment_status' => 'unpaid', 'metadata' => $p['metadata'],
         'client_reference_id' => $p['client_reference_id'], 'payment_intent' => 'pi_' . bin2hex(random_bytes(6)), 'params' => $p];
     file_put_contents($store, json_encode($sessions));
     exit(json_encode($sessions[$id]));

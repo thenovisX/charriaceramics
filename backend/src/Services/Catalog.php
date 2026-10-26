@@ -110,7 +110,7 @@ final class Catalog
     /* ---------------- Clases y horarios ---------------- */
 
     /** Plazas ocupadas por sesión: confirmadas + las que se están pagando ahora. */
-    public static function seatsTaken(array $sessionIds): array
+    public static function seatsTaken(array $sessionIds, ?string $exceptEmail = null): array
     {
         if (!$sessionIds) {
             return [];
@@ -119,9 +119,9 @@ final class Catalog
         $rows = Database::get()->all(
             "SELECT session_id, SUM(seats) AS taken FROM bookings
              WHERE session_id IN ($in)
-               AND (status = 'confirmed' OR (status = 'pending_payment' AND expires_at > NOW()))
+               AND (status = 'confirmed' OR (status = 'pending_payment' AND expires_at > NOW()" . ($exceptEmail !== null ? ' AND customer_email <> ?' : '') . "))
              GROUP BY session_id",
-            array_values($sessionIds)
+            $exceptEmail !== null ? [...array_values($sessionIds), $exceptEmail] : array_values($sessionIds)
         );
         return array_map('intval', array_column($rows, 'taken', 'session_id'));
     }

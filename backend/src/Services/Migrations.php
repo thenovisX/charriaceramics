@@ -25,6 +25,7 @@ final class Migrations
         6 => 'bookingCalendar',
         7 => 'weekendHours',
         8 => 'webContent',
+        9 => 'securityHardening',
     ];
 
     public static function latest(): int
@@ -242,6 +243,32 @@ final class Migrations
             $db->pdo()->exec("ALTER TABLE images MODIFY COLUMN kind ENUM('product','gallery','class','site') NOT NULL");
         }
         self::createTables($db, ['reviews']);
+    }
+
+    /**
+     * 9 · Seguridad: estado «review» (cobrado pero hay que revisarlo: sin stock o plazas
+     * cuando llegó el pago, o importe que no cuadra) y huella de la IP de quien abre un
+     * pago, para limitar cuántos pagos a medias puede tener abiertos a la vez.
+     */
+    private static function securityHardening(Database $db): void
+    {
+        foreach (['orders', 'bookings'] as $table) {
+            $type = (string) $db->value(
+                'SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                [$table, 'status']
+            );
+            if (!str_contains($type, "'review'")) {
+                $enum = $table === 'orders'
+                    ? "ENUM('pending','paid','review','shipped','cancelled','refunded') NOT NULL DEFAULT 'pending'"
+                    : "ENUM('requested','pending_payment','confirmed','review','cancelled') NOT NULL";
+                $db->pdo()->exec("ALTER TABLE $table MODIFY COLUMN status $enum");
+            }
+            self::addColumn($db, $table, 'client_ip_hash', 'CHAR(64) NULL AFTER status');
+            $index = "idx_{$table}_open_ip";
+            if (!$db->value("SHOW INDEX FROM $table WHERE Key_name = '$index'")) {
+                $db->pdo()->exec("ALTER TABLE $table ADD KEY $index (client_ip_hash, status, expires_at)");
+            }
+        }
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

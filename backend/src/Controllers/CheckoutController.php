@@ -11,6 +11,7 @@ use Charria\Services\AppSettings;
 use Charria\Services\Consents;
 use Charria\Services\Customers;
 use Charria\Services\Fulfillment;
+use Charria\Services\OpenPayments;
 use Charria\Services\Pricing;
 use Charria\Services\RateLimiter;
 use Charria\Services\Settings;
@@ -95,7 +96,7 @@ final class CheckoutController
         $v->check();
 
         // 1) Envío: se recalcula en el servidor y se busca la opción elegida
-        $preQuote = Pricing::quote($merged);
+        $preQuote = Pricing::quote($merged, false, $customer['email']);
         if ($preQuote['errors']) {
             throw new HttpError(409, 'cart_unavailable', $preQuote['errors'][0]['message'], ['items' => $preQuote['errors']]);
         }
@@ -107,8 +108,11 @@ final class CheckoutController
         // 2) Pedido: precios y stock leídos con bloqueo para que nadie se lleve la misma pieza a la vez
         $db = Database::get();
         $hold = Settings::holdMinutes();
-        $order = $db->transaction(static function (Database $db) use ($merged, $customer, $address, $option, $hold, $consents, $r) {
-            $quote = Pricing::quote($merged, true);
+        $clientHash = OpenPayments::clientHash($r);
+        $superseded = [];
+        $order = $db->transaction(static function (Database $db) use ($merged, $customer, $address, $option, $hold, $consents, $r, $clientHash, &$superseded) {
+            $superseded = OpenPayments::supersede($db, 'orders', $customer['email'], $clientHash);
+            $quote = Pricing::quote($merged, true, $customer['email']);
             if ($quote['errors']) {
                 throw new HttpError(409, 'cart_unavailable', $quote['errors'][0]['message'], ['items' => $quote['errors']]);
             }
@@ -119,6 +123,7 @@ final class CheckoutController
                 'reference' => $reference,
                 'customer_id' => $customerId,
                 'status' => 'pending',
+                'client_ip_hash' => $clientHash,
                 'currency' => Settings::currency(),
                 'subtotal_cents' => $quote['subtotal_cents'],
                 'discount_cents' => $quote['discount_cents'],
@@ -152,6 +157,8 @@ final class CheckoutController
             Consents::recordAll($customer['email'], $consents, 'checkout', $r, ['customer_id' => $customerId, 'order_id' => $orderId]);
             return ['id' => $orderId, 'reference' => $reference, 'total' => $total, 'quote' => $quote];
         });
+
+        OpenPayments::expireSessions($superseded);
 
         // 3) Sesión de pago de Stripe con los importes del servidor
         $base = Settings::appUrl();
@@ -201,7 +208,8 @@ final class CheckoutController
         if (!$row) {
             throw HttpError::notFound();
         }
-        if (in_array($row['status'], ['pending', 'pending_payment'], true)) {
+        // Consultar a Stripe es lento y gasta cuota de la API: tope por IP para que no se use de grifo
+        if (in_array($row['status'], ['pending', 'pending_payment'], true) && RateLimiter::allow('status:' . RateLimiter::clientKey($r->ip), 60, 600)) {
             try {
                 Fulfillment::paid(Stripe::retrieveCheckoutSession($sessionId));
                 $row = $find();
@@ -215,6 +223,7 @@ final class CheckoutController
             'reference' => $row['reference'],
             'status' => $row['status'],
             'paid' => $paid,
+            'review' => $row['status'] === 'review',
             'total_cents' => (int) $row['total_cents'],
         ]);
     }

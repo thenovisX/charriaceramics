@@ -75,7 +75,7 @@ final class OrderAdminController
     {
         $status = $r->query['status'] ?? '';
         $db = Database::get();
-        if (in_array($status, ['pending', 'paid', 'shipped', 'cancelled', 'refunded'], true)) {
+        if (in_array($status, ['pending', 'paid', 'review', 'shipped', 'cancelled', 'refunded'], true)) {
             $rows = $db->all('SELECT * FROM orders WHERE status = ? ORDER BY created_at DESC LIMIT 500', [$status]);
         } else {
             $rows = $db->all("SELECT * FROM orders WHERE status <> 'cancelled' AND NOT (status = 'pending' AND expires_at < NOW()) ORDER BY created_at DESC LIMIT 500");
@@ -102,7 +102,14 @@ final class OrderAdminController
         if ($o['status'] === 'pending' && $o['stripe_session_id']) {
             Stripe::expireCheckoutSession($o['stripe_session_id']);
         }
-        Database::get()->exec('UPDATE orders SET status = ? WHERE id = ?', [$status, $o['id']]);
+        $db = Database::get();
+        $db->transaction(static function (Database $db) use ($o, $status) {
+            $db->exec('UPDATE orders SET status = ? WHERE id = ?', [$status, $o['id']]);
+            if ($o['status'] === 'review' && $status === 'paid') {
+                // Pedido cobrado que se había dejado sin descontar: al darlo por bueno se descuenta aquí
+                $db->exec('UPDATE products p JOIN order_items oi ON oi.product_id = p.id SET p.stock = GREATEST(p.stock - oi.quantity, 0) WHERE oi.order_id = ?', [$o['id']]);
+            }
+        });
         // Nota: el reembolso del dinero se hace en el panel de Stripe; aquí solo se marca.
         return $this->show($r);
     }
@@ -130,6 +137,7 @@ final class OrderAdminController
         $db = Database::get();
         Privacy::anonymizeExpired(); // plazos de conservación, aunque no haya cron
         return Response::json([
+            'orders_to_review' => (int) $db->value("SELECT COUNT(*) FROM orders WHERE status = 'review'") + (int) $db->value("SELECT COUNT(*) FROM bookings WHERE status = 'review'"),
             'orders_to_ship' => (int) $db->value("SELECT COUNT(*) FROM orders WHERE status = 'paid' AND shipping_method = 'delivery'"),
             'orders_to_collect' => (int) $db->value("SELECT COUNT(*) FROM orders WHERE status = 'paid' AND shipping_method = 'pickup'"),
             'sales_30d_cents' => (int) $db->value("SELECT COALESCE(SUM(total_cents), 0) FROM orders WHERE status IN ('paid','shipped') AND paid_at > NOW() - INTERVAL 30 DAY"),

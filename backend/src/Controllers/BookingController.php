@@ -11,6 +11,7 @@ use Charria\Services\Catalog;
 use Charria\Services\Consents;
 use Charria\Services\Customers;
 use Charria\Services\Fulfillment;
+use Charria\Services\OpenPayments;
 use Charria\Services\Mailer;
 use Charria\Services\Messages;
 use Charria\Services\RateLimiter;
@@ -54,7 +55,9 @@ final class BookingController
 
         $db = Database::get();
         $hold = Settings::holdMinutes();
-        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r, $inPerson, $subscription, $method) {
+        $clientHash = OpenPayments::clientHash($r);
+        $superseded = [];
+        $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r, $inPerson, $subscription, $method, $clientHash, &$superseded) {
             // Bloquea el horario para que dos personas no se lleven la última plaza a la vez
             $session = $db->one('SELECT * FROM class_sessions WHERE id = ? FOR UPDATE', [$sessionId]);
             $class = $session ? $db->one("SELECT * FROM classes WHERE id = ? AND kind = 'group' AND is_active = 1", [$session['class_id']]) : null;
@@ -69,7 +72,10 @@ final class BookingController
             if (!$allowed) {
                 throw HttpError::validation(['payment_method' => 'Esta forma de pago no está disponible para esta clase']);
             }
-            $info = Catalog::session($session, $class, Catalog::seatsTaken([$session['id']]));
+            if (!$inPerson) {
+                $superseded = OpenPayments::supersede($db, 'bookings', $customer['email'], $clientHash, (int) $session['id']);
+            }
+            $info = Catalog::session($session, $class, Catalog::seatsTaken([$session['id']], $inPerson ? null : $customer['email']));
             // La suscripción cobra la cuota mensual de la clase; lo demás, el precio de este horario
             $unit = $subscription ? (int) $class['monthly_price_cents'] : $info['price_cents'];
             if ($info['seats_left'] < $seats) {
@@ -93,6 +99,7 @@ final class BookingController
                 'unit_price_cents' => $unit,
                 'total_cents' => $unit * $seats,
                 'payment_method' => $method,
+                'client_ip_hash' => $inPerson ? null : $clientHash,
                 // En el taller la plaza queda guardada ya; online, solo mientras se paga
                 'status' => $inPerson ? 'confirmed' : 'pending_payment',
                 'expires_at' => $inPerson ? null : date('Y-m-d H:i:s', time() + $hold * 60),
@@ -110,6 +117,8 @@ final class BookingController
                 'payment_method' => 'in_person',
             ]);
         }
+
+        OpenPayments::expireSessions($superseded);
 
         $base = Settings::appUrl();
         $when = date('d/m/Y H:i', strtotime($booking['session']['starts_at']));

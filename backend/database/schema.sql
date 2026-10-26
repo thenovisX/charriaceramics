@@ -218,7 +218,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   payment_method    ENUM('online','in_person','subscription') NOT NULL DEFAULT 'online',  -- in_person: confirmada sin pagar; paid_at al cobrarla en el taller · subscription: cuota mensual de Stripe
   billing_type      ENUM('single','subscription') NOT NULL DEFAULT 'single',  -- subscription: cuota mensual, se repite cada semana en el calendario hasta cancelarla
   source            ENUM('web','manual') NOT NULL DEFAULT 'web',  -- manual: añadida a mano desde el calendario del panel
-  status            ENUM('requested','pending_payment','confirmed','cancelled') NOT NULL,
+  status            ENUM('requested','pending_payment','confirmed','review','cancelled') NOT NULL,  -- review: cobrada, pero no quedan plazas o el importe no cuadra
+  client_ip_hash    CHAR(64)     NULL,  -- HMAC de la IP de quien abrió el pago: limita reservas a medias simultáneas
   preferred_date    DATE         NULL,  -- solo clases privadas
   preferred_slot    VARCHAR(40)  NOT NULL DEFAULT '',
   notes             TEXT         NULL,
@@ -235,6 +236,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   PRIMARY KEY (id),
   UNIQUE KEY uq_bookings_reference (reference),
   KEY idx_bookings_session (session_id, status),
+  KEY idx_bookings_open_ip (client_ip_hash, status, expires_at),
   KEY idx_bookings_email (customer_email),
   KEY idx_bookings_stripe (stripe_session_id),
   KEY idx_bookings_subscription (stripe_subscription_id),
@@ -248,7 +250,8 @@ CREATE TABLE IF NOT EXISTS orders (
   id                    INT UNSIGNED NOT NULL AUTO_INCREMENT,
   reference             VARCHAR(20)  NOT NULL,
   customer_id           INT UNSIGNED NULL,
-  status                ENUM('pending','paid','shipped','cancelled','refunded') NOT NULL DEFAULT 'pending',
+  status                ENUM('pending','paid','review','shipped','cancelled','refunded') NOT NULL DEFAULT 'pending',  -- review: cobrado, pero hay que revisarlo a mano (sin stock al llegar el pago o importe que no cuadra)
+  client_ip_hash        CHAR(64)     NULL,  -- HMAC de la IP de quien abrió el pago: limita pagos a medias simultáneos
   currency              CHAR(3)      NOT NULL DEFAULT 'eur',
   subtotal_cents        INT UNSIGNED NOT NULL DEFAULT 0,  -- suma de precios sin descuento
   discount_cents        INT UNSIGNED NOT NULL DEFAULT 0,
@@ -277,6 +280,7 @@ CREATE TABLE IF NOT EXISTS orders (
   PRIMARY KEY (id),
   UNIQUE KEY uq_orders_reference (reference),
   KEY idx_orders_status (status, created_at),
+  KEY idx_orders_open_ip (client_ip_hash, status, expires_at),
   KEY idx_orders_email (customer_email),
   KEY idx_orders_stripe (stripe_session_id),
   CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE SET NULL
