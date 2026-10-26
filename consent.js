@@ -1,7 +1,12 @@
 /* ==========================================================
    Charria Ceramics · Consentimiento de cookies (RGPD + LSSI art. 22.2)
-   - Al entrar: aviso con «Rechazar», «Configurar» y «Aceptar todo»
-     (aceptar y rechazar con el mismo peso visual).
+   - Al entrar: ventana con «Rechazar», «Configurar» y «Aceptar todo»
+     (aceptar y rechazar con el mismo peso visual) sobre un velo que bloquea
+     la web hasta que se elige: no se puede pulsar, escribir ni desplazar nada
+     detrás. Rechazar sirve igual que aceptar para entrar (RGPD: el
+     consentimiento tiene que ser libre). En las páginas legales (cookies,
+     privacidad, aviso legal) el aviso va abajo sin bloquear, para poder
+     leerlas antes de decidir.
    - Hasta que la persona elige, solo funciona lo necesario (cesta y esta
      misma elección, guardadas en el navegador). Google Analytics se carga
      únicamente con permiso para «Analíticas»; su ID se pone en
@@ -105,10 +110,13 @@
   }
 
   /* ---------- Aviso (primera capa) ---------- */
+  const SOFT = /\/(cookies|privacidad|aviso-legal)(\.html)?$/.test(location.pathname);
   document.body.insertAdjacentHTML("beforeend", `
-    <section class="consent" data-consent role="region" aria-label="Aviso de cookies" hidden>
+    <div class="consent-wall${SOFT ? " consent-wall--soft" : ""}" data-consent-wall hidden>
+    <section class="consent" data-consent ${SOFT ? 'role="region" aria-label="Aviso de cookies"' : 'role="dialog" aria-modal="true" aria-labelledby="consent-title" tabindex="-1"'}>
       <div class="consent__text">
         <p class="eyebrow">Cookies</p>
+        ${SOFT ? "" : '<h2 class="consent__title" id="consent-title">Antes de entrar</h2>'}
         <p>Usamos cookies propias necesarias para que la web funcione y, solo si nos dejas, cookies de Google Analytics para saber qué páginas se visitan y mejorarla. Puedes aceptarlas, rechazarlas o elegir cuáles. Más información en la <a href="cookies.html">política de cookies</a>.</p>
       </div>
       <div class="consent__actions">
@@ -117,6 +125,7 @@
         <button class="consent__link" type="button" data-consent-config>Configurar</button>
       </div>
     </section>
+    </div>
     <div class="consent-prefs" data-consent-prefs hidden>
       <div class="consent-prefs__box" data-lenis-prevent role="dialog" aria-modal="true" aria-labelledby="consent-prefs-title" tabindex="-1">
         <button class="consent-prefs__close" type="button" data-consent-close aria-label="Cerrar">×</button>
@@ -141,6 +150,7 @@
       </div>
     </div>`);
 
+  const wall = $("[data-consent-wall]");
   const banner = $("[data-consent]");
   const prefs = $("[data-consent-prefs]");
   const form = $("[data-consent-form]", prefs);
@@ -175,12 +185,35 @@
   function closePrefs() {
     if (prefs.hidden) return;
     prefs.hidden = true;
+    // Si se cierra sin elegir, se vuelve a la ventana de la primera capa (la web sigue bloqueada)
+    if (locked) return void banner.focus();
     document.documentElement.classList.remove("consent-open");
     document.dispatchEvent(new CustomEvent("consent:close"));
     lastFocus?.focus?.();
   }
-  const showBanner = () => { banner.hidden = false; };
-  function hideBanner() { banner.hidden = true; }
+
+  // Bloqueo: todo lo que hay detrás del aviso queda inerte (sin clics, teclado ni lector de pantalla)
+  let locked = false;
+  let inerted = [];
+  function showBanner() {
+    wall.hidden = false;
+    if (SOFT) return;
+    locked = true;
+    inerted = [...document.body.children].filter((el) => el !== wall && el !== prefs && !el.inert && el.tagName !== "SCRIPT");
+    inerted.forEach((el) => { el.inert = true; });
+    document.documentElement.classList.add("consent-open", "consent-locked");
+    document.dispatchEvent(new CustomEvent("consent:open"));
+    setTimeout(() => banner.focus(), 30);
+  }
+  function hideBanner() {
+    wall.hidden = true;
+    if (!locked) return;
+    locked = false;
+    inerted.forEach((el) => { el.inert = false; });
+    inerted = [];
+    document.documentElement.classList.remove("consent-open", "consent-locked");
+    document.dispatchEvent(new CustomEvent("consent:close"));
+  }
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") closePrefs(); });
 
   // «Configurar cookies» del pie (y cualquier otro enlace con data-cookie-settings)
