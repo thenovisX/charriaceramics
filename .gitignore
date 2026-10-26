@@ -1,6 +1,7 @@
 .env
 backend/.env
 backend/storage/logs/*
+backend/storage/install-attempts.json
 !backend/storage/logs/.gitkeep
 uploads/*
 !uploads/.htaccess

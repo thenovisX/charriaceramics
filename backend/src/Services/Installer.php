@@ -89,8 +89,52 @@ final class Installer
         ];
     }
 
+    /** Servidores de MySQL que acepta el instalador: en Hostinger siempre es "localhost". */
+    private const LOCAL_DB_HOSTS = ['localhost', '127.0.0.1', '::1'];
+    /** Intentos de instalación por hora para toda la web (sin base de datos todavía, se cuentan en un fichero). */
+    private const MAX_ATTEMPTS_PER_HOUR = 10;
+
+    /**
+     * Antes de instalar, /setup lo puede llamar cualquiera. Para que no sirva para atar la web
+     * a una base de datos ajena ni para sondear puertos o probar contraseñas de MySQL:
+     * solo se acepta MySQL local en el puerto 3306 (una base remota exige la variable de
+     * entorno CHARRIA_ALLOW_REMOTE_DB en el servidor) y hay un tope de intentos por hora.
+     */
+    private static function guard(array $db): void
+    {
+        if (!getenv('CHARRIA_ALLOW_REMOTE_DB')) {
+            if (!in_array(strtolower((string) $db['host']), self::LOCAL_DB_HOSTS, true)) {
+                throw HttpError::validation(['db.host' => 'En Hostinger el servidor de MySQL es "localhost"'], 'No se pudo conectar con la base de datos. Revisa los datos.');
+            }
+            if ((int) $db['port'] !== 3306) {
+                throw HttpError::validation(['db.port' => 'El puerto de MySQL es 3306'], 'No se pudo conectar con la base de datos. Revisa los datos.');
+            }
+        }
+        $file = BACKEND_DIR . '/storage/install-attempts.json';
+        $fp = @fopen($file, 'c+');
+        if ($fp === false) {
+            return; // sin permiso de escritura: el instalador ya fallará al guardar el .env con un mensaje claro
+        }
+        flock($fp, LOCK_EX);
+        $hits = json_decode((string) stream_get_contents($fp), true);
+        $hits = array_values(array_filter(is_array($hits) ? $hits : [], static fn ($t) => is_int($t) && $t > time() - 3600));
+        $allowed = count($hits) < self::MAX_ATTEMPTS_PER_HOUR;
+        if ($allowed) {
+            $hits[] = time();
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($hits));
+        }
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        if (!$allowed) {
+            throw new HttpError(429, 'too_many_requests', 'Demasiados intentos de instalación. Espera una hora y vuelve a probar.');
+        }
+    }
+
     private static function testConnection(array $db): void
     {
+        self::guard($db);
         try {
             new \PDO(
                 sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $db['host'], $db['port'], $db['name']),

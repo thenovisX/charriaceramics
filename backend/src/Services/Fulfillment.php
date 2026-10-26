@@ -14,11 +14,16 @@ final class Fulfillment
     /** checkout.session.completed / async_payment_succeeded */
     public static function paid(array $session): void
     {
-        if (($session['payment_status'] ?? '') !== 'paid') {
-            return; // pago diferido aún pendiente: llegará async_payment_succeeded
-        }
         $type = $session['metadata']['type'] ?? '';
         $reference = $session['metadata']['reference'] ?? $session['client_reference_id'] ?? '';
+        if (($session['payment_status'] ?? '') !== 'paid') {
+            // Pago diferido (p. ej. domiciliación SEPA): el cliente ya lo ha enviado y puede tardar días en
+            // confirmarse (llegará async_payment_succeeded). Se le sigue guardando el pedido mientras tanto.
+            if (($session['status'] ?? '') === 'complete') {
+                self::extendHold($type, $reference);
+            }
+            return;
+        }
         if ($type === 'order') {
             self::orderPaid($reference, $session);
         } elseif ($type === 'booking') {
@@ -38,6 +43,33 @@ final class Fulfillment
         }
     }
 
+    /** Días que se guarda un pedido o una plaza cuyo pago diferido está en curso. */
+    private const DEFERRED_HOLD_DAYS = 7;
+
+    private static function extendHold(string $type, string $reference): void
+    {
+        $until = date('Y-m-d H:i:s', strtotime('+' . self::DEFERRED_HOLD_DAYS . ' days'));
+        $db = Database::get();
+        if ($type === 'order') {
+            $db->exec("UPDATE orders SET expires_at = ? WHERE reference = ? AND status = 'pending'", [$until, $reference]);
+        } elseif ($type === 'booking') {
+            $db->exec("UPDATE bookings SET expires_at = ? WHERE reference = ? AND status = 'pending_payment'", [$until, $reference]);
+        }
+    }
+
+    /**
+     * ¿Es esta la sesión de Stripe que creó este servidor para este pedido, con su importe y moneda?
+     * Una firma válida solo prueba que el aviso viene de Stripe, no que lo pagado sea lo esperado
+     * (p. ej. una clave de Stripe filtrada permitiría crear una sesión de 0,50 € con la referencia de otro pedido).
+     */
+    private static function matchesSession(?string $expectedSession, int $expectedTotal, string $currency, array $session): bool
+    {
+        return $expectedSession !== null && $expectedSession !== ''
+            && ($session['id'] ?? null) === $expectedSession
+            && (int) ($session['amount_total'] ?? -1) === $expectedTotal
+            && strtolower((string) ($session['currency'] ?? '')) === strtolower($currency);
+    }
+
     private static function orderPaid(string $reference, array $session): void
     {
         $db = Database::get();
@@ -46,22 +78,44 @@ final class Fulfillment
             if (!$order || !in_array($order['status'], ['pending', 'cancelled'], true)) {
                 return null; // desconocido o ya procesado
             }
-            if ((int) ($session['amount_total'] ?? -1) !== (int) $order['total_cents']) {
-                // No debería ocurrir nunca: el importe lo fijó este servidor. Se registra para revisarlo.
-                Log::error('Stripe amount mismatch', ['order' => $reference, 'stripe' => $session['amount_total'] ?? null, 'db' => $order['total_cents']]);
+            $problem = null;
+            $items = $db->all('SELECT product_id, quantity FROM order_items WHERE order_id = ? AND product_id IS NOT NULL', [$order['id']]);
+            if (!self::matchesSession($order['stripe_session_id'], (int) $order['total_cents'], (string) $order['currency'], $session)) {
+                $problem = 'El importe, la moneda o la sesión de pago de Stripe no coinciden con el pedido';
+            } else {
+                // El pago puede llegar tarde (pago diferido, o con el pedido ya caducado): se mira que siga
+                // habiendo pieza, sin contar lo que otros clientes tienen en su cesta ahora mismo.
+                foreach ($items as $item) {
+                    $stock = $db->value('SELECT stock FROM products WHERE id = ? FOR UPDATE', [$item['product_id']]);
+                    $held = (int) $db->value(
+                        "SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                         WHERE oi.product_id = ? AND o.status = 'pending' AND o.expires_at > NOW() AND o.id <> ? AND o.customer_email <> ?",
+                        [$item['product_id'], $order['id'], $order['customer_email']]
+                    );
+                    if ($stock === null || (int) $stock - $held < (int) $item['quantity']) {
+                        $problem = 'Cuando llegó el pago ya no quedaba stock de alguna pieza';
+                        break;
+                    }
+                }
             }
             $db->update('orders', [
-                'status' => 'paid',
+                'status' => $problem ? 'review' : 'paid',
                 'paid_at' => date('Y-m-d H:i:s'),
                 'stripe_payment_intent' => is_string($session['payment_intent'] ?? null) ? $session['payment_intent'] : null,
             ], 'id = :id', ['id' => $order['id']]);
-            // Descontar stock; si llega a 0 la pieza aparece como agotada automáticamente
-            foreach ($db->all('SELECT product_id, quantity FROM order_items WHERE order_id = ? AND product_id IS NOT NULL', [$order['id']]) as $item) {
-                $db->exec('UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?', [$item['quantity'], $item['product_id']]);
+            if (!$problem) {
+                // Descontar stock; si llega a 0 la pieza aparece como agotada automáticamente
+                foreach ($items as $item) {
+                    $db->exec('UPDATE products SET stock = stock - ? WHERE id = ?', [$item['quantity'], $item['product_id']]);
+                }
             }
-            return $db->one('SELECT * FROM orders WHERE id = ?', [$order['id']]);
+            return $db->one('SELECT * FROM orders WHERE id = ?', [$order['id']]) + ['problem' => $problem];
         });
         if (!$order) {
+            return;
+        }
+        if ($order['problem']) {
+            self::reviewNotice('Pedido', $order, (string) $order['problem']);
             return;
         }
 
@@ -112,20 +166,69 @@ final class Fulfillment
     private static function bookingPaid(string $reference, array $session): void
     {
         $db = Database::get();
-        $booking = $db->one('SELECT * FROM bookings WHERE reference = ?', [$reference]);
-        if (!$booking || !in_array($booking['status'], ['pending_payment', 'cancelled'], true)) {
+        $booking = $db->transaction(static function (Database $db) use ($reference, $session) {
+            $booking = $db->one('SELECT * FROM bookings WHERE reference = ? FOR UPDATE', [$reference]);
+            if (!$booking || !in_array($booking['status'], ['pending_payment', 'cancelled'], true)) {
+                return null;
+            }
+            $problem = null;
+            if (!self::matchesSession($booking['stripe_session_id'], (int) $booking['total_cents'], Settings::currency(), $session)) {
+                $problem = 'El importe, la moneda o la sesión de pago de Stripe no coinciden con la reserva';
+            } elseif ($booking['session_id']) {
+                // Igual que con el stock: el pago puede llegar con la reserva ya caducada y el horario lleno
+                $class = $db->one('SELECT capacity FROM classes WHERE id = ?', [$booking['class_id']]);
+                $slot = $db->one('SELECT * FROM class_sessions WHERE id = ? FOR UPDATE', [$booking['session_id']]);
+                if (!$slot || !$class || $slot['is_cancelled']) {
+                    $problem = 'El horario ya no existe o se ha cancelado';
+                } else {
+                    $taken = (int) $db->value(
+                        "SELECT COALESCE(SUM(seats), 0) FROM bookings WHERE session_id = ? AND id <> ?
+                           AND (status = 'confirmed' OR (status = 'pending_payment' AND expires_at > NOW() AND customer_email <> ?))",
+                        [$booking['session_id'], $booking['id'], $booking['customer_email']]
+                    );
+                    if ($taken + (int) $booking['seats'] > (int) ($slot['capacity'] ?? $class['capacity'])) {
+                        $problem = 'Cuando llegó el pago ya no quedaban plazas en ese horario';
+                    }
+                }
+            }
+            $data = ['status' => $problem ? 'review' : 'confirmed', 'paid_at' => date('Y-m-d H:i:s')];
+            if ($booking['payment_method'] === 'subscription') {
+                $data += [
+                    'stripe_subscription_id' => is_string($session['subscription'] ?? null) ? $session['subscription'] : null,
+                    'subscription_status' => 'active',
+                    'paid_until' => date('Y-m-d H:i:s', strtotime('+1 month')),
+                ];
+            }
+            $db->update('bookings', $data, 'id = :id', ['id' => $booking['id']]);
+            return $booking + ['problem' => $problem];
+        });
+        if (!$booking) {
             return;
         }
-        $data = ['status' => 'confirmed', 'paid_at' => date('Y-m-d H:i:s')];
-        if ($booking['payment_method'] === 'subscription') {
-            $data += [
-                'stripe_subscription_id' => is_string($session['subscription'] ?? null) ? $session['subscription'] : null,
-                'subscription_status' => 'active',
-                'paid_until' => date('Y-m-d H:i:s', strtotime('+1 month')),
-            ];
+        if ($booking['problem']) {
+            self::reviewNotice('Reserva', $booking, (string) $booking['problem']);
+            return;
         }
-        $db->update('bookings', $data, 'id = :id', ['id' => $booking['id']]);
         self::bookingConfirmedEmails($booking);
+    }
+
+    /**
+     * Pago recibido pero que no se puede dar por bueno solo: queda en «Revisar» y se avisa al estudio
+     * (para resolverlo y reembolsar desde Stripe) y a la persona, sin prometerle nada que no sea cierto.
+     */
+    private static function reviewNotice(string $what, array $row, string $problem): void
+    {
+        $email = (string) ($row['customer_email'] ?? '');
+        $name = (string) ($row['customer_name'] ?? '');
+        Log::error('Pago a revisar', ['ref' => $row['reference'], 'problem' => $problem]);
+        Mailer::admin("{$what} cobrado que hay que revisar · {$row['reference']}",
+            "{$what} {$row['reference']}: Stripe ha cobrado {$row['total_cents']} céntimos, pero no se ha confirmado solo.\n"
+            . "Motivo: $problem.\n\nCliente: $name <$email>\n\n"
+            . 'Qué hacer: escribe a la persona y, si no puedes darle lo que pagó, reembolsa desde el panel de Stripe y marca el '
+            . strtolower($what) . ' como Cancelado. Si todo está bien, márcalo como Pagado o Confirmada. Está en el panel con la etiqueta «Revisar».');
+        Mailer::send($email, "Hemos recibido tu pago · {$row['reference']} · Charria Ceramics",
+            "Hola $name,\n\nHemos recibido tu pago ({$row['reference']}), pero tenemos que comprobar un detalle de la disponibilidad antes de confirmártelo. "
+            . "Te escribiremos en menos de 24 horas para resolverlo.\n\nCharria Ceramics");
     }
 
     /** invoice.paid: la cuota de un mes siguiente (la primera la confirma el Checkout). */

@@ -21,9 +21,11 @@ final class Auth
     public static function login(string $email, string $password, Request $request): array
     {
         $email = mb_strtolower(trim($email));
-        // Máximo 5 intentos fallidos cada 15 minutos por IP y por email
-        RateLimiter::hit('login-ip:' . $request->ip, 5, 900);
-        RateLimiter::hit('login-email:' . $email, 5, 900);
+        // Por IP: 5 intentos cada 15 minutos. Por email: 20 a la hora, para frenar a quien prueba
+        // claves desde muchas IPs sin dejar fuera a la persona del estudio con 5 intentos falsos.
+        $ipKey = RateLimiter::clientKey($request->ip);
+        RateLimiter::hit('login-ip:' . $ipKey, 5, 900);
+        RateLimiter::hit('login-email:' . $email, 20, 3600);
 
         $db = Database::get();
         $admin = $db->one('SELECT * FROM admins WHERE email = ? AND is_active = 1', [$email]);
@@ -32,7 +34,7 @@ final class Auth
         if (!password_verify($password, $hash) || !$admin) {
             throw new HttpError(401, 'invalid_credentials', 'Email o contraseña incorrectos');
         }
-        RateLimiter::clear('login-ip:' . $request->ip);
+        RateLimiter::clear('login-ip:' . $ipKey);
         RateLimiter::clear('login-email:' . $email);
 
         if (password_needs_rehash($admin['password_hash'], PASSWORD_DEFAULT)) {

@@ -49,14 +49,14 @@ final class Pricing
      * para que dos compras simultáneas no se lleven la misma última pieza; debe llamarse
      * dentro de una transacción.
      */
-    public static function quote(array $merged, bool $lock = false): array
+    public static function quote(array $merged, bool $lock = false, ?string $exceptEmail = null): array
     {
         $db = Database::get();
         $ids = array_keys($merged);
         $in = implode(',', array_fill(0, count($ids), '?'));
         $rows = $db->all("SELECT * FROM products WHERE id IN ($in)" . ($lock ? ' FOR UPDATE' : ''), $ids);
         $products = array_column($rows, null, 'id');
-        $held = self::heldStock($ids);
+        $held = self::heldStock($ids, $exceptEmail);
         $images = Catalog::firstImages($ids);
 
         $lines = [];
@@ -111,8 +111,8 @@ final class Pricing
         ];
     }
 
-    /** Unidades retenidas por pedidos que se están pagando ahora mismo (aún no caducados). */
-    public static function heldStock(array $productIds): array
+    /** Unidades retenidas por pedidos que se están pagando ahora mismo (aún no caducados), sin contar los de $exceptEmail. */
+    public static function heldStock(array $productIds, ?string $exceptEmail = null): array
     {
         if (!$productIds) {
             return [];
@@ -121,9 +121,9 @@ final class Pricing
         $rows = Database::get()->all(
             "SELECT oi.product_id, SUM(oi.quantity) AS qty FROM order_items oi
              JOIN orders o ON o.id = oi.order_id
-             WHERE o.status = 'pending' AND o.expires_at > NOW() AND oi.product_id IN ($in)
+             WHERE o.status = 'pending' AND o.expires_at > NOW() AND oi.product_id IN ($in)" . ($exceptEmail !== null ? ' AND o.customer_email <> ?' : '') . "
              GROUP BY oi.product_id",
-            array_values($productIds)
+            $exceptEmail !== null ? [...array_values($productIds), $exceptEmail] : array_values($productIds)
         );
         return array_map('intval', array_column($rows, 'qty', 'product_id'));
     }

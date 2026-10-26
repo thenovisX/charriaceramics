@@ -150,6 +150,7 @@ Las marcadas con ⚙️ se pueden poner también (y mejor) en **Panel → Ajuste
 | `STRIPE_SECRET_KEY` ⚙️ | Para cobrar | — | Clave secreta `sk_test_…` o `sk_live_…`. Sin ella la compra y las reservas en grupo muestran “pagos no activos”. |
 | `STRIPE_WEBHOOK_SECRET` ⚙️ | Para cobrar | — | `whsec_…` del endpoint de webhook. |
 | `CURRENCY` | No | `eur` | Moneda. |
+| `CHECKOUT_MAX_OPEN_PER_CLIENT` | No | `3` | Pedidos o reservas online sin pagar que puede tener abiertos un mismo cliente. |
 | `CHECKOUT_HOLD_MINUTES` | No | `30` | Minutos que se retienen stock y plazas mientras se paga (mínimo 30, lo exige Stripe). |
 | `SHIPPING_PICKUP` ⚙️ | No | `true` | Ofrecer recogida gratis en el estudio. |
 | `SHIPPING_FLAT_CENTS` / `SHIPPING_FLAT_NAME` ⚙️ | No | `690` / `Envío estándar 48/72 h` | Tarifa plana si no hay Packlink o no responde. |
@@ -212,13 +213,17 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 
 - **Autenticación del panel**: tokens aleatorios de 256 bits; en la base de datos solo se guarda su hash SHA‑256. Cada petición a `/api/admin/*` comprueba el token, su caducidad y que el administrador siga activo. Cerrar sesión o cambiar la contraseña invalida los tokens al momento.
 - Contraseñas con `password_hash()` (bcrypt) y rehash automático; mínimo 10 caracteres.
-- **Límite de intentos**: login 5 fallos / 15 min por IP y por email; checkout, reservas, contacto y cálculo de envío también limitados.
+- **Límite de intentos**: login 5 fallos / 15 min por IP y 20 / hora por email (la IP se guarda como HMAC, no en claro; el contador cuenta primero y después comprueba, así peticiones simultáneas no lo saltan); checkout, reservas, contacto y cálculo de envío también limitados.
 - **SQL**: siempre consultas preparadas con PDO (`ATTR_EMULATE_PREPARES = false`).
 - **XSS**: todo texto de la base de datos se escapa antes de pintarlo (web y panel). El panel tiene una CSP que solo permite scripts propios.
 - **Stripe**: firma del webhook verificada (HMAC‑SHA256, tolerancia 5 min) y eventos idempotentes (tabla `stripe_events`). El importe cobrado se compara con el del pedido y se registra cualquier diferencia.
 - **Ficheros**: `.htaccess` bloquea `.env`, `.git`, `backend/`, `*.sql`, `*.log`, `*.md`; en `uploads/` no se ejecuta PHP ni se sirven HTML/SVG/JS. HTTPS forzado.
 - **Secretos**: ninguno en el repositorio. `.env` está en `.gitignore`. El instalador lo crea con permisos 600 fuera de `public_html` si puede. Las claves puestas en Ajustes se guardan cifradas (XSalsa20‑Poly1305) con la `APP_KEY` del `.env`, así que una copia de la base de datos sola no las revela, y la API nunca las devuelve.
 - **Instalador**: hace falta conocer usuario y contraseña de MySQL, y se cierra en cuanto existe un administrador.
+  Antes de instalar solo acepta MySQL local (`localhost`, puerto 3306; una base remota exige la variable de entorno `CHARRIA_ALLOW_REMOTE_DB`) y un máximo de 10 intentos por hora (`backend/storage/install-attempts.json`), para que nadie pueda usar `/api/setup` como escáner de puertos ni atar la web a una base ajena.
+- **Pagos abiertos**: cada pedido o reserva online sin pagar retiene stock o plaza, así que hay un tope de `CHECKOUT_MAX_OPEN_PER_CLIENT` (3 por defecto) por cliente (IP en HMAC) y, si la misma persona vuelve a empezar, lo anterior se cancela y su sesión de Stripe se caduca.
+- **Cobros que no cuadran**: el webhook solo confirma si la sesión es la creada para ese pedido y coinciden importe y moneda, y si al llegar el pago aún hay pieza o plaza (los pagos diferidos o tardíos pueden llegar con el pedido caducado). Si no, el pedido o la reserva queda en **Revisar** (aviso por email al estudio y a la persona; el estudio reembolsa desde Stripe o lo da por bueno desde el panel). Los pagos diferidos (SEPA) alargan la retención 7 días.
+- `GET /checkout/status` solo consulta a Stripe 60 veces / 10 min por IP.
 - **Errores**: en producción la API responde con mensajes genéricos y el detalle va a `backend/storage/logs/`.
 
 ## Privacidad y RGPD

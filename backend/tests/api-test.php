@@ -263,7 +263,7 @@ check('total = 2 × 51,00 + envío 6,90', ($j['data']['total_cents'] ?? 0) === 1
 $csId = basename($j['data']['checkout_url'] ?? '');
 [, $session] = call('GET', "$stripeMock/v1/checkout/sessions/$csId", null, null, ['Authorization: Bearer sk_test_mock']);
 check('Stripe recibe los importes del servidor', ($session['amount_total'] ?? 0) === 10890, $session);
-[$s, $j] = call('POST', "$base/checkout", $checkout);
+[$s, $j] = call('POST', "$base/checkout", ['customer' => ['name' => 'Otra Persona', 'email' => 'otra@example.com', 'phone' => '600000002']] + $checkout);
 check('el stock queda retenido mientras se paga', $s === 409, $j);
 
 [$s, $j] = call('POST', "$base/webhooks/stripe", '{"id":"evt_x","type":"checkout.session.completed"}', null, ['Stripe-Signature: t=' . time() . ',v1=deadbeef', 'Content-Type: application/json'], true);
@@ -555,6 +555,96 @@ check('cambiar entre pago único y suscripción', $s === 200 && $j['data']['bill
 check('resumen: cuenta los cobros atrasados', is_int($j['data']['payments_overdue'] ?? null), $j);
 foreach ([$single, $sub, $past] as $b) {
     call('PATCH', "$base/admin/bookings/{$b['id']}", ['status' => 'cancelled'], $token);
+}
+
+echo "Seguridad de pagos\n";
+$mkProduct = static function (string $title, int $stock) use ($base, $token): int {
+    [, $j] = call('POST', "$base/admin/products", ['title' => $title, 'price_cents' => 1000, 'stock' => $stock, 'category' => 'Test', 'weight_grams' => 100], $token);
+    return $j['data']['id'] ?? 0;
+};
+$pickup = static fn (int $product, string $email) => call('POST', "$base/checkout", [
+    'items' => [['product_id' => $product, 'quantity' => 1]],
+    'customer' => ['name' => 'Seg Prueba', 'email' => $email, 'phone' => '600000001'],
+    'shipping' => ['option_id' => 'pickup'],
+    'consents' => ['terms' => true, 'marketing' => false, 'profile' => false],
+]);
+$payHook = static function (string $cs, array $override = []) use ($base, $webhookSecret, $stripeMock): int {
+    [, $paid] = call('GET', "$stripeMock/test/pay/$cs", null, null, ['Authorization: Bearer sk_test_mock']);
+    [$s] = webhook($base, $webhookSecret, ['id' => 'evt_' . bin2hex(random_bytes(6)), 'type' => 'checkout.session.completed', 'data' => ['object' => $override + $paid]]);
+    return $s;
+};
+$orderStatus = static function (string $reference) use ($base, $token): string {
+    foreach (['review', 'paid', 'cancelled', 'pending'] as $st) {
+        [, $j] = call('GET', "$base/admin/orders?status=$st", null, $token);
+        if (in_array($reference, array_column($j['data'] ?? [], 'reference'), true)) {
+            return $st;
+        }
+    }
+    return '?';
+};
+$stockOf = static function (int $id) use ($base, $token): int {
+    [, $j] = call('GET', "$base/admin/products/$id", null, $token);
+    return (int) ($j['data']['stock'] ?? -1);
+};
+
+// Importe distinto del pedido (p. ej. sesión creada con una clave de Stripe filtrada)
+$pA = $mkProduct('Seg A', 5);
+[, $j] = $pickup($pA, 'seg-a@example.com');
+$refA = $j['data']['reference'] ?? '';
+$payHook(basename($j['data']['checkout_url'] ?? ''), ['amount_total' => 50]);
+check('un cobro con importe distinto no confirma el pedido: queda en «Revisar»', $orderStatus($refA) === 'review', $refA);
+check('…y no descuenta stock', $stockOf($pA) === 5);
+[$s, $j] = call('GET', "$base/admin/stats", null, $token);
+check('…y el resumen lo cuenta', ($j['data']['orders_to_review'] ?? 0) >= 1, $j);
+
+// Volver a empezar libera lo anterior
+$pB = $mkProduct('Seg B', 1);
+[, $j] = $pickup($pB, 'seg-b@example.com');
+$refB1 = $j['data']['reference'] ?? '';
+[$s, $j] = $pickup($pB, 'seg-b@example.com');
+$refB2 = $j['data']['reference'] ?? '';
+check('quien repite la compra no choca con su propio pedido a medias', $s === 201, $j);
+check('…y el pedido anterior queda cancelado', $orderStatus($refB1) === 'cancelled');
+[$s, $j] = $pickup($pB, 'otra-persona@example.com');
+check('…pero otra persona sí ve la pieza retenida', $s === 409, $j);
+
+// Pago que llega tarde cuando la pieza ya se vendió a otra persona
+$pC = $mkProduct('Seg C', 1);
+[, $j] = $pickup($pC, 'seg-c1@example.com');
+$refC1 = $j['data']['reference'] ?? '';
+$csC1 = basename($j['data']['checkout_url'] ?? '');
+[$s, $orderRows] = call('GET', "$base/admin/orders?status=pending", null, $token);
+$idC1 = array_values(array_filter($orderRows['data'] ?? [], static fn ($o) => $o['reference'] === $refC1))[0]['id'] ?? 0;
+call('PATCH', "$base/admin/orders/$idC1", ['status' => 'cancelled'], $token);
+[, $j] = $pickup($pC, 'seg-c2@example.com');
+$payHook(basename($j['data']['checkout_url'] ?? ''));
+check('el segundo cliente se queda con la última pieza', $stockOf($pC) === 0);
+$payHook($csC1);
+check('el pago tardío del primero queda en «Revisar», sin dar stock negativo', $orderStatus($refC1) === 'review' && $stockOf($pC) === 0);
+[, $orderRows] = call('GET', "$base/admin/orders?status=review", null, $token);
+$idRev = array_values(array_filter($orderRows['data'] ?? [], static fn ($o) => $o['reference'] === $refC1))[0]['id'] ?? 0;
+[$s, $j] = call('PATCH', "$base/admin/orders/$idRev", ['status' => 'cancelled'], $token);
+check('el estudio puede cancelar un pedido a revisar', $s === 200 && $j['data']['status'] === 'cancelled', $j);
+
+// Tope de pagos abiertos por cliente
+$pD = $mkProduct('Seg D', 20);
+$limited = false;
+$open = [];
+for ($i = 1; $i <= 6 && !$limited; $i++) {
+    [$s, $j] = $pickup($pD, "tope$i@example.com");
+    if ($s === 429) {
+        $limited = true;
+    } elseif ($s === 201) {
+        $open[] = $j['data']['reference'];
+    }
+}
+check('un mismo cliente no puede dejar pedidos abiertos sin límite', $limited && count($open) >= 1 && count($open) <= 5, $open);
+[, $orderRows] = call('GET', "$base/admin/orders?status=pending", null, $token);
+foreach ($orderRows['data'] ?? [] as $o) {
+    call('PATCH', "$base/admin/orders/{$o['id']}", ['status' => 'cancelled'], $token);
+}
+foreach ([$pA, $pB, $pC, $pD] as $id) {
+    call('DELETE', "$base/admin/products/$id", null, $token);
 }
 
 echo "Limpieza\n";
