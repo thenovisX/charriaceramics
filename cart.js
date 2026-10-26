@@ -339,6 +339,16 @@
     const btn = $("[data-pay]", foot);
     btn.disabled = true;
     button(btn, "Preparando el pago…", "arrow");
+    // El pago de Stripe se abre en una pestaña nueva. La pestaña se abre ya, dentro del clic
+    // (si se abriera después de esperar al servidor, el navegador la bloquearía como ventana
+    // emergente), y se le pone la dirección cuando llega. Si aun así se bloquea, se paga aquí.
+    const tab = window.open("", "_blank");
+    if (tab) {
+      try {
+        tab.document.title = "Preparando el pago · Charria Ceramics";
+        tab.document.body.innerHTML = '<p style="font:16px/1.6 Georgia,serif;color:#1a1816;background:#f5f1ea;margin:0;min-height:100vh;display:grid;place-items:center">Preparando el pago seguro…</p>';
+      } catch { /* */ }
+    }
     try {
       const res = await post("checkout", {
         items: read().map((i) => ({ product_id: i.id, quantity: i.qty })),
@@ -347,14 +357,36 @@
         address: isPickup ? undefined : { street: f.street.value, postal_code: f.postal_code.value, city: f.city.value, country: f.country.value },
         consents: { terms: f.terms.checked, profile: f.profile.checked, marketing: f.marketing.checked },
       });
-      window.location.href = res.checkout_url;
+      if (tab && !tab.closed) {
+        tab.opener = null;
+        tab.location.href = res.checkout_url;
+        showPaying(res.checkout_url);
+      } else {
+        window.location.href = res.checkout_url;
+      }
     } catch (e) {
+      tab?.close();
       Object.keys(e.fields || {}).forEach((k) => f[k.split(".").pop()]?.closest(".form__field, .check")?.classList.add("is-invalid"));
       showError(form, e.message);
       if (e.status === 409) { quote = null; setTimeout(renderItems, 1800); }
       btn.disabled = false;
       button(btn, "Pagar", "arrow");
     }
+  }
+
+  // Mientras se paga en la otra pestaña, la cesta lo dice y deja volver a abrir el pago
+  function showPaying(url) {
+    step.textContent = "Pago en curso";
+    body.innerHTML = `
+      <div class="cart__paying">
+        <p class="cart__paying-title">Hemos abierto el pago en una pestaña nueva.</p>
+        <p class="cart__muted">Termina el pago allí, en la página segura de Stripe. Cuando se complete verás la confirmación del pedido en esa pestaña y te llegará un email.</p>
+      </div>`;
+    foot.innerHTML = `
+      <a class="btn-primary cart__cta" href="${esc(url)}" target="_blank" rel="noopener">Volver a abrir el pago</a>
+      <button class="consent__link cart__back" type="button" data-paying-back>Volver a la cesta</button>`;
+    $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim(), "arrow"));
+    $("[data-paying-back]", foot).addEventListener("click", () => renderItems());
   }
 
   /* ---------- API pública para script.js ---------- */

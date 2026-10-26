@@ -137,6 +137,8 @@ check('validación de producto (422 con campos)', $s === 422 && isset($j['error'
 [$s, $j] = call('PATCH', "$base/admin/products/$pid", ['description' => 'Editado', 'price_cents' => 6000], $token);
 check('editar producto', $s === 200 && $j['data']['description'] === 'Editado' && $j['data']['final_price_cents'] === 5100, $j);
 [$s, $j] = call('PATCH', "$base/admin/products/$pid", ['dimensions' => 'Ø 14 × 7 cm', 'material' => 'Gres', 'care' => 'Lavar a mano', 'specs' => [['label' => 'Capacidad', 'value' => '450 ml'], ['label' => '', 'value' => '']]], $token);
+[$s2, $j2] = call('PATCH', "$base/admin/products/$pid", ['piece_height_mm' => 70, 'piece_diameter_mm' => 140, 'piece_capacity_ml' => 450], $token);
+check('ficha: medidas de la pieza en campos separados', $s2 === 200 && $j2['data']['measures'] === ['height_mm' => 70, 'width_mm' => 0, 'depth_mm' => 0, 'diameter_mm' => 140, 'capacity_ml' => 450], $j2);
 check('ficha: medidas, material, cuidados y especificaciones (las filas vacías se descartan)', $s === 200 && $j['data']['material'] === 'Gres' && $j['data']['specs'] === [['label' => 'Capacidad', 'value' => '450 ml']], $j);
 [$s, $j] = call('PATCH', "$base/admin/products/$pid", ['specs' => [['label' => 'Capacidad', 'value' => '']]], $token);
 check('especificación a medias rechazada', $s === 422 && isset($j['error']['fields']['specs.0']), $j);
@@ -369,6 +371,11 @@ check('apagar «se puede pagar en el taller» en la clase', $s === 200 && $j['da
 [$s, $j] = call('POST', "$base/bookings", array_merge($nora, ['seats' => 1]));
 check('…y ya no deja reservar sin pagar online', $s === 422 && isset($j['error']['fields']['payment_method']), $j);
 call('PATCH', "$base/admin/classes/$cid", ['pay_in_person' => true], $token);
+[$s, $j] = call('PATCH', "$base/admin/classes/$cid", ['price_period' => 'month', 'show_date' => false], $token);
+check('clase: precio «por mes» y sin fecha en la web', $s === 200 && $j['data']['price_period'] === 'month' && $j['data']['show_date'] === false, $j);
+[$s, $j] = call('PATCH', "$base/admin/classes/$cid", ['price_period' => 'semana'], $token);
+check('clase: el periodo del precio solo admite session o month', $s === 422 && isset($j['error']['fields']['price_period']), $j);
+call('PATCH', "$base/admin/classes/$cid", ['price_period' => 'session', 'show_date' => true], $token);
 [$s, $j] = call('POST', "$base/admin/customers/erase", ['email' => 'nora@example.com'], $token);
 [, $b] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
 check('RGPD: borrar libera la plaza sin pagar del taller', $s === 200 && ($b['data'][0]['status'] ?? '') === 'cancelled', $b);

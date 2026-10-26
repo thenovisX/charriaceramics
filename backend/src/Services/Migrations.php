@@ -25,6 +25,7 @@ final class Migrations
         6 => 'bookingCalendar',
         7 => 'weekendHours',
         8 => 'webContent',
+        9 => 'displayOptions',
     ];
 
     public static function latest(): int
@@ -242,6 +243,25 @@ final class Migrations
             $db->pdo()->exec("ALTER TABLE images MODIFY COLUMN kind ENUM('product','gallery','class','site') NOT NULL");
         }
         self::createTables($db, ['reviews']);
+    }
+
+    /**
+     * 9 · Medidas de la pieza en campos separados (alto, ancho, fondo, diámetro y
+     * capacidad) y, en cada clase, si se enseña la fecha y si el precio es por mes.
+     * Las clases que ya se cobran con suscripción pasan a enseñar «por mes».
+     */
+    private static function displayOptions(Database $db): void
+    {
+        self::addColumn($db, 'products', 'piece_height_mm', 'SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER dimensions');
+        self::addColumn($db, 'products', 'piece_width_mm', 'SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER piece_height_mm');
+        self::addColumn($db, 'products', 'piece_depth_mm', 'SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER piece_width_mm');
+        self::addColumn($db, 'products', 'piece_diameter_mm', 'SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER piece_depth_mm');
+        self::addColumn($db, 'products', 'piece_capacity_ml', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER piece_diameter_mm');
+        if (!self::hasColumn($db, 'classes', 'price_period')) {
+            self::addColumn($db, 'classes', 'price_period', "ENUM('session','month') NOT NULL DEFAULT 'session' AFTER monthly_price_cents");
+            $db->exec("UPDATE classes SET price_period = 'month' WHERE kind = 'group' AND pay_subscription = 1");
+        }
+        self::addColumn($db, 'classes', 'show_date', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER price_period');
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

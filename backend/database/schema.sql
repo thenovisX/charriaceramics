@@ -102,7 +102,12 @@ CREATE TABLE IF NOT EXISTS products (
   width_cm         SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   height_cm        SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   -- Ficha de la pieza (lo que ve el cliente; las medidas de arriba son las del paquete)
-  dimensions       VARCHAR(160) NOT NULL DEFAULT '',  -- "Ø 14 × 7 cm"
+  dimensions       VARCHAR(160) NOT NULL DEFAULT '',  -- nota libre de medidas: "Platos Ø 26 cm · cuencos Ø 14 cm"
+  piece_height_mm   SMALLINT UNSIGNED NOT NULL DEFAULT 0, -- medidas de la pieza en la ficha (0 = no se enseña)
+  piece_width_mm    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  piece_depth_mm    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  piece_diameter_mm SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  piece_capacity_ml INT UNSIGNED NOT NULL DEFAULT 0,
   material         VARCHAR(160) NOT NULL DEFAULT '',
   piece_weight_grams INT UNSIGNED NOT NULL DEFAULT 0, -- peso de la pieza en la ficha (0 = no se enseña)
   care             TEXT         NULL,                 -- cuidados
@@ -174,6 +179,8 @@ CREATE TABLE IF NOT EXISTS classes (
   pay_online       TINYINT(1)   NOT NULL DEFAULT 1,  -- se puede pagar ya, online, un pago único (Stripe)
   pay_subscription TINYINT(1)   NOT NULL DEFAULT 0,  -- se puede pagar con suscripción mensual online (Stripe)
   monthly_price_cents INT UNSIGNED NULL,             -- cuota mensual por plaza de la suscripción
+  price_period     ENUM('session','month') NOT NULL DEFAULT 'session', -- la web enseña el precio «por mes»
+  show_date        TINYINT(1)   NOT NULL DEFAULT 1,  -- 0 = la web no enseña día ni hora (se reserva igual)
   image_id         INT UNSIGNED NULL,
   is_active        TINYINT(1)   NOT NULL DEFAULT 1,
   sort_order       INT          NOT NULL DEFAULT 0,

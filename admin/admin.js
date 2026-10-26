@@ -18,6 +18,9 @@ const toCents = (v) => {
   if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
   return Math.round(parseFloat(s) * 100);
 };
+// Medidas de la pieza: se escriben en cm (con coma) y se guardan en milímetros
+const cmInput = (mm) => (mm ? String(mm / 10).replace(".", ",") : "");
+const toMm = (v) => Math.max(0, Math.round(Number(String(v || "").replace(",", ".")) * 10) || 0);
 const eurosInput = (cents) => (cents === null || cents === undefined || cents === "") ? "" : (cents / 100).toFixed(2).replace(".", ",");
 const fmtDate = (s, time = true) => s ? new Date(s.replace(" ", "T")).toLocaleString("es-ES", time
   ? { weekday: "short", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }
@@ -305,8 +308,18 @@ function productForm(p) {
       ${field("Descripción", `<textarea name="description" maxlength="5000" placeholder="Cuenco de gres torneado a mano con esmalte arena.">${esc(p?.description)}</textarea>`, "Se ve en la ficha del producto. Una frase con la técnica, el material y el esmalte. Deja una línea en blanco para separar párrafos.")}
 
       <h3 class="form-section">Ficha del producto</h3>
+      <div class="field"><span>Medidas de la pieza</span>
+        <div class="grid-3">
+          ${field("Alto (cm)", input("piece_height", cmInput(p?.measures?.height_mm), 'inputmode="decimal" placeholder="—"'))}
+          ${field("Diámetro (cm)", input("piece_diameter", cmInput(p?.measures?.diameter_mm), 'inputmode="decimal" placeholder="—"'))}
+          ${field("Capacidad (ml)", input("piece_capacity_ml", p?.measures?.capacity_ml || "", 'type=number min=0 max=100000 placeholder="—"'))}
+          ${field("Ancho (cm)", input("piece_width", cmInput(p?.measures?.width_mm), 'inputmode="decimal" placeholder="—"'))}
+          ${field("Fondo (cm)", input("piece_depth", cmInput(p?.measures?.depth_mm), 'inputmode="decimal" placeholder="—"'))}
+        </div>
+        <small>Se enseñan en la ficha en un bloque propio «Medidas». Rellena solo las que tengan sentido (un cuenco: alto y diámetro; una bandeja: ancho y fondo). Vacío: no se enseña.</small>
+      </div>
       <div class="grid-2">
-        ${field("Medidas de la pieza", input("dimensions", p?.dimensions, 'maxlength=160 placeholder="Alto 7 cm × Ø 14 cm"'), "Alto × diámetro, tal y como quieres que se lea en la ficha")}
+        ${field("Nota sobre las medidas (opcional)", input("dimensions", p?.dimensions, 'maxlength=160 placeholder="Platos Ø 26 cm · cuencos Ø 14 cm"'), "Para sets o piezas con varias partes. Sale debajo de las medidas")}
         ${field("Peso de la pieza (g)", input("piece_weight_grams", p?.piece_weight_grams || "", 'type=number min=0 max=100000 placeholder="Sin indicar"'), "Lo que pesa la pieza, sin caja. Vacío: no se enseña")}
       </div>
       ${field("Material", input("material", p?.material, 'maxlength=160 placeholder="Gres, porcelana, barro rojo…"'))}
@@ -346,7 +359,10 @@ function productForm(p) {
         title: f.title.value, category: f.category.value, description: f.description.value,
         price_cents: f.price.value ? toCents(f.price.value) : null,
         discount_percent: Number(f.discount_percent.value || 0), stock: Number(f.stock.value || 0),
-        dimensions: f.dimensions.value, piece_weight_grams: Number(f.piece_weight_grams.value || 0), material: f.material.value, care: f.care.value,
+        dimensions: f.dimensions.value,
+        piece_height_mm: toMm(f.piece_height.value), piece_width_mm: toMm(f.piece_width.value), piece_depth_mm: toMm(f.piece_depth.value),
+        piece_diameter_mm: toMm(f.piece_diameter.value), piece_capacity_ml: Number(f.piece_capacity_ml.value || 0),
+        piece_weight_grams: Number(f.piece_weight_grams.value || 0), material: f.material.value, care: f.care.value,
         specs: $$("[data-spec]", specs).map((row) => ({ label: $("[name=spec_label]", row).value, value: $("[name=spec_value]", row).value })),
         weight_grams: Number(f.weight_grams.value || 1000), length_cm: Number(f.length_cm.value || 0),
         width_cm: Number(f.width_cm.value || 0), height_cm: Number(f.height_cm.value || 0),
@@ -556,6 +572,10 @@ function classForm(c) {
       ${field("Descripción", `<textarea name="description">${esc(c?.description)}</textarea>`)}
       ${field("Orden", input("sort_order", c?.sort_order ?? 0, "type=number"), "Las clases se muestran de menor a mayor")}
       ${toggle("is_active", c ? c.is_active : true, "Visible en la web")}
+      ${c?.kind === "private" ? "" : `<fieldset class="stack" data-show-toggle><legend>Cómo se ve en la web</legend>
+        ${toggle("price_monthly", c ? c.price_period === "month" : false, "El precio es mensual (la web pone «por mes»)")}
+        ${toggle("show_date", c ? c.show_date : true, "Enseñar el día y la hora")}
+        <p class="muted" style="font-size:.82rem">Con «por mes», si la clase tiene cuota de suscripción la web enseña la cuota; si no, el precio de arriba. Sin día y hora, la fila solo dice la duración y las plazas, y al reservar se coge la próxima sesión con sitio (el día va igualmente en el email de confirmación).</p></fieldset>`}
       ${c?.kind === "private" ? "" : `<fieldset class="stack" data-pay-toggle><legend>Formas de pago de la clase</legend>
         ${toggle("pay_online", c ? c.pay_online : true, "Pagar ya online (un solo pago)")}
         ${toggle("pay_subscription", c ? c.pay_subscription : false, "Suscripción mensual online")}
@@ -576,6 +596,10 @@ function classForm(c) {
         capacity: Number(f.capacity.value), duration_minutes: Number(f.duration_minutes.value),
         sort_order: Number(f.sort_order.value || 0), is_active: f.is_active.checked,
       };
+      if (f.show_date) {
+        data.show_date = f.show_date.checked;
+        data.price_period = f.price_monthly.checked ? "month" : "session";
+      }
       if (f.pay_in_person) {
         data.pay_in_person = f.pay_in_person.checked;
         data.pay_online = f.pay_online.checked;

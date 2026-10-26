@@ -67,6 +67,13 @@ final class Catalog
             'sold_out' => (bool) $p['sold_out'] || $available === 0,
             'images' => $images,
             'dimensions' => (string) ($p['dimensions'] ?? ''),
+            'measures' => [
+                'height_mm' => (int) ($p['piece_height_mm'] ?? 0),
+                'width_mm' => (int) ($p['piece_width_mm'] ?? 0),
+                'depth_mm' => (int) ($p['piece_depth_mm'] ?? 0),
+                'diameter_mm' => (int) ($p['piece_diameter_mm'] ?? 0),
+                'capacity_ml' => (int) ($p['piece_capacity_ml'] ?? 0),
+            ],
             'material' => (string) ($p['material'] ?? ''),
             'piece_weight_grams' => (int) ($p['piece_weight_grams'] ?? 0),
             'care' => (string) ($p['care'] ?? ''),
@@ -187,6 +194,8 @@ final class Catalog
                 'pay_online' => (bool) ($c['pay_online'] ?? true),
                 'pay_subscription' => (bool) ($c['pay_subscription'] ?? false),
                 'monthly_price_cents' => isset($c['monthly_price_cents']) ? (int) $c['monthly_price_cents'] : null,
+                'price_period' => (string) ($c['price_period'] ?? 'session'),
+                'show_date' => (bool) ($c['show_date'] ?? true),
                 'image' => $images[$c['image_id']] ?? null,
                 'sessions' => $byClass[$c['id']] ?? [],
             ];
