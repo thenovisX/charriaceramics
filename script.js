@@ -302,7 +302,7 @@ function renderContent() {
   }
 
   // Portada: clases en grupo (una fila por horario) y modalidades de clase privada
-  const classList = $(".class-list:not(.class-list--weekly)");
+  const classList = $(".class-list");
   if (classList) classList.removeAttribute("aria-busy");
   if (classList && !CLASSES) classList.innerHTML = '<li class="class-row class-row--empty"><span class="class-row__name">Escríbenos y te contamos las próximas fechas.</span><a class="btn-primary" href="contacto.html">Contactar</a></li>';
   if (classList && CLASSES) {
@@ -342,7 +342,7 @@ function renderContent() {
     })).filter(Boolean);
     if (weeklyBox) {
       weeklyBox.hidden = !weeklyRows.length;
-      $(".class-list", weeklyBox).innerHTML = weeklyRows.join("");
+      $(".weekly__list", weeklyBox).innerHTML = weeklyRows.join("");
     }
     const rows = [...slots.values()]
       .filter((x) => !x.key.startsWith("w"))

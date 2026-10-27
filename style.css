@@ -291,7 +291,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 
 /* ---------- Clases grupales ---------- */
 .classes { padding: var(--gap) 0; background: var(--paper); position: relative; }
-.class-list { list-style: none; padding: 0 var(--side); }
+/* .weekly__list es la lista de «Semanales»: otra clase para que un script.js antiguo en caché no la confunda con .class-list */
+.class-list, .weekly__list { list-style: none; padding: 0 var(--side); }
 .class-row {
   display: grid;
   grid-template-columns: 9rem 1fr 14rem 6.5rem auto;
