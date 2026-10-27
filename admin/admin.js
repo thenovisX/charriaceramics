@@ -28,6 +28,7 @@ const fmtDate = (s, time = true) => s ? new Date(s.replace(" ", "T")).toLocaleSt
 
 /* ---------- Sesión y peticiones ---------- */
 let token = null;
+let me = null; // quien ha entrado (nombre para el saludo de Inicio)
 try { token = sessionStorage.getItem(TOKEN_KEY); } catch { /* sin almacenamiento */ }
 const setToken = (t) => { token = t; try { t ? sessionStorage.setItem(TOKEN_KEY, t) : sessionStorage.removeItem(TOKEN_KEY); } catch { /* */ } };
 
@@ -89,7 +90,9 @@ function openDrawer(title, html) {
   $("[data-drawer-title]").textContent = title;
   $("[data-drawer-body]").innerHTML = html;
   drawer.hidden = false;
-  $("input, select, textarea, button", $("[data-drawer-body]"))?.focus();
+  // En el móvil no se enfoca la primera casilla: sacaría el teclado nada más abrir
+  if (!matchMedia("(pointer: coarse)").matches) $("input, select, textarea, button", $("[data-drawer-body]"))?.focus();
+  $("[data-drawer-body]").scrollTop = 0;
   return $("[data-drawer-body]");
 }
 const closeDrawer = () => { drawer.hidden = true; };
@@ -114,6 +117,24 @@ const payBadge = (b) => b.status === "cancelled" ? ""
   : b.paid_at ? '<span class="badge badge--ok">Cobrada en el taller</span>' : '<span class="badge badge--warn">Pagar en el taller</span>';
 const filters = (options, current) => `<div class="filters" data-filters>${options.map(([v, t]) =>
   `<button type="button" data-value="${v}" aria-pressed="${v === current}">${t}</button>`).join("")}</div>`;
+const icon = (name) => `<svg class="ico" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+// Fecha corta para listas: la hora si es de hoy, «ayer», o el día y el mes
+const shortDate = (s) => {
+  if (!s) return "";
+  const d = new Date(s.replace(" ", "T")), now = new Date();
+  const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (days === 0) return d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  if (days === 1) return "ayer";
+  return d.toLocaleDateString("es-ES", { day: "numeric", month: "short", ...(d.getFullYear() !== now.getFullYear() ? { year: "2-digit" } : {}) });
+};
+const initial = (name) => esc((String(name || "?").trim()[0] || "?").toUpperCase());
+// Fila de lista tipo bandeja: círculo (inicial, foto o icono), título, detalle, etiquetas y lo de la derecha
+const listItem = ({ attrs = "", av = "", avClass = "", title = "", sub = "", meta = "", side = "", unread = false, tag = "button" }) =>
+  `<${tag} ${tag === "button" ? 'type="button" ' : ""}class="li${unread ? " is-unread" : ""}" ${attrs}>
+    <span class="li__av${avClass ? ` ${avClass}` : ""}" aria-hidden="true">${av}</span>
+    <span class="li__main"><span class="li__title">${title}</span>${sub ? `<span class="li__sub">${sub}</span>` : ""}${meta ? `<span class="li__meta">${meta}</span>` : ""}</span>
+    <span class="li__side">${side}</span></${tag}>`;
+const listBox = (items, empty) => `<div class="list">${items.length ? items.join("") : `<p class="empty">${empty}</p>`}</div>`;
 
 /* ==========================================================
    Vistas
@@ -125,29 +146,53 @@ let state = { orderStatus: "", bookingStatus: "", customerTab: "profiles", messa
 /* ---------- Resumen ---------- */
 views.resumen = async () => {
   const s = await api("GET", "/admin/stats");
+  const hour = new Date().getHours();
+  const hello = hour < 6 || hour >= 21 ? "Buenas noches" : hour < 14 ? "Buenos días" : "Buenas tardes";
+  const name = (me?.name || "").split(" ")[0];
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  // Lo que hay que hacer: solo sale lo que tiene algo pendiente
+  const todo = [
+    [s.unread_messages, "#mensajes", "chat", "", plural(s.unread_messages, "mensaje sin leer", "mensajes sin leer"), "Contesta y márcalos como atendidos"],
+    [s.orders_to_ship, "#pedidos", "truck", "", plural(s.orders_to_ship, "pedido por enviar", "pedidos por enviar"), "Ya están pagados"],
+    [s.orders_to_collect, "#pedidos", "bag", "", plural(s.orders_to_collect, "pedido para recoger", "pedidos para recoger"), "Los pasan a buscar por el estudio"],
+    [s.private_requests, "#reservas", "class", "requested", plural(s.private_requests, "clase privada por confirmar", "clases privadas por confirmar"), "Escribe al cliente y confírmala"],
+    [s.payments_overdue, "#calendario", "alert", "", plural(s.payments_overdue, "cobro atrasado", "cobros atrasados"), "Cuotas o clases sin pagar"],
+    [s.bookings_unpaid, "#reservas", "euro", "unpaid", plural(s.bookings_unpaid, "reserva por cobrar", "reservas por cobrar"), "Pagan en el taller"],
+  ].filter(([n]) => n > 0);
+  const setup = [
+    [!s.payments_configured, "#ajustes/pagos", "Conecta Stripe para cobrar", "Sin Stripe, la tienda y las reservas en grupo no aceptan pagos."],
+    [s.mail_configured === false, "#ajustes/correo", "Configura el correo", "Sin correo no salen emails a los clientes ni te llegan avisos (puedes usar tu Gmail)."],
+    [!s.packlink_configured, "#ajustes/tienda", "Conecta Packlink PRO (opcional)", "Mientras tanto se cobra la tarifa plana de envío."],
+    [s.legal_missing.length > 0, "#ajustes/legal", "Rellena tus datos legales", "Nombre o razón social, NIF, domicilio y email: la ley obliga a mostrarlos en el aviso legal y la privacidad."],
+    [s.legacy_customers > 0, "#clientes", "Revisa clientes antiguos", `Hay ${plural(s.legacy_customers, "cliente guardado", "clientes guardados")} de antes de pedir permiso para crear perfiles.`],
+  ].filter(([on]) => on);
   main.innerHTML = `
-    <div class="page-head"><div><p class="eyebrow">Hoy</p><h1>Resumen</h1></div></div>
-    ${s.payments_configured ? "" : '<p class="notice">Stripe no está configurado: la tienda y las reservas en grupo no aceptan pagos todavía. Ponlo en <a href="#ajustes/pagos">Ajustes → Pagos</a>.</p>'}
-    ${s.mail_configured === false ? '<p class="notice">El correo no está configurado: no salen emails a los clientes ni te llegan avisos. Ponlo en <a href="#ajustes/correo">Ajustes → Correo</a> (puedes usar tu Gmail).</p>' : ""}
-    ${s.packlink_configured ? "" : '<p class="notice">Packlink PRO no está configurado: se usa la tarifa plana de envío. Puedes configurarlo en <a href="#ajustes/tienda">Ajustes → Tienda y envíos</a>.</p>'}
-    ${s.legal_missing.length ? '<p class="notice">Faltan los datos del titular (nombre o razón social, NIF, domicilio y email) que salen en el aviso legal, la privacidad y las condiciones de venta. La ley obliga a mostrarlos: rellénalos en <a href="#ajustes/legal">Ajustes → Legal</a>.</p>' : ""}
-    ${s.legacy_customers ? `<p class="notice">Hay ${s.legacy_customers} ${s.legacy_customers === 1 ? "cliente guardado" : "clientes guardados"} de antes de pedir permiso para crear perfiles. Revísalo en <a href="#clientes">Clientes</a>.</p>` : ""}
-    <div class="cards">
-      <a class="card" href="#mensajes"><span class="eyebrow">Mensajes sin leer</span><p class="card__num">${s.unread_messages}</p></a>
-      <a class="card" href="#pedidos"><span class="eyebrow">Pedidos por enviar</span><p class="card__num">${s.orders_to_ship}</p></a>
-      <a class="card" href="#pedidos"><span class="eyebrow">Para recoger en estudio</span><p class="card__num">${s.orders_to_collect}</p></a>
-      <a class="card" href="#reservas"><span class="eyebrow">Clases privadas por confirmar</span><p class="card__num">${s.private_requests}</p></a>
-      <a class="card" href="#calendario"><span class="eyebrow">Cobros atrasados</span><p class="card__num">${s.payments_overdue}</p></a>
-      <a class="card" href="#reservas" data-unpaid><span class="eyebrow">Reservas por cobrar</span><p class="card__num">${s.bookings_unpaid}</p></a>
-      <a class="card" href="#clases"><span class="eyebrow">Próximos horarios</span><p class="card__num">${s.upcoming_sessions}</p></a>
-      <div class="card"><span class="eyebrow">Ventas tienda · 30 días</span><p class="card__num">${money(s.sales_30d_cents)}</p></div>
-      <div class="card"><span class="eyebrow">Clases cobradas · 30 días</span><p class="card__num">${money(s.bookings_30d_cents)}</p></div>
+    <div class="hello"><h1>${hello}${name ? `, ${esc(name)}` : ""}</h1><p>${new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</p></div>
+    <div class="quick-row">
+      <button type="button" data-quick="#productos|[data-new]">${icon("tag")}Subir producto</button>
+      <button type="button" data-quick="#calendario|[data-add]">${icon("cal")}Añadir reserva</button>
+      <a href="#pedidos">${icon("box")}Ver pedidos</a>
+      <a href="#clases">${icon("class")}Clases y horarios</a>
     </div>
-    <h2 style="font-size:1.5rem;margin-bottom:1rem">Stock bajo</h2>
-    ${s.low_stock.length ? `<div class="table-wrap"><table><tbody>${s.low_stock.map((p) =>
-      `<tr><td>${esc(p.title)}</td><td class="num">${p.stock} ${p.stock === 1 ? "unidad" : "unidades"}</td></tr>`).join("")}</tbody></table></div>`
+    <h2 class="block-title">Pendiente</h2>
+    ${todo.length ? `<div class="todo">${listBox(todo.map(([n, href, ic, filter, title, sub]) => listItem({
+      tag: "a", attrs: `href="${href}"${filter ? ` data-booking-filter="${filter}"` : ""}`, av: icon(ic), avClass: ic === "alert" ? "li__av--bad" : "li__av--warn",
+      title, sub, side: icon("chev") })), "")}</div>`
+      : `<p class="all-done">${icon("check")}Todo al día. No tienes nada pendiente.</p>`}
+    ${setup.length ? `<h2 class="block-title">Te falta configurar</h2><div class="setup-list">${listBox(setup.map(([, href, title, sub]) => listItem({
+      tag: "a", attrs: `href="${href}"`, av: icon("sliders"), title, sub, side: icon("chev") })), "")}</div>` : ""}
+    <h2 class="block-title">Últimos 30 días</h2>
+    <div class="cards">
+      <a class="card" href="#pedidos"><span class="eyebrow">Ventas en la tienda</span><p class="card__num">${money(s.sales_30d_cents)}</p></a>
+      <a class="card" href="#reservas"><span class="eyebrow">Clases cobradas</span><p class="card__num">${money(s.bookings_30d_cents)}</p></a>
+      <a class="card" href="#clases"><span class="eyebrow">Próximos horarios</span><p class="card__num">${s.upcoming_sessions}</p></a>
+      <a class="card" href="#mensajes"><span class="eyebrow">Mensajes sin leer</span><p class="card__num">${s.unread_messages}</p></a>
+    </div>
+    <h2 class="block-title">Stock bajo</h2>
+    ${s.low_stock.length ? listBox(s.low_stock.map((p) => listItem({ tag: "a", attrs: 'href="#productos"', av: icon("tag"), avClass: "li__av--warn",
+      title: esc(p.title), side: `<strong>${p.stock}</strong>${p.stock === 1 ? "unidad" : "unidades"}` })), "")
       : '<p class="muted">Todo bien de stock.</p>'}`;
-  $("[data-unpaid]")?.addEventListener("click", () => { state.bookingStatus = "unpaid"; });
+  $$("[data-booking-filter]").forEach((a) => a.addEventListener("click", () => { state.bookingStatus = a.dataset.bookingFilter; }));
 };
 
 /* ---------- Mensajes: contacto, encargos y clases privadas ---------- */
@@ -170,18 +215,15 @@ views.mensajes = async () => {
     <div class="page-head"><div><p class="eyebrow">Bandeja</p><h1>Mensajes</h1><p>Lo que te escriben desde la web: el formulario de contacto, los encargos y las solicitudes de clase privada. Contesta por email o teléfono y márcalo como atendido.</p></div></div>
     <div data-type>${filters([["", "Todos"], ["contact", "Contacto"], ["request", "Encargos"], ["private_class", "Clases privadas"]], state.messageType)}</div>
     <div data-status>${filters([["open", "Por atender"], ["unread", "Sin leer"], ["handled", "Atendidos"], ["", "Todos"]], state.messageStatus)}</div>
-    <div class="table-wrap">${list.length ? `<table>
-      <thead><tr><th>De</th><th>Tipo</th><th>Mensaje</th><th>Recibido</th><th>Estado</th></tr></thead>
-      <tbody>${list.map((m) => `<tr class="is-clickable${m.read ? "" : " is-unread"}" data-id="${m.id}">
-        <td>${m.read ? "" : '<span class="dot" title="Sin leer"></span>'}${esc(m.name)}<br><span class="muted">${esc(m.email)}</span></td>
-        <td>${messageType(m.type)}</td>
-        <td><span class="message-preview">${m.subject ? `<strong>${esc(m.subject)}</strong> · ` : ""}${esc(m.body)}</span></td>
-        <td>${fmtDate(m.created_at)}</td>
-        <td>${m.handled ? '<span class="badge badge--ok">Atendido</span>' : m.read ? '<span class="badge">Leído</span>' : '<span class="badge badge--bad">Nuevo</span>'}</td></tr>`).join("")}
-      </tbody></table>` : '<p class="empty">No hay mensajes aquí.</p>'}</div>`;
+    ${listBox(list.map((m) => listItem({
+      attrs: `data-id="${m.id}" title="${esc(m.email)}"`, unread: !m.read, av: initial(m.name),
+      title: esc(m.name), sub: `${m.subject ? `<strong>${esc(m.subject)}</strong> · ` : ""}${esc(m.body)}`,
+      meta: `${messageType(m.type)}${m.handled ? '<span class="badge badge--ok">Atendido</span>' : m.read ? "" : '<span class="badge badge--bad">Nuevo</span>'}`,
+      side: `<time datetime="${esc(m.created_at)}" title="${fmtDate(m.created_at)}">${shortDate(m.created_at)}</time>${m.read ? "" : '<span class="dot" title="Sin leer"></span>'}`,
+    })), "No hay mensajes aquí.")}`;
   $("[data-type] [data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.messageType = b.dataset.value; views.mensajes().catch(fail); } });
   $("[data-status] [data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.messageStatus = b.dataset.value; views.mensajes().catch(fail); } });
-  $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openMessage(tr.dataset.id).catch(fail)));
+  $$(".li[data-id]").forEach((li) => li.addEventListener("click", () => openMessage(li.dataset.id).catch(fail)));
 };
 
 async function openMessage(id) {
@@ -221,14 +263,14 @@ views.pedidos = async () => {
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Tienda</p><h1>Pedidos</h1></div></div>
     ${filters([["", "Activos"], ["paid", "Pagados"], ["shipped", "Enviados"], ["pending", "Sin pagar"], ["cancelled", "Cancelados"], ["refunded", "Reembolsados"]], state.orderStatus)}
-    <div class="table-wrap">${orders.length ? `<table>
-      <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Entrega</th><th>Estado</th><th class="num">Total</th></tr></thead>
-      <tbody>${orders.map((o) => `<tr class="is-clickable" data-id="${o.id}">
-        <td>${esc(o.reference)}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer.name)}<br><span class="muted">${esc(o.customer.email)}</span></td>
-        <td>${o.shipping.method === "pickup" ? "Recogida" : esc(o.shipping.city)}</td><td>${badge(o.status)}</td><td class="num">${money(o.total_cents)}</td></tr>`).join("")}
-      </tbody></table>` : '<p class="empty">No hay pedidos aquí.</p>'}</div>`;
+    ${listBox(orders.map((o) => listItem({
+      attrs: `data-id="${o.id}"`, av: icon(o.shipping.method === "pickup" ? "bag" : "truck"),
+      avClass: o.status === "paid" ? "li__av--warn" : o.status === "shipped" ? "li__av--ok" : "",
+      title: esc(o.customer.name), sub: `${esc(o.reference)} · ${o.shipping.method === "pickup" ? "Recogida en el estudio" : `Envío a ${esc(o.shipping.city)}`}`,
+      meta: badge(o.status), side: `<strong>${money(o.total_cents)}</strong><time title="${fmtDate(o.created_at)}">${shortDate(o.created_at)}</time>`,
+    })), "No hay pedidos aquí.")}`;
   $("[data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.orderStatus = b.dataset.value; views.pedidos().catch(fail); } });
-  $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openOrder(tr.dataset.id)));
+  $$(".li[data-id]").forEach((li) => li.addEventListener("click", () => openOrder(li.dataset.id).catch(fail)));
 };
 
 async function openOrder(id) {
@@ -268,23 +310,30 @@ async function openOrder(id) {
 views.productos = async () => {
   const products = await api("GET", "/admin/products");
   main.innerHTML = `
-    <div class="page-head"><div><p class="eyebrow">Tienda</p><h1>Productos</h1><p>${products.length} piezas. El interruptor “Agotado” oculta el botón de compra aunque quede stock.</p></div>
-      <button class="btn" data-new>Nuevo producto</button></div>
-    <div class="table-wrap">${products.length ? `<table>
-      <thead><tr><th></th><th>Pieza</th><th class="num">Precio</th><th class="num">Stock</th><th>Agotado</th><th>Visible</th></tr></thead>
-      <tbody>${products.map((p) => `<tr class="is-clickable" data-id="${p.id}">
-        <td>${p.images[0] ? `<img class="thumb" src="${esc(p.images[0].thumb_url)}" alt="">` : '<div class="thumb"></div>'}</td>
-        <td>${esc(p.title)}<br><span class="muted">${esc(p.category)}</span></td>
-        <td class="num">${p.discount_percent ? `<s class="muted">${money(p.price_cents)}</s><br>${money(p.final_price_cents)} <span class="badge">-${p.discount_percent} %</span>` : money(p.price_cents)}</td>
-        <td class="num">${p.stock}${p.held ? `<br><span class="muted">${p.held} en pago</span>` : ""}</td>
-        <td data-stop>${toggle("sold_out", p.sold_out_manual, "", "switch--bad")}</td>
-        <td>${p.is_active ? '<span class="badge badge--ok">Sí</span>' : '<span class="badge">Oculto</span>'}</td></tr>`).join("")}
-      </tbody></table>` : '<p class="empty">Aún no hay productos.</p>'}</div>`;
+    <div class="page-head"><div><p class="eyebrow">Tienda</p><h1>Productos</h1><p>${products.length} piezas. Toca una para editarla. El interruptor «Agotado» oculta el botón de compra aunque quede stock.</p></div>
+      <button class="btn" data-new>${icon("plus")}Subir producto</button></div>
+    ${products.length > 6 ? `<label class="search">${icon("search")}<input type="search" placeholder="Buscar pieza o categoría" aria-label="Buscar producto" data-search></label>` : ""}
+    ${products.length ? `<div class="pgrid">${products.map((p) => `<article class="pcard${p.is_active ? "" : " is-hidden"}" data-id="${p.id}" data-text="${esc(`${p.title} ${p.category}`.toLowerCase())}">
+      <button type="button" class="pcard__open" data-open>
+        <span class="pcard__img">${p.images[0] ? `<img src="${esc(p.images[0].thumb_url)}" alt="" loading="lazy">` : ""}
+          <span class="pcard__flags">${p.is_active ? "" : '<span class="badge">Oculto</span>'}${p.discount_percent ? `<span class="badge badge--bad">-${p.discount_percent} %</span>` : ""}${p.stock <= 0 ? '<span class="badge badge--warn">Sin stock</span>' : ""}</span></span>
+        <span class="pcard__body">
+          <span class="pcard__price">${p.discount_percent ? `${money(p.final_price_cents)}<s>${money(p.price_cents)}</s>` : money(p.price_cents)}</span>
+          <span class="pcard__title">${esc(p.title)}</span>
+          <span class="pcard__meta">${esc(p.category)}${p.category ? " · " : ""}${p.stock} en stock${p.held ? ` · ${p.held} en pago` : ""}</span>
+        </span>
+      </button>
+      <div class="pcard__foot">${toggle("sold_out", p.sold_out_manual, "Agotado", "switch--bad")}</div>
+    </article>`).join("")}</div>` : '<div class="list"><p class="empty">Aún no hay productos. Sube el primero con «Subir producto».</p></div>'}`;
   $("[data-new]").addEventListener("click", () => productForm(null));
-  $$("tr[data-id]").forEach((tr) => {
-    tr.addEventListener("click", (e) => { if (!e.target.closest("[data-stop]")) productForm(products.find((p) => p.id === Number(tr.dataset.id))); });
-    $("input[name=sold_out]", tr).addEventListener("change", async (e) => {
-      try { await api("PATCH", `/admin/products/${tr.dataset.id}/sold-out`, { sold_out: e.target.checked }); toast(e.target.checked ? "Marcado como agotado" : "Disponible de nuevo"); }
+  $("[data-search]")?.addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    $$(".pcard").forEach((el) => { el.hidden = !!q && !el.dataset.text.includes(q); });
+  });
+  $$(".pcard[data-id]").forEach((card) => {
+    $("[data-open]", card).addEventListener("click", () => productForm(products.find((p) => p.id === Number(card.dataset.id))));
+    $("input[name=sold_out]", card).addEventListener("change", async (e) => {
+      try { await api("PATCH", `/admin/products/${card.dataset.id}/sold-out`, { sold_out: e.target.checked }); toast(e.target.checked ? "Marcado como agotado" : "Disponible de nuevo"); }
       catch (err) { e.target.checked = !e.target.checked; fail(err); }
     });
   });
@@ -750,16 +799,15 @@ views.reservas = async () => {
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Reservas</h1><p>Las clases en grupo se confirman solas al pagar online, o al reservar si el cliente paga en el taller: márcalas como cobradas cuando te paguen. Las privadas llegan como solicitud: escribe al cliente y confírmalas aquí.</p></div></div>
     ${filters([["", "Próximas"], ["requested", "Solicitudes privadas"], ["unpaid", "Por cobrar"], ["confirmed", "Confirmadas"], ["pending_payment", "Pagando"], ["cancelled", "Canceladas"]], state.bookingStatus)}
-    <div class="table-wrap">${list.length ? `<table>
-      <thead><tr><th>Clase</th><th>Fecha</th><th>Cliente</th><th class="num">Plazas</th><th>Estado</th><th class="num">Importe</th></tr></thead>
-      <tbody>${list.map((b) => `<tr class="is-clickable" data-id="${b.id}">
-        <td>${esc(b.class_title)}<br><span class="muted">${esc(b.reference)}</span></td>
-        <td>${b.starts_at ? fmtDate(b.starts_at) : `${fmtDate(b.preferred_date, false)} · ${esc(b.preferred_slot)}<br><span class="muted">preferida</span>`}</td>
-        <td>${esc(b.customer.name)}<br><span class="muted">${esc(b.customer.email)}</span></td>
-        <td class="num">${b.seats}</td><td>${badge(b.status)} ${payBadge(b)}</td><td class="num">${money(b.total_cents)}</td></tr>`).join("")}
-      </tbody></table>` : '<p class="empty">No hay reservas aquí.</p>'}</div>`;
+    ${listBox(list.map((b) => listItem({
+      attrs: `data-id="${b.id}"`, av: initial(b.customer.name), avClass: b.status === "requested" || inPersonUnpaid(b) ? "li__av--warn" : "",
+      title: `${esc(b.customer.name)} · ${esc(b.class_title)}`,
+      sub: `${b.starts_at ? fmtDate(b.starts_at) : `Prefiere ${fmtDate(b.preferred_date, false)} · ${esc(b.preferred_slot)}`} · ${esc(b.reference)}`,
+      meta: `${badge(b.status)}${payBadge(b)}`,
+      side: `<strong>${money(b.total_cents)}</strong>${b.seats} ${b.seats === 1 ? "plaza" : "plazas"}`,
+    })), "No hay reservas aquí.")}`;
   $("[data-filters]").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { state.bookingStatus = b.dataset.value; views.reservas().catch(fail); } });
-  $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => bookingForm(list.find((b) => b.id === Number(tr.dataset.id)))));
+  $$(".li[data-id]").forEach((li) => li.addEventListener("click", () => bookingForm(list.find((b) => b.id === Number(li.dataset.id)))));
 };
 
 function bookingForm(b) {
@@ -830,26 +878,28 @@ views.calendario = async () => {
   const dayList = byDay[state.calDay] || [];
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Calendario</h1><p>Las reservas de cada día. Añade las que te lleguen por fuera de la web e indica si es pago único o suscripción mensual y si ya está pagada. Las cuotas se cobran a principios de mes: si pasa la primera semana sin cobrar, aparece aquí un aviso (y te llega un email si el correo está configurado).</p></div>
-      <button class="btn" data-add>Añadir reserva</button></div>
+      <button class="btn" data-add>${icon("plus")}Añadir reserva</button></div>
     ${alerts.length ? `<div class="notice"><strong>${alerts.length} ${alerts.length === 1 ? "cobro pendiente" : "cobros pendientes"}</strong>
       <ul class="alert-list">${alerts.map((b) => `<li><button class="link-btn" data-alert="${b.id}">${esc(b.customer.name || "Sin nombre")}</button> · ${esc(b.class_title)} · ${BILLING[b.billing_type]} · ${money(b.total_cents)}
         <button class="link-btn" data-pay="${b.id}">Marcar cobrada</button></li>`).join("")}</ul></div>` : ""}
-    <div class="cal__head">
+    <div class="cal-box"><div class="cal__head">
       <button class="btn btn--ghost" data-month="-1" aria-label="Mes anterior">←</button>
       <h2 class="cal__title">${first.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}</h2>
       <button class="btn btn--ghost" data-month="1" aria-label="Mes siguiente">→</button>
       <button class="btn btn--ghost" data-today>Hoy</button>
     </div>
-    <div class="cal">${["L", "M", "X", "J", "V", "S", "D"].map((w) => `<span class="cal__wd">${w}</span>`).join("")}${cells}</div>
-    <h2 style="font-size:1.5rem;margin:2rem 0 1rem">${fmtDate(state.calDay + " 00:00:00", false)}</h2>
-    ${dayList.length ? `<div class="table-wrap"><table><tbody>${dayList.map((e, i) => `<tr class="is-clickable" data-entry="${i}">
-      <td>${e.time}</td><td>${esc(e.booking.class_title)}<br><span class="muted">${esc(e.booking.customer.name)}${e.booking.seats > 1 ? ` · ${e.booking.seats} plazas` : ""}</span></td>
-      <td>${BILLING[e.booking.billing_type]}${e.recurring ? ' <span class="muted">· cada semana</span>' : ""}</td><td>${entryPay(e)}</td><td class="num">${money(e.booking.total_cents)}</td></tr>`).join("")}</tbody></table></div>`
-      : '<p class="empty">No hay reservas este día.</p>'}`;
+    <div class="cal">${["L", "M", "X", "J", "V", "S", "D"].map((w) => `<span class="cal__wd">${w}</span>`).join("")}${cells}</div></div>
+    <h2 class="block-title" style="margin-top:1.6rem">${new Date(state.calDay + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, (c) => c.toUpperCase())}<small>${dayList.length ? `${dayList.length} ${dayList.length === 1 ? "reserva" : "reservas"}` : ""}</small></h2>
+    ${listBox(dayList.map((e, i) => listItem({
+      attrs: `data-entry="${i}"`, av: esc(e.time), avClass: "li__av--time",
+      title: esc(e.booking.customer.name), sub: `${esc(e.booking.class_title)}${e.booking.seats > 1 ? ` · ${e.booking.seats} plazas` : ""}`,
+      meta: `<span class="badge">${BILLING[e.booking.billing_type]}${e.recurring ? " · cada semana" : ""}</span>${entryPay(e)}`,
+      side: `<strong>${money(e.booking.total_cents)}</strong>`,
+    })), "No hay reservas este día.")}`;
   const again = () => views.calendario().catch(fail);
   $$("[data-month]").forEach((b) => b.addEventListener("click", () => { state.calMonth = new Date(first.getFullYear(), first.getMonth() + Number(b.dataset.month), 1); again(); }));
   $("[data-today]").addEventListener("click", () => { state.calMonth = new Date(today.getFullYear(), today.getMonth(), 1); state.calDay = ymd(today); again(); });
-  $$("[data-day]").forEach((b) => b.addEventListener("click", () => { state.calDay = b.dataset.day; again(); }));
+  $$(".cal [data-day]").forEach((b) => b.addEventListener("click", () => { state.calDay = b.dataset.day; again(); }));
   $("[data-add]").addEventListener("click", () => calendarBookingForm(state.calDay, again));
   $$("[data-entry]").forEach((tr) => tr.addEventListener("click", () => calendarEntryForm(dayList[Number(tr.dataset.entry)], again)));
   $$("[data-alert]").forEach((b) => b.addEventListener("click", () => calendarEntryForm({ booking: alerts.find((x) => x.id === Number(b.dataset.alert)), recurring: false, paid: false }, again)));
@@ -1104,11 +1154,14 @@ views.clientes = async () => {
     main.innerHTML = `${head}
       ${isMk ? `<div class="row" style="margin-bottom:1rem;justify-content:space-between"><p class="muted">${list.length} ${list.length === 1 ? "persona ha aceptado" : "personas han aceptado"} recibir comunicaciones comerciales. Envía solo a esta lista e incluye siempre el enlace de baja.</p>
         <button class="btn btn--ghost" type="button" data-export-mk ${list.length ? "" : "disabled"}>Exportar CSV</button></div>` : `<p class="muted" style="margin-bottom:1rem">${list.length} ${list.length === 1 ? "perfil guardado" : "perfiles guardados"}.</p>`}
-      <div class="table-wrap">${list.length ? `<table><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Ciudad</th><th>Comunicaciones</th><th class="num">Pedidos</th><th class="num">Reservas</th><th>Desde</th></tr></thead>
-        <tbody>${list.map((c) => `<tr class="is-clickable" data-id="${c.id}"><td>${esc(c.name)}${c.has_profile ? "" : ' <span class="muted">· sin perfil</span>'}</td><td>${esc(c.email)}</td><td>${esc(c.phone)}</td><td>${esc(c.city)}</td>
-          <td>${c.marketing_opt_in ? '<span class="badge badge--ok">Sí</span>' : '<span class="badge">No</span>'}</td><td class="num">${c.orders}</td><td class="num">${c.bookings}</td><td>${fmtDate(c.created_at, false)}</td></tr>`).join("")}</tbody></table>`
-        : `<p class="empty">${isMk ? "Nadie ha aceptado todavía recibir comunicaciones." : "Todavía no hay perfiles guardados."}</p>`}</div>`;
-    $$("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openCustomer(tr.dataset.id)));
+      ${listBox(list.map((c) => listItem({
+        attrs: `data-id="${c.id}"`, av: initial(c.name || c.email),
+        title: `${esc(c.name || c.email)}${c.has_profile ? "" : ' <span class="muted">· sin perfil</span>'}`,
+        sub: [c.email, c.phone, c.city].filter(Boolean).map(esc).join(" · "),
+        meta: `${c.marketing_opt_in ? '<span class="badge badge--ok">Acepta comunicaciones</span>' : ""}<span class="badge">${c.orders} ${c.orders === 1 ? "pedido" : "pedidos"}</span><span class="badge">${c.bookings} ${c.bookings === 1 ? "reserva" : "reservas"}</span>`,
+        side: `desde<br>${fmtDate(c.created_at, false)}`,
+      })), isMk ? "Nadie ha aceptado todavía recibir comunicaciones." : "Todavía no hay perfiles guardados.")}`;
+    $$(".li[data-id]").forEach((li) => li.addEventListener("click", () => openCustomer(li.dataset.id).catch(fail)));
     $("[data-export-mk]")?.addEventListener("click", async () => {
       try {
         const rows = await api("GET", "/admin/marketing");
@@ -1479,16 +1532,29 @@ views.cuenta = async () => {
 /* ==========================================================
    Arranque y navegación
    ========================================================== */
+const currentView = () => { const name = location.hash.slice(1).split("/")[0]; return views[name] ? name : "resumen"; };
+// Marca la sección actual en el menú lateral, la barra de abajo y la hoja «Más»
+function markNav() {
+  const name = currentView();
+  $$("[data-nav] a").forEach((a) => {
+    if (a.getAttribute("href") === `#${name}`) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  // En la barra de abajo, «Más» se ilumina cuando la sección no tiene botón propio
+  const more = $("[data-more-tab]");
+  if ($(`.tabbar a[href="#${name}"]`)) more.removeAttribute("aria-current"); else more.setAttribute("aria-current", "page");
+}
+
+// Acción pendiente del botón «+»: abre la sección y pulsa su botón de crear
+let quickAction = null;
 async function route() {
-  const name = location.hash.slice(1).split("/")[0] || "resumen";
-  const view = views[name] || views.resumen;
-  $$("[data-nav] a").forEach((a) => a.toggleAttribute("aria-current", a.getAttribute("href") === `#${name}`));
-  $$("[data-nav] a[aria-current]").forEach((a) => a.setAttribute("aria-current", "page"));
-  $("[data-menu-current]").textContent = $("[data-nav] a[aria-current]")?.firstChild.textContent.trim() || "Menú";
-  toggleMenu(false);
+  const view = views[currentView()];
+  markNav();
+  closeSheet();
   closeDrawer();
   main.innerHTML = '<p class="muted">Cargando…</p>';
+  window.scrollTo(0, 0);
   try { await view(); } catch (e) { if (e.status !== 401) { main.innerHTML = `<p class="form-error">${esc(e.message)}</p>`; } }
+  if (quickAction) { const sel = quickAction; quickAction = null; $(sel, main)?.click(); }
 }
 
 function showLogin() {
@@ -1500,8 +1566,8 @@ function showLogin() {
 
 async function showApp() {
   try {
-    const me = await api("GET", "/auth/me");
-    $("[data-user]").textContent = me.name ? `${me.name} · ${me.email}` : me.email;
+    me = await api("GET", "/auth/me");
+    $$("[data-user]").forEach((el) => { el.textContent = me.name ? `${me.name} · ${me.email}` : me.email; });
   } catch { showLogin(); return; }
   $("[data-view-login]").hidden = true;
   $("[data-view-app]").hidden = false;
@@ -1531,15 +1597,51 @@ $("[data-login-form]").addEventListener("submit", async (e) => {
   }
 });
 
-/* ---------- Móvil: menú desplegable y tablas como tarjetas ---------- */
-const side = $(".side");
-function toggleMenu(open = !side.classList.contains("is-open")) {
-  side.classList.toggle("is-open", open);
-  $("[data-menu-toggle]").setAttribute("aria-expanded", String(open));
+/* ---------- Hoja de abajo: «Añadir» (botón +) y «Más» ---------- */
+const sheet = $("[data-sheet]");
+function openSheet(title, tpl) {
+  $("[data-sheet-title]").textContent = title;
+  const body = $("[data-sheet-body]");
+  body.replaceChildren($(tpl).content.cloneNode(true));
+  // Los contadores y el usuario se copian de la barra lateral
+  $$("[data-unread]", body).forEach((el) => { const src = $(".side [data-unread]"); el.textContent = src.textContent; el.hidden = src.hidden; });
+  $$("[data-overdue]", body).forEach((el) => { const src = $(".side [data-overdue]"); el.textContent = src.textContent; el.hidden = src.hidden; });
+  $$("[data-user]", body).forEach((el) => { el.textContent = $(".side [data-user]").textContent; });
+  sheet.hidden = false;
+  markNav();
+  $("button, a", body)?.focus({ preventScroll: true });
 }
-$("[data-menu-toggle]").addEventListener("click", () => toggleMenu());
-// Tocar la sección en la que ya estás no cambia el hash: cierra el menú igualmente
-$("[data-nav]").addEventListener("click", (e) => { if (e.target.closest("a")) toggleMenu(false); });
+function closeSheet() { sheet.hidden = true; }
+$$("[data-quick-open]").forEach((b) => b.addEventListener("click", () => openSheet("¿Qué quieres añadir?", "[data-quick-tpl]")));
+$$("[data-more-open]").forEach((b) => b.addEventListener("click", () => openSheet("Todas las secciones", "[data-more-tpl]")));
+sheet.addEventListener("click", (e) => {
+  if (e.target.closest("[data-sheet-close]")) closeSheet();
+  // Tocar la sección en la que ya estás no cambia el hash: cierra la hoja igualmente
+  else if (e.target.closest("a[href^='#']")) closeSheet();
+});
+// Botones «Subir producto», «Añadir reserva»…: van a la sección y abren su formulario
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-quick]");
+  if (!b) return;
+  const [hash, sel] = b.dataset.quick.split("|");
+  closeSheet();
+  quickAction = sel;
+  if (location.hash === hash) route(); else location.hash = hash;
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.hidden) closeSheet(); });
+
+/* ---------- Ayuda plegada y tablas como tarjetas en el móvil ---------- */
+// La explicación larga de cada sección va dentro de «Cómo funciona» para que la pantalla quede limpia
+function foldHelp(root) {
+  $$(".page-head > div > p:not(.eyebrow)", root).forEach((p) => {
+    if (p.textContent.trim().length < 90) return;
+    const d = document.createElement("details");
+    d.className = "help";
+    d.innerHTML = "<summary>Cómo funciona</summary>";
+    p.replaceWith(d);
+    d.append(p);
+  });
+}
 
 // Copia el título de cada columna en sus celdas para que en móvil cada fila se lea como una tarjeta
 function labelTables(root) {
@@ -1557,7 +1659,7 @@ function labelTables(root) {
     table.classList.add("has-labels");
   });
 }
-[main, $("[data-drawer-body]")].forEach((el) => new MutationObserver(() => labelTables(el)).observe(el, { childList: true, subtree: true }));
+[main, $("[data-drawer-body]")].forEach((el) => new MutationObserver(() => { labelTables(el); foldHelp(el); }).observe(el, { childList: true, subtree: true }));
 
 // Panel instalable como app (Chrome pide un service worker; ver sw.js)
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {

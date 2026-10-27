@@ -15,8 +15,8 @@
   <meta name="apple-mobile-web-app-title" content="Charria">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css?v=9">
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css?v=10">
 </head>
 <body>
 
@@ -33,32 +33,112 @@
     </form>
   </main>
 
+  <!-- Iconos del panel (trazo fino, se usan con <svg><use href="#i-…"></svg>) -->
+  <svg xmlns="http://www.w3.org/2000/svg" hidden>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
+    <symbol id="i-class" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 9"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3l-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></symbol>
+    <symbol id="i-euro" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5a4 4 0 1 0 0 7M7 11h6M7 13.5h6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+  </svg>
+
   <!-- Panel -->
   <div class="app" data-view-app hidden>
     <aside class="side">
       <a class="side__logo" href="../index.html" target="_blank" rel="noopener">Charria <span>Ceramics</span></a>
-      <!-- Solo en móvil: muestra la sección actual y abre el menú -->
-      <button class="side__toggle" type="button" aria-expanded="false" aria-controls="side-menu" data-menu-toggle>
-        <span data-menu-current>Menú</span><span class="count" data-unread hidden></span><span class="side__toggle-icon" aria-hidden="true"></span>
-      </button>
-      <nav class="side__nav" id="side-menu" data-nav>
-        <a href="#resumen">Resumen</a>
-        <a href="#mensajes">Mensajes<span class="count" data-unread hidden></span></a>
-        <a href="#pedidos">Pedidos</a>
-        <a href="#productos">Productos</a>
-        <a href="#clases">Clases y horarios</a>
-        <a href="#calendario">Calendario<span class="count" data-overdue hidden></span></a>
-        <a href="#reservas">Reservas</a>
-        <a href="#galeria">Galería</a>
-        <a href="#resenas">Reseñas</a>
-        <a href="#clientes">Clientes</a>
-        <a href="#ajustes">Ajustes</a>
-        <a href="#cuenta">Cuenta</a>
+      <button class="btn side__add" type="button" data-quick-open><svg class="ico"><use href="#i-plus"/></svg>Añadir</button>
+      <nav class="side__nav" data-nav aria-label="Secciones">
+        <p class="side__group">Día a día</p>
+        <a href="#resumen"><svg class="ico"><use href="#i-home"/></svg>Inicio</a>
+        <a href="#mensajes"><svg class="ico"><use href="#i-chat"/></svg>Mensajes<span class="count" data-unread hidden></span></a>
+        <a href="#pedidos"><svg class="ico"><use href="#i-box"/></svg>Pedidos</a>
+        <a href="#calendario"><svg class="ico"><use href="#i-cal"/></svg>Calendario<span class="count" data-overdue hidden></span></a>
+        <a href="#reservas"><svg class="ico"><use href="#i-ticket"/></svg>Reservas</a>
+        <p class="side__group">Tu tienda y taller</p>
+        <a href="#productos"><svg class="ico"><use href="#i-tag"/></svg>Productos</a>
+        <a href="#clases"><svg class="ico"><use href="#i-class"/></svg>Clases y horarios</a>
+        <a href="#galeria"><svg class="ico"><use href="#i-image"/></svg>Galería</a>
+        <a href="#resenas"><svg class="ico"><use href="#i-star"/></svg>Reseñas</a>
+        <p class="side__group">Gestión</p>
+        <a href="#clientes"><svg class="ico"><use href="#i-user"/></svg>Clientes</a>
+        <a href="#ajustes"><svg class="ico"><use href="#i-sliders"/></svg>Ajustes</a>
+        <a href="#cuenta"><svg class="ico"><use href="#i-key"/></svg>Cuenta</a>
       </nav>
       <p class="side__user" data-user></p>
     </aside>
+
+    <!-- Solo en móvil: barra de arriba con el logo y acceso a la web -->
+    <header class="topbar">
+      <a class="topbar__logo" href="#resumen">Charria <span>Ceramics</span></a>
+      <a class="topbar__web" href="../index.html" target="_blank" rel="noopener">Ver la web<svg class="ico"><use href="#i-out"/></svg></a>
+    </header>
+
     <main class="main" data-main aria-live="polite"></main>
+
+    <!-- Solo en móvil: barra de abajo, como en las apps -->
+    <nav class="tabbar" data-nav aria-label="Secciones principales">
+      <a href="#resumen"><svg class="ico"><use href="#i-home"/></svg><span>Inicio</span></a>
+      <a href="#calendario"><svg class="ico"><use href="#i-cal"/></svg><span>Calendario</span><span class="count" data-overdue hidden></span></a>
+      <button type="button" class="tabbar__add" data-quick-open aria-label="Añadir"><svg class="ico"><use href="#i-plus"/></svg></button>
+      <a href="#mensajes"><svg class="ico"><use href="#i-chat"/></svg><span>Mensajes</span><span class="count" data-unread hidden></span></a>
+      <button type="button" data-more-open data-more-tab><svg class="ico"><use href="#i-grid"/></svg><span>Más</span></button>
+    </nav>
   </div>
+
+  <!-- Hoja de abajo: «Añadir» (botón +) y «Más» (todas las secciones) -->
+  <div class="sheet" data-sheet hidden>
+    <div class="sheet__backdrop" data-sheet-close></div>
+    <section class="sheet__box" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <span class="sheet__grab" aria-hidden="true"></span>
+      <header class="sheet__head"><h2 id="sheet-title" data-sheet-title></h2><button class="icon-btn" type="button" data-sheet-close aria-label="Cerrar">×</button></header>
+      <div data-sheet-body></div>
+    </section>
+  </div>
+
+  <template data-quick-tpl>
+    <div class="quick">
+      <button type="button" data-quick="#productos|[data-new]"><svg class="ico"><use href="#i-tag"/></svg><strong>Subir producto</strong><small>Una pieza nueva para la tienda</small></button>
+      <button type="button" data-quick="#calendario|[data-add]"><svg class="ico"><use href="#i-cal"/></svg><strong>Añadir reserva</strong><small>Alguien que reservó por teléfono o en persona</small></button>
+      <button type="button" data-quick="#clases|[data-new]"><svg class="ico"><use href="#i-class"/></svg><strong>Nueva clase</strong><small>Curso, taller o modalidad privada</small></button>
+      <button type="button" data-quick="#galeria|[data-new]"><svg class="ico"><use href="#i-image"/></svg><strong>Subir foto a la galería</strong><small>Una obra para enseñar en la web</small></button>
+      <button type="button" data-quick="#resenas|[data-new]"><svg class="ico"><use href="#i-star"/></svg><strong>Añadir reseña</strong><small>Una opinión de un cliente o alumno</small></button>
+    </div>
+  </template>
+
+  <template data-more-tpl>
+    <nav class="more" data-nav aria-label="Todas las secciones">
+      <a href="#resumen"><svg class="ico"><use href="#i-home"/></svg>Inicio</a>
+      <a href="#mensajes"><svg class="ico"><use href="#i-chat"/></svg>Mensajes<span class="count" data-unread hidden></span></a>
+      <a href="#pedidos"><svg class="ico"><use href="#i-box"/></svg>Pedidos</a>
+      <a href="#calendario"><svg class="ico"><use href="#i-cal"/></svg>Calendario<span class="count" data-overdue hidden></span></a>
+      <a href="#reservas"><svg class="ico"><use href="#i-ticket"/></svg>Reservas</a>
+      <a href="#productos"><svg class="ico"><use href="#i-tag"/></svg>Productos</a>
+      <a href="#clases"><svg class="ico"><use href="#i-class"/></svg>Clases</a>
+      <a href="#galeria"><svg class="ico"><use href="#i-image"/></svg>Galería</a>
+      <a href="#resenas"><svg class="ico"><use href="#i-star"/></svg>Reseñas</a>
+      <a href="#clientes"><svg class="ico"><use href="#i-user"/></svg>Clientes</a>
+      <a href="#ajustes"><svg class="ico"><use href="#i-sliders"/></svg>Ajustes</a>
+      <a href="#cuenta"><svg class="ico"><use href="#i-key"/></svg>Cuenta</a>
+    </nav>
+    <p class="more__user" data-user></p>
+  </template>
 
   <!-- Panel lateral de edición -->
   <div class="drawer" data-drawer hidden>
@@ -74,6 +154,6 @@
 
   <div class="toast" data-toast role="status" hidden></div>
 
-  <script src="admin.js?v=16"></script>
+  <script src="admin.js?v=17"></script>
 </body>
 </html>
