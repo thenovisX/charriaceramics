@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tramitar pedido | Charria Ceramics</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Tramita tu pedido en Charria Ceramics.">
+  <!-- Al compartir en redes y WhatsApp. og:image tiene que ser una URL absoluta: ver README → "Open Graph" -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Charria Ceramics">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:title" content="Tramitar pedido | Charria Ceramics">
+  <meta property="og:description" content="Tramita tu pedido en Charria Ceramics.">
+  <meta property="og:image" content="/assets/og-charria.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Jarrón, botella y vaso de cerámica veteada hechos a mano sobre fondo azul petróleo">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#f5f1ea">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=21">
+</head>
+<body data-page="pedido">
+
+  <!-- Cabecera fija: transparente sobre la portada (mix-blend-mode) y con fondo marfil al bajar -->
+  <header class="header">
+    <nav class="header__nav header__nav--left">
+      <a href="productos.html">Tienda</a>
+      <a href="index.html#clases">Clases</a>
+      <a href="index.html#privadas">Privadas</a>
+      <a href="galeria.html">Galería</a>
+    </nav>
+    <a href="index.html" class="header__logo">Charria <span>Ceramics</span></a>
+    <nav class="header__nav header__nav--right">
+      <button class="cart-btn" type="button">Cesta (<span data-cart-count>0</span>)</button>
+      <a href="contacto.html">Contacto</a>
+      <button class="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
+    </nav>
+  </header>
+
+  <!-- Menú para móvil y tablet -->
+  <nav class="mobile-menu" data-mobile-menu aria-hidden="true">
+    <a href="productos.html"><small>01</small><span>Tienda</span></a>
+    <a href="index.html#clases"><small>02</small><span>Clases en grupo</span></a>
+    <a href="index.html#privadas"><small>03</small><span>Clase privada</span></a>
+    <a href="galeria.html"><small>04</small><span>Galería</span></a>
+    <a href="contacto.html"><small>05</small><span>Contacto</span></a>
+    <p class="mobile-menu__foot"><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p>
+  </nav>
+
+  <main id="top">
+
+    <section class="page-head thanks">
+      <p class="eyebrow">Tu pedido</p>
+      <h1 class="page-head__title" data-split>Tramitar pedido</h1>
+      <div class="page-head__desc">
+        <p>Completa tus datos y el envío en la cesta para pasar al pago seguro.</p>
+        <button class="btn-primary" type="button" onclick="window.Cart && Cart.open('order')">Abrir mi pedido</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p class="footer__big" data-split>Hecho a mano, con calma.</p>
+    <div class="footer__cols">
+      <div><span class="eyebrow">Estudio</span><p>Tomiño<br>Pontevedra</p></div>
+      <div><span class="eyebrow">Horario</span><p>Lunes - Viernes: 10:00–20:00</p></div>
+      <div><span class="eyebrow">Síguenos</span><p class="socials" data-socials><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener">@ch.ceramics</a></p></div>
+    </div>
+    <div class="footer__bottom">
+      <nav class="footer__links" aria-label="Información legal">
+        <a href="aviso-legal.html">Aviso legal</a>
+        <a href="privacidad.html">Privacidad</a>
+        <a href="cookies.html">Cookies</a>
+        <a href="condiciones.html">Condiciones de venta</a>
+        <a href="mis-datos.html">Mis datos</a>
+        <button type="button" data-cookie-settings>Configurar cookies</button>
+      </nav>
+      <p class="footer__legal">© 2026 Charria Ceramics · Tomiño</p>
+      <p class="footer__credit">Diseño y desarrollo · <a href="https://thenovis.com" target="_blank" rel="noopener">The Novis</a></p>
+    </div>
+  </footer>
+
+  <div class="cursor" aria-hidden="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
+  <script src="data.js?v=12"></script>
+  <script src="script.js?v=20"></script>
+  <script src="cart.js?v=12"></script>
+  <script src="consent.js?v=2"></script>
+</body>
+</html>

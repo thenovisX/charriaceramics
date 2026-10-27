@@ -83,6 +83,9 @@
   let offline = false;  // sin API (p. ej. Live Server): se muestran precios orientativos
   let ship = { options: [], selected: "", loading: false, zip: "", country: "ES" };
 
+  // pedido.html es la pestaña donde se tramita el pedido: allí la cesta se abre sola en el paso de datos
+  const IS_ORDER = document.body.dataset.page === "pedido";
+
   const isOpen = () => root.classList.contains("is-open");
   function open(view = "items") {
     if (!isOpen()) {
@@ -92,6 +95,10 @@
       document.documentElement.classList.add("cart-open");
       document.dispatchEvent(new CustomEvent("cart:open"));
       setTimeout(() => panel.focus(), 50);
+    }
+    if (view === "order") {
+      refreshQuote().then(() => (read().length && quote && !quote.errors.length ? renderCheckout() : renderItems()));
+      return;
     }
     view === "checkout" ? renderCheckout() : renderItems();
   }
@@ -181,7 +188,14 @@
       ${hasErrors ? '<p class="cart-line__error">Quita las piezas que ya no están disponibles para continuar.</p>' : ""}
       <button class="btn-primary cart__cta" type="button" data-next ${offline || hasErrors ? "disabled" : ""}>Tramitar pedido</button>`;
     $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim()));
-    $("[data-next]", foot).addEventListener("click", () => renderCheckout());
+    $("[data-next]", foot).addEventListener("click", () => {
+      if (IS_ORDER) return renderCheckout();
+      // El pedido se tramita siempre en una pestaña nueva. Se abre ya, dentro del clic, para que
+      // el navegador no la bloquee; si aun así la bloquea, se tramita en esta misma pestaña.
+      const tab = window.open("pedido.html", "_blank");
+      if (tab) showPaying("pedido.html", true);
+      else renderCheckout();
+    });
   }
 
   body.addEventListener("click", (e) => {
@@ -342,7 +356,8 @@
     // El pago de Stripe se abre en una pestaña nueva. La pestaña se abre ya, dentro del clic
     // (si se abriera después de esperar al servidor, el navegador la bloquearía como ventana
     // emergente), y se le pone la dirección cuando llega. Si aun así se bloquea, se paga aquí.
-    const tab = window.open("", "_blank");
+    // En pedido.html ya estamos en una pestaña nueva: se paga aquí mismo.
+    const tab = IS_ORDER ? null : window.open("", "_blank");
     if (tab) {
       try {
         tab.document.title = "Preparando el pago · Charria Ceramics";
@@ -375,15 +390,19 @@
   }
 
   // Mientras se paga en la otra pestaña, la cesta lo dice y deja volver a abrir el pago
-  function showPaying(url) {
-    step.textContent = "Pago en curso";
-    body.innerHTML = `
+  function showPaying(url, order = false) {
+    step.textContent = order ? "Pedido en curso" : "Pago en curso";
+    body.innerHTML = order ? `
+      <div class="cart__paying">
+        <p class="cart__paying-title">Hemos abierto tu pedido en una pestaña nueva.</p>
+        <p class="cart__muted">Completa allí tus datos y el pago seguro con Stripe. Cuando termines verás la confirmación del pedido en esa pestaña y te llegará un email.</p>
+      </div>` : `
       <div class="cart__paying">
         <p class="cart__paying-title">Hemos abierto el pago en una pestaña nueva.</p>
         <p class="cart__muted">Termina el pago allí, en la página segura de Stripe. Cuando se complete verás la confirmación del pedido en esa pestaña y te llegará un email.</p>
       </div>`;
     foot.innerHTML = `
-      <a class="btn-primary cart__cta" href="${esc(url)}" target="_blank" rel="noopener">Volver a abrir el pago</a>
+      <a class="btn-primary cart__cta" href="${esc(url)}" target="_blank">${order ? "Volver a abrir el pedido" : "Volver a abrir el pago"}</a>
       <button class="consent__link cart__back" type="button" data-paying-back>Volver a la cesta</button>`;
     $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim(), "arrow"));
     $("[data-paying-back]", foot).addEventListener("click", () => renderItems());
@@ -407,6 +426,7 @@
   };
 
   updateCount();
+  if (IS_ORDER) open("order");
   // Al volver de Stripe sin pagar, se reabre la cesta para reintentar
   if (new URLSearchParams(location.search).get("pago") === "cancelado" && read().length && !location.hash) setTimeout(() => open(), 600);
 })();
