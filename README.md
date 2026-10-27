@@ -120,8 +120,13 @@ Todo lo que sigue se escribe en `https://tudominio.com/admin/` → **Ajustes**. 
 4. Funcionamiento: en la cesta se muestran las 4 tarifas más baratas a domicilio para el código postal del cliente. Al pagarse el pedido se crea automáticamente un **borrador de envío** en Packlink PRO con la referencia del pedido; desde Packlink eliges recogida, pagas y descargas la etiqueta. Si algo falla, el pedido sigue pagado y puedes reintentarlo desde el panel (“Crear envío en Packlink”).
 5. Sin API key se usa la tarifa plana de “Opciones de envío”, así que se puede vender desde el primer día. Ahí también eliges recogida en estudio, envío gratis desde un importe y un suplemento sobre Packlink.
 
-### 6. Panel → Ajustes: Emails
-Crea un buzón del dominio (hPanel → **Emails**), p. ej. `hola@tudominio.com`, y ponlo como remitente y como buzón de avisos. Se envían avisos de pedido pagado, reserva confirmada, solicitud de clase privada y mensajes del formulario de contacto (con `mail()` de PHP).
+### 6. Panel → Ajustes → Correo
+Se envían avisos de pedido pagado, reserva confirmada, solicitud de clase privada, mensajes del formulario de contacto y cobros pendientes. En **Correo** se elige cómo salen (`MAIL_PROVIDER`):
+- **Gmail o Google Workspace** (`gmail`): remitente = la cuenta de Google y una **contraseña de aplicación** de 16 letras (Cuenta de Google → Seguridad → Verificación en dos pasos → [Contraseñas de aplicaciones](https://myaccount.google.com/apppasswords)). Sale por `smtp.gmail.com:465`. El panel trae los pasos.
+- **Buzón de tu dominio** (`smtp`): servidor, puerto (465 SSL o 587 STARTTLS), usuario y contraseña. En Hostinger: `smtp.hostinger.com`, 465, el email completo y su contraseña.
+- **Envío básico del hosting** (`hosting`, el de siempre): `mail()` de PHP con un remitente del propio dominio.
+
+«Enviar correo de prueba» manda uno al buzón de avisos (`MAIL_ADMIN`) y explica el error si falla (contraseña rechazada, servidor bloqueado…). Las respuestas de los clientes van a `MAIL_ADMIN`; las del formulario de contacto, directamente al cliente.
 
 ### 7. Prioridad de la configuración
 Ajustes del panel → variables reales del servidor → `.env`. Todo lo de Ajustes también se puede poner en el `.env` (útil para otra web que reutilice la API); si el panel tiene un valor, manda el panel. Con “Borrar” en una clave del panel se vuelve a usar la del `.env`.
@@ -162,6 +167,10 @@ Las marcadas con ⚙️ se pueden poner también (y mejor) en **Panel → Ajuste
 | `PACKLINK_CONTENT` | No | `Cerámica artesanal` | Descripción del contenido del paquete. |
 | `PACKLINK_SENDER_*` ⚙️ | Con Packlink | — | Remitente: `NAME`, `SURNAME`, `COMPANY`, `STREET`, `ZIP`, `CITY`, `COUNTRY`, `PHONE`, `EMAIL`. |
 | `MAIL_FROM` / `MAIL_ADMIN` ⚙️ | Recomendado | — | Remitente de los emails y buzón que recibe los avisos. |
+| `MAIL_PROVIDER` ⚙️ | No | `hosting` | `hosting` (mail() de PHP), `gmail` (smtp.gmail.com:465, usuario = `MAIL_FROM`) o `smtp`. |
+| `MAIL_FROM_NAME` ⚙️ | No | `Charria Ceramics` | Nombre del remitente. |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` ⚙️ | Con `smtp` | — / `465` / `MAIL_FROM` | Servidor de salida. 465 = SSL; 587 = STARTTLS (nunca manda la contraseña sin cifrar). |
+| `SMTP_PASS` ⚙️ | Con `gmail` o `smtp` | — | Contraseña de aplicación de Google o del buzón. Se guarda cifrada. |
 | `MAIL_DISABLED` | No | `false` | Desactiva el envío de emails (útil en pruebas). |
 | `UPLOAD_MAX_MB` | No | `10` | Peso máximo de cada imagen subida. |
 | `UPLOADS_URL` | No | `/uploads` | URL pública de la carpeta de imágenes. |
@@ -235,7 +244,7 @@ Cualquier campo de precio que mande el navegador **se ignora** (hay un test que 
 
 **Perfiles**: solo se crea una fila en `customers` si la persona marca «guardar mis datos» (`has_profile`) o acepta comunicaciones (`marketing_opt_in`). Si no, el pedido o la reserva guardan solo sus propios datos de contacto y entrega. Panel → Clientes: perfiles, lista de comunicaciones (exportable a CSV con enlace de baja por persona) y registro de solicitudes.
 
-**Supresión** (`Services/Privacy.php`): desde `mis-datos.html` (enlace de un solo uso enviado al email, 24 h; la acción se ejecuta al pulsar el botón, no al abrir el enlace) o desde el panel (ficha del cliente o «Borrar los datos de un email»). Borra el perfil y el alta en comunicaciones, anonimiza lo no pagado y **bloquea** (LOPDGDD art. 32) los pedidos y reservas pagados: quita teléfono y notas y los conserva 6 años por obligación fiscal y contable (`privacy_blocked_at`). `Privacy::anonymizeExpired()` (lo llaman el resumen del panel y `bin/cleanup.php`) anonimiza los pagados a los 6 años y los no pagados a los 90 días, y borra los mensajes de más de 1 año. La supresión borra también los mensajes de ese email y la copia de datos los incluye. Para enviar los enlaces hace falta el remitente de emails (Ajustes → Emails); si no está, la página pide escribir al email del titular.
+**Supresión** (`Services/Privacy.php`): desde `mis-datos.html` (enlace de un solo uso enviado al email, 24 h; la acción se ejecuta al pulsar el botón, no al abrir el enlace) o desde el panel (ficha del cliente o «Borrar los datos de un email»). Borra el perfil y el alta en comunicaciones, anonimiza lo no pagado y **bloquea** (LOPDGDD art. 32) los pedidos y reservas pagados: quita teléfono y notas y los conserva 6 años por obligación fiscal y contable (`privacy_blocked_at`). `Privacy::anonymizeExpired()` (lo llaman el resumen del panel y `bin/cleanup.php`) anonimiza los pagados a los 6 años y los no pagados a los 90 días, y borra los mensajes de más de 1 año. La supresión borra también los mensajes de ese email y la copia de datos los incluye. Para enviar los enlaces hace falta el remitente de emails (Ajustes → Correo); si no está, la página pide escribir al email del titular.
 
 **Base de datos**: los cambios para instalaciones ya hechas los aplica `Services/Migrations.php` solo (tabla `schema_migrations`); no hay que hacer nada al actualizar. Si al actualizar ya había clientes, quedan sin perfil y el panel ofrece borrarlos (se crearon sin pedir permiso).
 
@@ -432,7 +441,7 @@ Mientras no hay base de datos configurada (o faltan las tablas), el resto de rut
 | `PUT /admin/settings` | `{ "values": { "STRIPE_SECRET_KEY": "sk_live_…", "SHIPPING_FLAT_CENTS": "690" }, "clear": ["PACKLINK_API_KEY"] }` | Igual que GET. Un secreto vacío no se cambia; un campo normal vacío vuelve al valor por defecto. `422` con `fields` si una clave no tiene el formato correcto |
 | `POST /admin/settings/studio-image` | multipart: `image`, `alt`, `crop=1` | Igual que GET, con `studio_image`. Borra la foto anterior. `DELETE` la quita (vuelve la de ejemplo) |
 | `GET /admin/reviews` · `POST` · `PATCH /admin/reviews/{id}` · `DELETE` · `PUT /admin/reviews/order` | `{ "author", "context", "body", "rating": 1–5 o "", "review_date", "is_published" }` | Reseñas para la portada |
-| `POST /admin/settings/test` | `{ "service": "stripe" }` o `"packlink"` | `{ "ok": true, "message": "Conectado con Stripe · …" }` · `502` si la clave no funciona |
+| `POST /admin/settings/test` | `{ "service": "stripe" }`, `"packlink"` o `"mail"` | `{ "ok": true, "message": "Conectado con Stripe · …" }` · `502` si la clave no funciona. `mail` manda un correo de prueba a `MAIL_ADMIN` (o al remitente) |
 | `GET /admin/stats` | — | Pedidos por enviar/recoger, ventas 30 días, solicitudes privadas, stock bajo, si Stripe/Packlink están configurados |
 | `GET /admin/messages?type=contact\|request\|private_class&status=unread\|open\|handled` | — | Bandeja de mensajes (los 300 más recientes) |
 | `GET /admin/messages/unread` | — | `{ "unread": 3 }` (contador del menú) |
@@ -521,7 +530,7 @@ curl -X POST https://tudominio.com/api/admin/gallery \
 - **`ImageProcessor`** · `store(archivo, tipo, alt, recortar)` valida, normaliza y guarda · `delete(id)` · `rules()`.
 - **`Customers`** · `validate` (bloque `customer`) · `upsert` (crea o actualiza por email).
 - **`Messages`** · `record(tipo, asunto, remitente, texto, reserva)` · `typeForReason(motivo)` · `unread()` · `handleBooking(id)` · `present`.
-- **`Mailer`** · `send`, `admin`, `money` · **`Log`** · `error`, `info` · **`Settings`** · `currency`, `appUrl`, `holdMinutes`, `uploadsUrl`, `reference(prefijo)`.
+- **`Mailer`** · `send`, `admin`, `test`, `provider`, `money` (elige `mail()` o `Smtp`) · **`Smtp`** · cliente SMTP mínimo (SSL/STARTTLS, AUTH LOGIN, errores explicados) · **`Log`** · `error`, `info` · **`Settings`** · `currency`, `appUrl`, `holdMinutes`, `uploadsUrl`, `reference(prefijo)`.
 - **`AppSettings`** · `boot` (carga los ajustes del panel en cada petición) · `forPanel` · `save(valores, borrar)` con validación por tipo · cifrado `sodium_crypto_secretbox` con `APP_KEY`.
 - **`Installer`** · `isInstalled` · `install(db, admin, seed)`: prueba MySQL, escribe el `.env` (permisos 600), crea tablas y el primer admin.
 
@@ -579,10 +588,11 @@ php -S localhost:8000 backend/dev-router.php
 # .env de pruebas con STRIPE_SECRET_KEY=sk_test_mock, STRIPE_WEBHOOK_SECRET=whsec_test,
 # STRIPE_API_BASE=http://127.0.0.1:8099 y MAIL_DISABLED=true
 php -S 127.0.0.1:8099 -t backend/tests backend/tests/mock-stripe.php &
+php backend/tests/mock-smtp.php 2525 &      # SMTP falso para el «correo de prueba»
 php -S 127.0.0.1:8000 backend/dev-router.php &
 php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test http://127.0.0.1:8099 admin@email contraseña
 ```
-Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, pago en el taller (plazas, cobro, interruptor por clase y RGPD), suscripción mensual de clases (cuota, webhooks de renovación y fallo, formas de pago por clase), solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos, ficha y varias fotos por producto (orden y texto alternativo), bandeja de Mensajes (tipos, leído/atendido, borrado y RGPD), cierre de la tienda desde Ajustes y cierre de sesión. El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
+Cubren: login y tokens, CRUD de productos, interruptor Agotado, validación de imágenes (proporción, tamaño, archivos disfrazados), galería, precios ignorados del cliente, stock retenido, checkout con Stripe, firma del webhook, idempotencia, descuento de stock, reservas con plazas, pago en el taller (plazas, cobro, interruptor por clase y RGPD), suscripción mensual de clases (cuota, webhooks de renovación y fallo, formas de pago por clase), solicitudes privadas, instalador cerrado, ajustes sin filtrar secretos, ficha y varias fotos por producto (orden y texto alternativo), bandeja de Mensajes (tipos, leído/atendido, borrado y RGPD), cierre de la tienda desde Ajustes, correo por Gmail/SMTP (validación, contraseña cifrada, correo de prueba con error explicado) y cierre de sesión. El mock de Stripe acepta `sk_test_mock` (del .env) y `sk_test_mockpanel123456` (para probar las claves guardadas desde Ajustes).
 
 Con Live Server (sin PHP) la web sigue funcionando con `data.js`; la cesta muestra “precios orientativos” y no deja pagar.
 

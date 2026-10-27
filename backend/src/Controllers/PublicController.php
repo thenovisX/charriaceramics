@@ -124,7 +124,7 @@ final class PublicController
         }
         $v->check();
         Messages::record(Messages::typeForReason($reason), $reason, ['name' => $name, 'email' => $email], $message);
-        Mailer::admin("Web · $reason · $name", "$message\n\n— $name <$email>\n\nLo tienes también en el panel → Mensajes.");
+        Mailer::admin("Web · $reason · $name", "$message\n\n— $name <$email>\n\nLo tienes también en el panel → Mensajes.", $email);
         return Response::created(['sent' => true]);
     }
 }

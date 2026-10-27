@@ -60,8 +60,15 @@ final class AppSettings
         'SHIPPING_FLAT_CENTS' => ['cents', false],
         'SHIPPING_FREE_FROM_CENTS' => ['cents', false],
         'SHIPPING_MARKUP_CENTS' => ['cents', false],
+        // Correo: cómo se envían los emails (Mailer) y a quién llegan los avisos
+        'MAIL_PROVIDER' => ['mail_provider', false],
         'MAIL_FROM' => ['email', false],
+        'MAIL_FROM_NAME' => ['text', false],
         'MAIL_ADMIN' => ['email', false],
+        'SMTP_HOST' => ['host', false],
+        'SMTP_PORT' => ['port', false],
+        'SMTP_USER' => ['text', false],
+        'SMTP_PASS' => ['smtp_pass', true],
     ];
 
     /** Claves que se pueden enseñar en la web pública (GET /site) → nombre en la respuesta. */
@@ -179,6 +186,7 @@ final class AppSettings
             'values' => $values,
             'secrets' => $secrets,
             'studio_image' => self::studioImage(),
+            'mail_provider' => Mailer::provider(),
             'stripe_mode' => str_contains($stripeKey, '_live_') ? 'live' : ($stripeKey ? 'test' : ''),
             'webhook_url' => Settings::appUrl() . '/api/webhooks/stripe',
             'webhook_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired', 'invoice.paid', 'invoice.payment_failed', 'customer.subscription.deleted'],
@@ -207,6 +215,12 @@ final class AppSettings
             }
             if ($type === 'ga_id' || $type === 'tax_id') {
                 $value = strtoupper($value);
+            }
+            if ($type === 'smtp_pass' && preg_match('/^([a-z]{4} ?){4}$/i', $value)) {
+                $value = str_replace(' ', '', $value); // contraseña de aplicación de Google copiada con espacios
+            }
+            if ($type === 'host') {
+                $value = strtolower($value);
             }
             if ($secret && $value === '') {
                 continue; // vacío = no cambiar
@@ -275,6 +289,10 @@ final class AppSettings
             'tax_id' => preg_match('/^[A-Za-z0-9]{1,3}[- ]?[0-9]{5,8}[- ]?[A-Za-z0-9]?$/', $value) ? null : 'NIF o CIF no válido (p. ej. 12345678Z o B12345678)',
             'ga_id' => preg_match('/^G-[A-Z0-9]{4,15}$/', $value) ? null : 'El ID de Google Analytics 4 empieza por G- (p. ej. G-AB12CD34EF)',
             'phone' => preg_match('/^\+?[0-9 ().-]{6,20}$/', $value) ? null : 'Teléfono no válido (p. ej. +34 600 000 000)',
+            'mail_provider' => in_array($value, Mailer::PROVIDERS, true) ? null : 'Elige cómo enviar los emails',
+            'host' => preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $value) ? null : 'Servidor no válido (p. ej. smtp.hostinger.com)',
+            'port' => in_array($value, ['465', '587', '25', '2525'], true) ? null : 'Puerto 465 (SSL) o 587 (STARTTLS)',
+            'smtp_pass' => mb_strlen($value) <= 200 ? null : 'Contraseña demasiado larga',
             'url' => preg_match('#^https://[^\s<>"]{4,300}$#', $value) ? null : 'Pega el enlace completo, empezando por https://',
             default => mb_strlen($value) <= 255 ? null : 'Máximo 255 caracteres',
         };
