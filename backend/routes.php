@@ -36,6 +36,7 @@ return static function (Router $r): void {
     $r->get('/checkout/status', [CheckoutController::class, 'status']);
     $r->post('/bookings', [BookingController::class, 'createGroup']);
     $r->post('/bookings/private', [BookingController::class, 'createPrivate']);
+    $r->get('/bookings/confirmation', [BookingController::class, 'confirmation']);
     $r->post('/contact', [PublicController::class, 'contact']);
     $r->post('/privacy/request', [PrivacyController::class, 'request']);
     $r->post('/privacy/confirm', [PrivacyController::class, 'confirm']);

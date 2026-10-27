@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Charria\Controllers;
 
 use Charria\Database;
+use Charria\Env;
 use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
@@ -112,6 +113,7 @@ final class BookingController
                 'total_cents' => $booking['price'] * $seats,
                 'status' => 'confirmed',
                 'payment_method' => 'in_person',
+                'confirmation_url' => Fulfillment::bookingUrl($booking['reference']),
             ]);
         }
 
@@ -128,7 +130,8 @@ final class BookingController
                     'unit_amount' => $booking['price'],
                     'quantity' => $seats,
                 ]],
-                'success_url' => $base . '/gracias.html?session_id={CHECKOUT_SESSION_ID}',
+                // Al pagar, Stripe vuelve a la página «Reserva confirmada» con todos los datos
+                'success_url' => $base . '/reserva.html?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => $base . '/index.html?pago=cancelado#clases',
                 'expires_at' => time() + $hold * 60,
             ]);
@@ -193,8 +196,78 @@ final class BookingController
             "{$class['title']} · " . Mailer::money((int) $class['price_cents']) . "\nFecha preferida: $date ($slot)\n"
             . "Cliente: {$customer['name']} <{$customer['email']}> {$customer['phone']}\n\n" . ($notes ?? ''));
         Mailer::send($customer['email'], 'Hemos recibido tu solicitud · Charria Ceramics',
-            "Hola {$customer['name']},\n\nGracias por tu interés en la clase privada ({$class['title']}).\nTe escribiremos en menos de 24 h para confirmar la fecha.\nLa clase se paga en el taller, en efectivo, con tarjeta o por Bizum.\n\nCharria Ceramics");
+            "Hola {$customer['name']},\n\nGracias por tu interés en la clase privada ({$class['title']}).\nTe escribiremos en menos de 24 h para confirmar la fecha.\nLa clase se paga en el taller, en efectivo, con tarjeta o por Bizum.\n\nTu solicitud: " . Fulfillment::bookingUrl($reference) . "\n\nCharria Ceramics");
 
-        return Response::created(['reference' => $reference, 'status' => 'requested']);
+        return Response::created(['reference' => $reference, 'status' => 'requested', 'confirmation_url' => Fulfillment::bookingUrl($reference)]);
+    }
+
+    /**
+     * GET /bookings/confirmation?session_id=cs_…  (al volver de Stripe)
+     *     /bookings/confirmation?ref=CL-…&t=…     (pago en el taller, clase privada y enlace del email)
+     * Datos de la página «Reserva confirmada» (reserva.html). Sin el id de Stripe o la firma
+     * del enlace no se enseña nada: la referencia sola no basta para ver nombre y email.
+     */
+    public function confirmation(Request $r): Response
+    {
+        RateLimiter::hit('booking-view:' . $r->ip, 60, 600);
+        $db = Database::get();
+        $sessionId = (string) ($r->query['session_id'] ?? '');
+        $reference = (string) ($r->query['ref'] ?? '');
+        if ($sessionId !== '') {
+            if (!preg_match('/^cs_[A-Za-z0-9_]{10,250}$/', $sessionId)) {
+                throw HttpError::notFound('No encontramos esta reserva');
+            }
+            $find = static fn () => $db->one('SELECT * FROM bookings WHERE stripe_session_id = ?', [$sessionId]);
+            $b = $find();
+            if ($b && $b['status'] === 'pending_payment') {
+                // Si el webhook aún no ha llegado, se pregunta a Stripe (servidor a servidor)
+                try {
+                    Fulfillment::paid(Stripe::retrieveCheckoutSession($sessionId));
+                    $b = $find();
+                } catch (HttpError) {
+                    // Stripe no disponible: se muestra el estado actual
+                }
+            }
+        } else {
+            $ok = preg_match('/^C[LP]-[A-Z0-9]{8}$/', $reference)
+                && hash_equals(Fulfillment::bookingToken($reference), (string) ($r->query['t'] ?? ''));
+            $b = $ok ? $db->one('SELECT * FROM bookings WHERE reference = ?', [$reference]) : null;
+        }
+        if (!$b) {
+            throw HttpError::notFound('No encontramos esta reserva');
+        }
+        $class = $db->one('SELECT duration_minutes FROM classes WHERE id = ?', [$b['class_id']]);
+        $starts = $b['starts_at'] ? strtotime($b['starts_at']) : null;
+        $method = $b['payment_method'] ?: 'online';
+        $confirmed = $b['status'] === 'confirmed';
+        $minutes = (int) ($class['duration_minutes'] ?? 0);
+        return Response::json([
+            'reference' => $b['reference'],
+            'kind' => $b['session_id'] ? 'group' : 'private',
+            'status' => $b['status'],
+            'confirmed' => $confirmed,
+            'payment_method' => $method,
+            // En el taller se paga el día de la clase; online, la plaza solo se confirma al pagar
+            'paid' => $method === 'in_person' ? $b['paid_at'] !== null : $confirmed,
+            'class_title' => $b['class_title'],
+            'starts_at' => $starts ? date('Y-m-d\TH:i:s', $starts) : null,
+            'ends_at' => $starts && $minutes ? date('Y-m-d\TH:i:s', $starts + $minutes * 60) : null,
+            'duration_minutes' => $minutes ?: null,
+            'preferred_date' => $b['preferred_date'],
+            'preferred_slot' => $b['preferred_slot'],
+            'seats' => (int) $b['seats'],
+            'unit_price_cents' => (int) $b['unit_price_cents'],
+            'total_cents' => (int) $b['total_cents'],
+            'customer' => ['name' => $b['customer_name'], 'email' => $b['customer_email'], 'phone' => $b['customer_phone']],
+            'created_at' => date('Y-m-d\TH:i:s', strtotime($b['created_at'])),
+            'link' => Fulfillment::bookingUrl($b['reference']),
+            'studio' => [
+                'address' => Env::get('SITE_ADDRESS'),
+                'city' => Env::get('SITE_CITY'),
+                'maps_url' => Env::get('SITE_MAPS_URL'),
+                'email' => Env::get('SITE_EMAIL'),
+                'phone' => Env::get('SITE_PHONE'),
+            ],
+        ]);
     }
 }
