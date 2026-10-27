@@ -758,7 +758,7 @@ function initPage() {
     const r = menuToggle.getBoundingClientRect();
     const at = `${r.left + r.width / 2}px ${r.top + r.height / 2}px`;
     const words = $$(":scope > a span", mobileMenu);
-    const extras = [...$$(":scope > a small", mobileMenu), $(".mobile-menu__foot", mobileMenu)];
+    const extras = [$(".mobile-menu__foot", mobileMenu)];
     if (open) {
       menuTl = gsap.timeline()
         .fromTo(mobileMenu, { clipPath: `circle(0% at ${at})` }, { clipPath: `circle(150% at ${at})`, duration: 1.1, ease: "power3.inOut" })
