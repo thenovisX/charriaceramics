@@ -133,7 +133,10 @@
     const form = $("[data-checkout]", grid);
     if (!ship.selected) ship.selected = saved.option || "";
     form.addEventListener("input", (e) => {
-      if (e.target.type === "checkbox") { e.target.closest(".check")?.classList.remove("is-invalid"); return; } // las casillas no se recuerdan
+      const box = e.target.closest(".form__field, .check");
+      box?.classList.remove("is-invalid");
+      box?.querySelector("[data-field-error]")?.remove();
+      if (e.target.type === "checkbox") return; // las casillas no se recuerdan
       saved[e.target.name] = e.target.value;
       try { sessionStorage.setItem("charria-checkout", JSON.stringify(saved)); } catch { /* */ }
     });
@@ -142,6 +145,7 @@
     $("[data-ship-options]", form).addEventListener("change", (e) => {
       if (e.target.name !== "ship") return;
       ship.selected = e.target.value;
+      clearInvalid($("[data-checkout]", grid));
       saved.option = ship.selected;
       renderShipping(form);
       if (ship.selected === "__delivery" && form.postal_code.value.trim()) loadShipping(form);
@@ -197,17 +201,25 @@
     const total = quote.items_total_cents + (chosen ? chosen.price_cents : 0);
     const foot = $("[data-foot]", grid);
     const hasErrors = quote.errors.length > 0;
-    foot.innerHTML = `
+    // El botón de pago no se vuelve a crear (un clic a medias no se pierde si cambian las tarifas)
+    if (!$("[data-pay]", foot)) {
+      foot.innerHTML = `
+        <div data-rows></div>
+        <p class="cart-line__error" data-checkout-error hidden></p>
+        <button class="btn-primary cart__cta" type="button" data-pay>Pagar</button>
+        <p class="cart__muted cart__secure">Pago seguro con tarjeta a través de Stripe. Tus datos de pago no pasan por esta web.</p>`;
+      $("[data-pay]", foot).addEventListener("click", () => pay(form));
+    }
+    $("[data-rows]", foot).innerHTML = `
       <div class="cart__row"><span>Productos</span><span>${money(quote.items_total_cents)}</span></div>
       ${quote.discount_cents ? `<div class="cart__row cart__muted"><span>Ahorro aplicado</span><span>−${money(quote.discount_cents)}</span></div>` : ""}
       <div class="cart__row"><span>Envío</span><span>${chosen ? (chosen.price_cents ? money(chosen.price_cents) : "Gratis") : "—"}</span></div>
       <div class="cart__row cart__total"><span>Total <small class="cart__muted">IVA incluido</small></span><strong>${money(total)}</strong></div>
-      ${hasErrors ? '<p class="cart-line__error">Hay piezas que ya no están disponibles: cambia tu cesta para continuar.</p>' : ""}
-      <p class="cart-line__error" data-checkout-error hidden></p>
-      <button class="btn-primary cart__cta" type="button" data-pay ${chosen && !hasErrors ? "" : "disabled"}>Pagar ${chosen ? money(total) : ""}</button>
-      <p class="cart__muted cart__secure">Pago seguro con tarjeta a través de Stripe. Tus datos de pago no pasan por esta web.</p>`;
-    $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim().replace(/\s+/g, " "), "arrow"));
-    $("[data-pay]", foot).addEventListener("click", () => pay(form));
+      ${hasErrors ? '<p class="cart-line__error">Hay piezas que ya no están disponibles: cambia tu cesta para continuar.</p>' : ""}`;
+    const pay$ = $("[data-pay]", foot);
+    pay$.disabled = hasErrors;
+    const label = `Pagar ${chosen ? money(total) : ""}`.trim();
+    if (pay$.dataset.label !== label) { pay$.dataset.label = label; button(pay$, label, "arrow"); }
   }
 
   function showError(form, msg) {
@@ -217,22 +229,49 @@
     el.hidden = !msg;
   }
 
+  // Cada campo erróneo se marca en rojo con su mensaje; el foco va al primero
+  const digits = (v) => v.replace(/\D/g, "");
+  function clearInvalid(form) {
+    $$(".is-invalid", form).forEach((el) => el.classList.remove("is-invalid"));
+    $$("[data-field-error]", form).forEach((el) => el.remove());
+  }
+  function markInvalid(el, msg) {
+    const box = el.closest(".form__field, .check, .ship-options");
+    if (!box) return;
+    box.classList.add("is-invalid");
+    box.querySelector("[data-field-error]")?.remove();
+    box.insertAdjacentHTML("beforeend", `<small class="form__error" data-field-error role="alert">${esc(msg)}</small>`);
+  }
+  function validate(form) {
+    const f = form.elements;
+    const isPickup = ship.selected === "pickup";
+    const errors = [];
+    const need = (name, bad, msg) => { if (bad) errors.push([f[name], msg]); };
+    need("name", f.name.value.trim().length < 2, "Escribe tu nombre y apellidos.");
+    need("email", !f.email.value.trim() || !f.email.checkValidity(), f.email.value.trim() ? "Este email no es válido." : "Escribe tu email.");
+    const phone = f.phone.value.trim();
+    need("phone", isPickup ? phone && digits(phone).length < 9 : digits(phone).length < 9, phone ? "El teléfono no es válido." : "Escribe un teléfono para el transportista.");
+    if (!ship.options.some((o) => o.id === ship.selected)) errors.push([$("[name=ship]", form) || f.name, "Escribe tu código postal y elige cómo recibir el pedido."]);
+    if (!isPickup) {
+      need("street", f.street.value.trim().length < 4, "Escribe tu dirección.");
+      need("postal_code", f.country.value === "ES" ? !/^\d{5}$/.test(f.postal_code.value.trim()) : f.postal_code.value.trim().length < 3, "El código postal no es válido.");
+      need("city", !f.city.value.trim(), "Escribe tu ciudad.");
+    }
+    need("terms", !f.terms.checked, "Para pagar tienes que aceptar las condiciones de venta y la política de privacidad.");
+    return errors;
+  }
+
   async function pay(form) {
     showError(form, "");
-    $$(".form__field", form).forEach((f) => f.classList.remove("is-invalid"));
-    const isPickup = ship.selected === "pickup";
+    clearInvalid(form);
     const f = form.elements;
-    const required = ["name", "email", ...(isPickup ? [] : ["phone", "street", "postal_code", "city"])];
-    const missing = required.filter((n) => !f[n].value.trim() || (n === "email" && !f[n].checkValidity()));
-    if (missing.length) {
-      missing.forEach((n) => f[n].closest(".form__field").classList.add("is-invalid"));
-      f[missing[0]].focus();
-      return showError(form, "Revisa los campos marcados.");
-    }
-    if (!f.terms.checked) {
-      f.terms.closest(".check").classList.add("is-invalid");
-      f.terms.focus();
-      return showError(form, "Para pagar tienes que aceptar las condiciones de venta y la política de privacidad.");
+    const isPickup = ship.selected === "pickup";
+    const errors = validate(form);
+    if (errors.length) {
+      errors.forEach(([el, msg]) => markInvalid(el, msg));
+      errors[0][0].focus();
+      errors[0][0].closest(".form__field, .check, .ship-options")?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return showError(form, errors.length === 1 ? "Revisa el campo marcado en rojo." : `Revisa los ${errors.length} campos marcados en rojo.`);
     }
     const btn = $("[data-pay]");
     btn.disabled = true;
@@ -251,7 +290,7 @@
       showError(form, e.message);
       if (e.status === 409) setTimeout(init, 1800);
       btn.disabled = false;
-      button(btn, "Pagar", "arrow");
+      button(btn, btn.dataset.label || "Pagar", "arrow");
     }
   }
 
