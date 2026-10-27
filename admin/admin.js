@@ -127,9 +127,10 @@ views.resumen = async () => {
   const s = await api("GET", "/admin/stats");
   main.innerHTML = `
     <div class="page-head"><div><p class="eyebrow">Hoy</p><h1>Resumen</h1></div></div>
-    ${s.payments_configured ? "" : '<p class="notice">Stripe no está configurado: la tienda y las reservas en grupo no aceptan pagos todavía. Ponlo en <a href="#ajustes">Ajustes</a>.</p>'}
-    ${s.packlink_configured ? "" : '<p class="notice">Packlink PRO no está configurado: se usa la tarifa plana de envío. Puedes configurarlo en <a href="#ajustes">Ajustes</a>.</p>'}
-    ${s.legal_missing.length ? '<p class="notice">Faltan los datos del titular (nombre o razón social, NIF, domicilio y email) que salen en el aviso legal, la privacidad y las condiciones de venta. La ley obliga a mostrarlos: rellénalos en <a href="#ajustes">Ajustes → Datos legales</a>.</p>' : ""}
+    ${s.payments_configured ? "" : '<p class="notice">Stripe no está configurado: la tienda y las reservas en grupo no aceptan pagos todavía. Ponlo en <a href="#ajustes/pagos">Ajustes → Pagos</a>.</p>'}
+    ${s.mail_configured === false ? '<p class="notice">El correo no está configurado: no salen emails a los clientes ni te llegan avisos. Ponlo en <a href="#ajustes/correo">Ajustes → Correo</a> (puedes usar tu Gmail).</p>' : ""}
+    ${s.packlink_configured ? "" : '<p class="notice">Packlink PRO no está configurado: se usa la tarifa plana de envío. Puedes configurarlo en <a href="#ajustes/tienda">Ajustes → Tienda y envíos</a>.</p>'}
+    ${s.legal_missing.length ? '<p class="notice">Faltan los datos del titular (nombre o razón social, NIF, domicilio y email) que salen en el aviso legal, la privacidad y las condiciones de venta. La ley obliga a mostrarlos: rellénalos en <a href="#ajustes/legal">Ajustes → Legal</a>.</p>' : ""}
     ${s.legacy_customers ? `<p class="notice">Hay ${s.legacy_customers} ${s.legacy_customers === 1 ? "cliente guardado" : "clientes guardados"} de antes de pedir permiso para crear perfiles. Revísalo en <a href="#clientes">Clientes</a>.</p>` : ""}
     <div class="cards">
       <a class="card" href="#mensajes"><span class="eyebrow">Mensajes sin leer</span><p class="card__num">${s.unread_messages}</p></a>
@@ -1077,8 +1078,10 @@ async function openCustomer(id) {
 }
 
 /* ---------- Cuenta ---------- */
-/* ---------- Ajustes: Stripe, Packlink, envíos y emails ---------- */
+/* ---------- Ajustes: la web, tienda y envíos, pagos, correo y legal (en pestañas) ---------- */
 views.ajustes = async () => {
+  const sub = location.hash.split("/")[1];
+  if (sub) state.settingsTab = sub;
   const s = await api("GET", "/admin/settings");
   const v = s.values;
   const secret = (key, label, placeholder, hint) => {
@@ -1091,9 +1094,27 @@ views.ajustes = async () => {
   };
   const mode = s.stripe_mode === "live" ? '<span class="badge badge--ok">Modo real</span>'
     : s.stripe_mode === "test" ? '<span class="badge badge--warn">Modo prueba</span>' : '<span class="badge badge--bad">Sin configurar</span>';
+  const provider = v.MAIL_PROVIDER || s.mail_provider || "hosting";
+  const choice = (value, title, text) => `<label class="choice"><input type="radio" name="MAIL_PROVIDER" value="${value}" ${provider === value ? "checked" : ""}><span><strong>${title}</strong><small>${text}</small></span></label>`;
+  const stripeOk = s.secrets.STRIPE_SECRET_KEY.set && s.secrets.STRIPE_WEBHOOK_SECRET.set;
+  const mailOk = !!v.MAIL_FROM && (provider === "hosting" || s.secrets.SMTP_PASS.set);
+  const legalOk = ["LEGAL_OWNER", "LEGAL_TAX_ID", "LEGAL_ADDRESS", "LEGAL_EMAIL"].every((k) => v[k]);
+  const mailBadge = mailOk ? '<span class="badge badge--ok">Configurado</span>' : '<span class="badge badge--bad">Sin configurar</span>';
+  const tabs = [
+    ["web", "La web", ""],
+    ["tienda", "Tienda y envíos", ""],
+    ["pagos", "Pagos", stripeOk ? "" : "falta"],
+    ["correo", "Correo", mailOk ? "" : "falta"],
+    ["legal", "Legal", legalOk ? "" : "falta"],
+  ];
+  const tab = tabs.some(([k]) => k === state.settingsTab) ? state.settingsTab : "web";
   main.innerHTML = `
-    <div class="page-head"><div><p class="eyebrow">Configuración</p><h1>Ajustes</h1></div></div>
+    <div class="page-head"><div><p class="eyebrow">Configuración</p><h1>Ajustes</h1>
+      <p>Elige una sección. «Guardar ajustes» guarda todas a la vez.</p></div></div>
+    <div class="settings__tabs" role="tablist">${tabs.map(([k, t, warn]) =>
+      `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === tab}">${t}${warn ? ' <span class="dot" title="Falta configurar"></span>' : ""}</button>`).join("")}</div>
     <form class="stack settings" data-form style="max-width:640px">
+      <div class="stack settings__panel" data-panel="web"${tab === "web" ? "" : " hidden"}>
       <section class="stack">
         <h2 class="settings__title">Datos de la web</h2>
         <p class="muted">Salen en el pie de todas las páginas, en el menú del móvil y en Contacto. Lo que dejes vacío se queda como está ahora en la web.</p>
@@ -1131,33 +1152,26 @@ views.ajustes = async () => {
         </div>
       </section>
 
+      </div>
+
+      <div class="stack settings__panel" data-panel="tienda"${tab === "tienda" ? "" : " hidden"}>
       <section class="stack">
-        <h2 class="settings__title">Datos legales y analítica</h2>
-        <p class="muted">Los datos del titular salen en el <a href="../aviso-legal.html" target="_blank" rel="noopener">aviso legal</a>, la <a href="../privacidad.html" target="_blank" rel="noopener">política de privacidad</a> y las <a href="../condiciones.html" target="_blank" rel="noopener">condiciones de venta</a>. La ley (LSSI) obliga a mostrarlos: mientras falten, esas páginas enseñan el hueco marcado.</p>
-        <div class="grid-2">
-          ${field("Nombre o razón social", input("LEGAL_OWNER", v.LEGAL_OWNER, 'placeholder="Nombre Apellidos o Empresa S.L."'), "Autónomo: tu nombre completo")}
-          ${field("NIF / CIF", input("LEGAL_TAX_ID", v.LEGAL_TAX_ID, 'placeholder="12345678Z"'))}
-        </div>
-        ${field("Domicilio fiscal o del taller", input("LEGAL_ADDRESS", v.LEGAL_ADDRESS, 'placeholder="Calle y número, 36740 Tomiño (Pontevedra)"'))}
-        <div class="grid-2">
-          ${field("Email para privacidad y reclamaciones", input("LEGAL_EMAIL", v.LEGAL_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'), "Si lo dejas vacío se usa el email de contacto")}
-          ${field("Datos registrales", input("LEGAL_REGISTRY", v.LEGAL_REGISTRY, 'placeholder="Registro Mercantil de Pontevedra, tomo…"'), "Solo si eres sociedad. Opcional")}
-        </div>
-        ${field("ID de Google Analytics 4", input("GA_MEASUREMENT_ID", v.GA_MEASUREMENT_ID, 'placeholder="G-XXXXXXXXXX" spellcheck="false"'), 'En Google Analytics → Administrar → Flujos de datos. Solo se carga a los visitantes que acepten las cookies analíticas. Pon la retención de datos en 14 meses.')}
+        <h2 class="settings__title">Tienda</h2>
+        ${toggle("SHOP_OPEN", v.SHOP_OPEN !== "false", "Tienda abierta (compra y cesta activas)")}
+        ${field("Aviso cuando está cerrada", input("SHOP_CLOSED_MESSAGE", v.SHOP_CLOSED_MESSAGE, 'placeholder="No disponible en estos momentos"'), "Se ve en la tienda y en las fichas. Los pedidos ya pagados no cambian.")}
       </section>
 
       <section class="stack">
-        <h2 class="settings__title">Stripe · pagos ${mode}</h2>
-        <p class="muted">En <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe → Desarrolladores → Claves de API</a> copia la <strong>clave secreta</strong> (sk_test_… para probar, sk_live_… para cobrar de verdad).</p>
-        ${secret("STRIPE_SECRET_KEY", "Clave secreta", "sk_live_…")}
-        <div class="notice notice--soft">
-          <p>En <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener">Stripe → Webhooks</a> pulsa «Añadir destino», pega esta URL y marca estos eventos:</p>
-          <p class="copy"><code data-copy>${esc(s.webhook_url)}</code> <button type="button" class="link-btn" data-copy-btn>Copiar</button></p>
-          <p class="muted">${s.webhook_events.map(esc).join(" · ")}</p>
-          <p>Después copia su «Secreto de firma» (whsec_…) aquí abajo.</p>
+        <h2 class="settings__title">Opciones de envío</h2>
+        ${toggle("SHIPPING_PICKUP", v.SHIPPING_PICKUP !== "false", "Ofrecer recogida gratis en el estudio")}
+        <div class="grid-2">
+          ${field("Nombre de la tarifa plana", input("SHIPPING_FLAT_NAME", v.SHIPPING_FLAT_NAME, 'placeholder="Envío estándar"'))}
+          ${field("Precio tarifa plana (€)", input("SHIPPING_FLAT_CENTS", eurosInput(v.SHIPPING_FLAT_CENTS), 'inputmode="decimal" placeholder="6,90"'), "Se usa si Packlink no está configurado o falla")}
         </div>
-        ${secret("STRIPE_WEBHOOK_SECRET", "Secreto del webhook", "whsec_…")}
-        <div class="row"><button type="button" class="btn btn--ghost" data-test="stripe">Probar conexión con Stripe</button></div>
+        <div class="grid-2">
+          ${field("Envío gratis desde (€)", input("SHIPPING_FREE_FROM_CENTS", eurosInput(v.SHIPPING_FREE_FROM_CENTS), 'inputmode="decimal"'), "Vacío = nunca gratis")}
+          ${field("Suplemento sobre Packlink (€)", input("SHIPPING_MARKUP_CENTS", eurosInput(v.SHIPPING_MARKUP_CENTS), 'inputmode="decimal" placeholder="0,00"'), "Para cubrir el embalaje")}
+        </div>
       </section>
 
       <section class="stack">
@@ -1183,37 +1197,117 @@ views.ajustes = async () => {
         <div class="row"><button type="button" class="btn btn--ghost" data-test="packlink">Probar conexión con Packlink</button></div>
       </section>
 
+      </div>
+
+      <div class="stack settings__panel" data-panel="pagos"${tab === "pagos" ? "" : " hidden"}>
       <section class="stack">
-        <h2 class="settings__title">Tienda</h2>
-        ${toggle("SHOP_OPEN", v.SHOP_OPEN !== "false", "Tienda abierta (compra y cesta activas)")}
-        ${field("Aviso cuando está cerrada", input("SHOP_CLOSED_MESSAGE", v.SHOP_CLOSED_MESSAGE, 'placeholder="No disponible en estos momentos"'), "Se ve en la tienda y en las fichas. Los pedidos ya pagados no cambian.")}
+        <h2 class="settings__title">Stripe · pagos ${mode}</h2>
+        <p class="muted">En <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Stripe → Desarrolladores → Claves de API</a> copia la <strong>clave secreta</strong> (sk_test_… para probar, sk_live_… para cobrar de verdad).</p>
+        ${secret("STRIPE_SECRET_KEY", "Clave secreta", "sk_live_…")}
+        <div class="notice notice--soft">
+          <p>En <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener">Stripe → Webhooks</a> pulsa «Añadir destino», pega esta URL y marca estos eventos:</p>
+          <p class="copy"><code data-copy>${esc(s.webhook_url)}</code> <button type="button" class="link-btn" data-copy-btn>Copiar</button></p>
+          <p class="muted">${s.webhook_events.map(esc).join(" · ")}</p>
+          <p>Después copia su «Secreto de firma» (whsec_…) aquí abajo.</p>
+        </div>
+        ${secret("STRIPE_WEBHOOK_SECRET", "Secreto del webhook", "whsec_…")}
+        <div class="row"><button type="button" class="btn btn--ghost" data-test="stripe">Probar conexión con Stripe</button></div>
+      </section>
+
+      </div>
+
+      <div class="stack settings__panel" data-panel="correo"${tab === "correo" ? "" : " hidden"}>
+      <section class="stack">
+        <h2 class="settings__title">Cómo salen los emails ${mailBadge}</h2>
+        <p class="muted">La web manda emails a tus clientes (pedido recibido, reserva confirmada…) y a ti (avisos de pedidos, reservas y mensajes). Elige desde qué cuenta salen.</p>
+        <div class="choices" role="radiogroup" aria-label="Cómo enviar los emails">
+          ${choice("gmail", "Gmail o Google Workspace", "Tu cuenta de Google. Necesita una contraseña de aplicación (te explicamos cómo abajo).")}
+          ${choice("smtp", "Buzón de tu dominio", "Un correo tipo hola@tudominio.com creado en Hostinger (hPanel → Emails) u otro proveedor.")}
+          ${choice("hosting", "Envío básico del hosting", "Sin contraseña. Solo vale con un remitente de tu dominio y es más fácil que acabe en spam.")}
+        </div>
+        <div class="grid-2">
+          ${field(`<span data-from-label>Email remitente</span>`, input("MAIL_FROM", v.MAIL_FROM, 'type="email" autocomplete="off" placeholder="hola@tudominio.com"'), '<span data-from-hint></span>')}
+          ${field("Nombre que ve el cliente", input("MAIL_FROM_NAME", v.MAIL_FROM_NAME, 'placeholder="Charria Ceramics"'), "Sale como remitente en la bandeja de entrada")}
+        </div>
+        <div class="stack" data-mail-only="smtp">
+          <div class="grid-2">
+            ${field("Servidor de salida (SMTP)", input("SMTP_HOST", v.SMTP_HOST, 'placeholder="smtp.hostinger.com" spellcheck="false" autocapitalize="off"'), "En Hostinger: smtp.hostinger.com")}
+            ${field("Puerto", `<select name="SMTP_PORT">${[["465", "465 · SSL (recomendado)"], ["587", "587 · STARTTLS"]].map(([p, t]) => `<option value="${p}" ${String(v.SMTP_PORT || "465") === p ? "selected" : ""}>${t}</option>`).join("")}</select>`)}
+          </div>
+          ${field("Usuario", input("SMTP_USER", v.SMTP_USER, 'autocomplete="off" spellcheck="false" autocapitalize="off"'), "Casi siempre es el mismo email remitente. Vacío = el remitente.")}
+        </div>
+        <div data-mail-only="gmail smtp">${secret("SMTP_PASS", '<span data-pass-label>Contraseña</span>', "Pega la contraseña")}</div>
+        <details class="howto" data-mail-only="gmail" ${s.secrets.SMTP_PASS.set ? "" : "open"}>
+          <summary>Cómo conseguir la contraseña de aplicación de Google (5 minutos)</summary>
+          <ol>
+            <li>Entra en <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">tu cuenta de Google → Seguridad</a> con el Gmail que vas a usar como remitente.</li>
+            <li>Activa la <strong>Verificación en dos pasos</strong> si aún no la tienes (Google te pide el móvil). Sin ella no aparece la opción del paso siguiente.</li>
+            <li>Abre <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Contraseñas de aplicaciones</a>. Si no la encuentras, escribe «contraseñas de aplicaciones» en el buscador de arriba de tu cuenta de Google.</li>
+            <li>Escribe un nombre que reconozcas, por ejemplo <em>Web Charria</em>, y pulsa <strong>Crear</strong>.</li>
+            <li>Google te enseña una contraseña de <strong>16 letras</strong> en un recuadro. Cópiala y pégala arriba, en «Contraseña de aplicación» (da igual si lleva espacios). Solo se ve una vez: si la pierdes, bórrala allí y crea otra.</li>
+            <li>Pulsa <strong>Guardar ajustes</strong> y después <strong>Enviar correo de prueba</strong>. Te llegará un email al buzón de avisos.</li>
+          </ol>
+          <p class="muted">No uses la contraseña normal de tu Gmail: Google la rechaza. Si un día cambias la contraseña de tu cuenta de Google, la de aplicación deja de valer y tendrás que crear otra. Con una cuenta de Google Workspace, si no ves la opción, el administrador tiene que permitir la verificación en dos pasos.</p>
+        </details>
       </section>
 
       <section class="stack">
-        <h2 class="settings__title">Opciones de envío</h2>
-        ${toggle("SHIPPING_PICKUP", v.SHIPPING_PICKUP !== "false", "Ofrecer recogida gratis en el estudio")}
+        <h2 class="settings__title">Dónde te llegan los avisos</h2>
+        ${field("Email donde recibes los avisos", input("MAIL_ADMIN", v.MAIL_ADMIN, 'type="email" placeholder="tucorreo@gmail.com"'), "Pedidos pagados, reservas, mensajes del formulario de contacto y cobros pendientes. Puede ser el mismo Gmail. Cuando un cliente responda a un email de la web, su respuesta también llega aquí.")}
+        <div class="row"><button type="button" class="btn btn--ghost" data-test="mail">Enviar correo de prueba</button><small class="muted">Guarda lo que hayas escrito y manda un email al buzón de avisos.</small></div>
+      </section>
+      </div>
+
+      <div class="stack settings__panel" data-panel="legal"${tab === "legal" ? "" : " hidden"}>
+      <section class="stack">
+        <h2 class="settings__title">Datos legales y analítica</h2>
+        <p class="muted">Los datos del titular salen en el <a href="../aviso-legal.html" target="_blank" rel="noopener">aviso legal</a>, la <a href="../privacidad.html" target="_blank" rel="noopener">política de privacidad</a> y las <a href="../condiciones.html" target="_blank" rel="noopener">condiciones de venta</a>. La ley (LSSI) obliga a mostrarlos: mientras falten, esas páginas enseñan el hueco marcado.</p>
         <div class="grid-2">
-          ${field("Nombre de la tarifa plana", input("SHIPPING_FLAT_NAME", v.SHIPPING_FLAT_NAME, 'placeholder="Envío estándar"'))}
-          ${field("Precio tarifa plana (€)", input("SHIPPING_FLAT_CENTS", eurosInput(v.SHIPPING_FLAT_CENTS), 'inputmode="decimal" placeholder="6,90"'), "Se usa si Packlink no está configurado o falla")}
+          ${field("Nombre o razón social", input("LEGAL_OWNER", v.LEGAL_OWNER, 'placeholder="Nombre Apellidos o Empresa S.L."'), "Autónomo: tu nombre completo")}
+          ${field("NIF / CIF", input("LEGAL_TAX_ID", v.LEGAL_TAX_ID, 'placeholder="12345678Z"'))}
         </div>
+        ${field("Domicilio fiscal o del taller", input("LEGAL_ADDRESS", v.LEGAL_ADDRESS, 'placeholder="Calle y número, 36740 Tomiño (Pontevedra)"'))}
         <div class="grid-2">
-          ${field("Envío gratis desde (€)", input("SHIPPING_FREE_FROM_CENTS", eurosInput(v.SHIPPING_FREE_FROM_CENTS), 'inputmode="decimal"'), "Vacío = nunca gratis")}
-          ${field("Suplemento sobre Packlink (€)", input("SHIPPING_MARKUP_CENTS", eurosInput(v.SHIPPING_MARKUP_CENTS), 'inputmode="decimal" placeholder="0,00"'), "Para cubrir el embalaje")}
+          ${field("Email para privacidad y reclamaciones", input("LEGAL_EMAIL", v.LEGAL_EMAIL, 'type="email" placeholder="hola@charriaceramics.com"'), "Si lo dejas vacío se usa el email de contacto")}
+          ${field("Datos registrales", input("LEGAL_REGISTRY", v.LEGAL_REGISTRY, 'placeholder="Registro Mercantil de Pontevedra, tomo…"'), "Solo si eres sociedad. Opcional")}
         </div>
+        ${field("ID de Google Analytics 4", input("GA_MEASUREMENT_ID", v.GA_MEASUREMENT_ID, 'placeholder="G-XXXXXXXXXX" spellcheck="false"'), 'En Google Analytics → Administrar → Flujos de datos. Solo se carga a los visitantes que acepten las cookies analíticas. Pon la retención de datos en 14 meses.')}
       </section>
 
-      <section class="stack">
-        <h2 class="settings__title">Emails</h2>
-        <div class="grid-2">
-          ${field("Remitente de los emails", input("MAIL_FROM", v.MAIL_FROM, 'type="email" placeholder="hola@tudominio.com"'), "Crea este buzón en hPanel → Emails")}
-          ${field("Avisos de pedidos y reservas a", input("MAIL_ADMIN", v.MAIL_ADMIN, 'type="email"'))}
-        </div>
-      </section>
+      </div>
 
       <div class="row settings__save"><button class="btn" type="submit">Guardar ajustes</button></div>
     </form>`;
 
   const form = $("[data-form]");
+  const showTab = (k) => {
+    state.settingsTab = k;
+    $$("[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === k)));
+    $$("[data-panel]", form).forEach((p) => { p.hidden = p.dataset.panel !== k; });
+    history.replaceState(null, "", `#ajustes/${k}`);
+  };
+  $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  // Si un campo con error está en otra pestaña, se abre esa pestaña
+  const revealError = () => {
+    const panel = $(".has-error", form)?.closest("[data-panel]");
+    if (panel && panel.hidden) showTab(panel.dataset.panel);
+  };
+  const mailCopy = {
+    gmail: ["Tu Gmail (remitente)", "tucuenta@gmail.com", "La misma cuenta de Google con la que creas la contraseña de aplicación.", "Contraseña de aplicación de Google"],
+    smtp: ["Email remitente", "hola@tudominio.com", "El buzón desde el que salen los emails.", "Contraseña del buzón"],
+    hosting: ["Email remitente", "hola@tudominio.com", "Tiene que ser un buzón de tu dominio creado en hPanel → Emails.", "Contraseña"],
+  };
+  const syncMail = () => {
+    const p = form.elements.MAIL_PROVIDER.value || "hosting";
+    $$("[data-mail-only]", form).forEach((el) => { el.hidden = !el.dataset.mailOnly.split(" ").includes(p); });
+    const [label, ph, hint, pass] = mailCopy[p];
+    $("[data-from-label]", form).textContent = label;
+    form.elements.MAIL_FROM.placeholder = ph;
+    $("[data-from-hint]", form).textContent = hint;
+    $("[data-pass-label]", form).textContent = pass;
+  };
+  $$("input[name=MAIL_PROVIDER]", form).forEach((r) => r.addEventListener("change", syncMail));
+  syncMail();
   const cents = new Set(["SHIPPING_FLAT_CENTS", "SHIPPING_FREE_FROM_CENTS", "SHIPPING_MARKUP_CENTS"]);
   const collect = () => {
     const values = {};
@@ -1227,11 +1321,14 @@ views.ajustes = async () => {
     });
     return values;
   };
-  const save = (clear = []) => submitting(form, async () => {
-    await api("PUT", "/admin/settings", { values: collect(), clear });
-    toast("Ajustes guardados");
-    await views.ajustes();
-  });
+  const save = async (clear = []) => {
+    await submitting(form, async () => {
+      await api("PUT", "/admin/settings", { values: collect(), clear });
+      toast("Ajustes guardados");
+      await views.ajustes();
+    });
+    revealError();
+  };
   form.addEventListener("submit", (e) => { e.preventDefault(); save(); });
   $$("[data-clear]", form).forEach((b) => b.addEventListener("click", () => {
     if (confirm("¿Borrar esta clave del panel?")) save([b.dataset.clear]);
@@ -1262,7 +1359,8 @@ views.ajustes = async () => {
       await api("PUT", "/admin/settings", { values: collect() });
       const r = await api("POST", "/admin/settings/test", { service: b.dataset.test });
       toast(r.message);
-    } catch (e) { if (e.fields) showFieldErrors(form, e.fields); fail(e); } finally { b.disabled = false; }
+      await views.ajustes();
+    } catch (e) { if (e.fields) { showFieldErrors(form, e.fields); revealError(); } fail(e); } finally { b.disabled = false; }
   }));
 };
 
@@ -1294,7 +1392,7 @@ views.cuenta = async () => {
    Arranque y navegación
    ========================================================== */
 async function route() {
-  const name = location.hash.slice(1) || "resumen";
+  const name = location.hash.slice(1).split("/")[0] || "resumen";
   const view = views[name] || views.resumen;
   $$("[data-nav] a").forEach((a) => a.toggleAttribute("aria-current", a.getAttribute("href") === `#${name}`));
   $$("[data-nav] a[aria-current]").forEach((a) => a.setAttribute("aria-current", "page"));

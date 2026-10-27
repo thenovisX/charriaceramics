@@ -9,6 +9,7 @@ use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\AppSettings;
 use Charria\Services\Fulfillment;
+use Charria\Services\Mailer;
 use Charria\Services\Messages;
 use Charria\Services\Packlink;
 use Charria\Services\PaymentAlerts;
@@ -143,6 +144,7 @@ final class OrderAdminController
                 $db->all('SELECT id, title, stock FROM products WHERE is_active = 1 AND sold_out = 0 AND stock <= 1 ORDER BY stock, title')),
             'payments_configured' => Stripe::isConfigured(),
             'packlink_configured' => Packlink::isConfigured(),
+            'mail_configured' => Mailer::canSend(),
             'legal_missing' => AppSettings::legalMissing(),
             'legacy_customers' => (int) $db->value('SELECT COUNT(*) FROM customers WHERE has_profile = 0 AND marketing_opt_in = 0'),
         ]);

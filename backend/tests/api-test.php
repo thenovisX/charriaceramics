@@ -3,7 +3,8 @@
  * Test de extremo a extremo de la API contra una base de datos de pruebas.
  * Ver "Tests" en el README:
  *   php backend/tests/api-test.php http://127.0.0.1:8000 whsec_test
- * Requiere el servidor de desarrollo con STRIPE_API_BASE apuntando a mock-stripe.php.
+ * Requiere el servidor de desarrollo con STRIPE_API_BASE apuntando a mock-stripe.php
+ * y mock-smtp.php escuchando en el puerto 2525 (6.º argumento para cambiarlo).
  * ¡No lo ejecutes contra la base de datos real! Crea y borra datos.
  */
 declare(strict_types=1);
@@ -127,6 +128,26 @@ check('tienda cerrada: el pago se rechaza en el servidor', $s === 503 && ($j['er
 call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => true, 'SHOP_CLOSED_MESSAGE' => '']], $token);
 [, $site] = call('GET', "$base/site");
 check('tienda reabierta desde el panel', $site['data']['shop_open'] === true, $site);
+
+echo "Correo (Gmail / SMTP)\n";
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['MAIL_PROVIDER' => 'outlook', 'SMTP_PORT' => '80', 'SMTP_HOST' => 'no valido']], $token);
+check('correo: rechaza proveedor, puerto y servidor no válidos', $s === 422 && isset($j['error']['fields']['MAIL_PROVIDER'], $j['error']['fields']['SMTP_PORT'], $j['error']['fields']['SMTP_HOST']), $j);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['MAIL_PROVIDER' => 'gmail', 'MAIL_FROM' => 'charria.test@gmail.com', 'SMTP_PASS' => 'abcd efgh ijkl mnop']], $token);
+check('correo: Gmail guardado, contraseña de aplicación sin espacios y sin devolverla', $s === 200 && $j['data']['mail_provider'] === 'gmail'
+    && $j['data']['secrets']['SMTP_PASS']['set'] && $j['data']['secrets']['SMTP_PASS']['hint'] === '…mnop' && !str_contains(json_encode($j), 'abcdefgh'), $j);
+$smtpPort = $argv[6] ?? '2525';
+$smtpFile = sys_get_temp_dir() . '/charria-mock-smtp.txt';
+@unlink($smtpFile);
+call('PUT', "$base/admin/settings", ['values' => ['MAIL_PROVIDER' => 'smtp', 'SMTP_HOST' => '127.0.0.1', 'SMTP_PORT' => $smtpPort, 'SMTP_PASS' => 'mala-clave-123', 'MAIL_ADMIN' => 'avisos@charria.test']], $token);
+[$s, $j] = call('POST', "$base/admin/settings/test", ['service' => 'mail'], $token);
+check('correo de prueba: contraseña rechazada se explica', $s === 502 && str_contains($j['error']['message'] ?? '', 'contraseña de aplicación'), $j);
+call('PUT', "$base/admin/settings", ['values' => ['SMTP_PASS' => 'abcdefghijklmnop', 'MAIL_FROM_NAME' => 'Charria Cerámica']], $token);
+[$s, $j] = call('POST', "$base/admin/settings/test", ['service' => 'mail'], $token);
+$sent = (string) @file_get_contents($smtpFile);
+check('correo de prueba enviado por SMTP al buzón de avisos', $s === 200 && str_contains($sent, 'RCPT TO:<avisos@charria.test>') && str_contains($sent, 'From: =?UTF-8?B?' . base64_encode('Charria Cerámica') . '?= <charria.test@gmail.com>'), [$j, $sent]);
+call('PUT', "$base/admin/settings", ['values' => ['MAIL_PROVIDER' => '', 'MAIL_FROM' => '', 'MAIL_FROM_NAME' => '', 'MAIL_ADMIN' => '', 'SMTP_HOST' => '', 'SMTP_PORT' => ''], 'clear' => ['SMTP_PASS']], $token);
+[, $j] = call('GET', "$base/admin/settings", null, $token);
+check('correo: ajustes borrados vuelven al envío del hosting', $j['data']['mail_provider'] === 'hosting' && !$j['data']['secrets']['SMTP_PASS']['set'], $j);
 
 echo "Productos (panel)\n";
 [$s, $j] = call('POST', "$base/admin/products", ['title' => 'Test Cuenco', 'price_cents' => 5000, 'discount_percent' => 15, 'stock' => 2, 'category' => 'Test', 'weight_grams' => 500], $token);

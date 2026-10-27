@@ -8,10 +8,11 @@ use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\AppSettings;
 use Charria\Services\ImageProcessor;
+use Charria\Services\Mailer;
 use Charria\Services\Packlink;
 use Charria\Services\Stripe;
 
-/** Ajustes > Stripe, Packlink, envíos y emails (panel). */
+/** Ajustes > Stripe, Packlink, envíos y correo (panel). */
 final class SettingsController
 {
     public function show(Request $r): Response
@@ -47,7 +48,7 @@ final class SettingsController
         return Response::json(AppSettings::forPanel());
     }
 
-    /** POST /admin/settings/test { service: "stripe" | "packlink" } — comprueba que las claves funcionan */
+    /** POST /admin/settings/test { service: "stripe" | "packlink" | "mail" } — comprueba que las claves funcionan */
     public function test(Request $r): Response
     {
         $service = $r->input('service');
@@ -73,6 +74,10 @@ final class SettingsController
                 throw new HttpError(502, 'packlink_error', 'Packlink ha rechazado la petición. Revisa la API key y el código postal del remitente.');
             }
             return Response::json(['ok' => true, 'message' => 'Conectado con Packlink · ' . count($services) . ' tarifas para un paquete de prueba a Barcelona']);
+        }
+        if ($service === 'mail') {
+            $to = Mailer::test();
+            return Response::json(['ok' => true, 'message' => "Correo de prueba enviado a $to. Mira la bandeja de entrada (y la de spam)."]);
         }
         throw HttpError::validation(['service' => 'Servicio desconocido']);
     }
