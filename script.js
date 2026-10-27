@@ -1219,6 +1219,13 @@ function initPage() {
     }
   });
 
+  // La página «Reserva confirmada» se abre en otra pestaña. Tiene que abrirse en el mismo
+  // clic (si no, el navegador la bloquea): sale con «Un momento» hasta que la reserva existe.
+  // null si el navegador no deja abrirla: entonces se sigue en esta pestaña.
+  const openBookingTab = () => {
+    try { return window.open("reserva.html?preparando=1", "_blank"); } catch { return null; }
+  };
+
   // Reserva de clase en grupo: se paga en Stripe (las plazas se retienen mientras tanto)
   // o, si la clase lo admite, en el taller (la plaza queda reservada sin pagar)
   const modal = $("[data-modal]");
@@ -1284,18 +1291,29 @@ function initPage() {
     sendForm(form, async (f) => {
       if (!CLASSES) throw new Error();
       requireCheck(f.terms, "Para reservar tienes que aceptar las condiciones de las clases y la política de privacidad.");
-      const res = await apiPost("bookings", {
-        session_id: Number(form.dataset.session), seats: Number(f.seats.value), payment_method: f.pay.value,
-        customer: { name: f.name.value, email: f.email.value, phone: f.phone.value },
-        consents: consentsOf(f),
-      });
-      if (res.checkout_url) {
-        formMessage(form, "Te llevamos al pago seguro…");
-        window.location.href = res.checkout_url;
-        return;
+      const tab = openBookingTab();
+      try {
+        const res = await apiPost("bookings", {
+          session_id: Number(form.dataset.session), seats: Number(f.seats.value), payment_method: f.pay.value,
+          customer: { name: f.name.value, email: f.email.value, phone: f.phone.value },
+          consents: consentsOf(f),
+        });
+        // Online: Stripe en la pestaña nueva, que vuelve a reserva.html; en el taller: reserva.html directamente
+        const next = res.checkout_url || res.confirmation_url;
+        if (!tab) {
+          formMessage(form, res.checkout_url ? "Te llevamos al pago seguro…" : `Reserva ${res.reference} confirmada. Abriendo los datos de tu reserva…`);
+          window.location.href = next;
+          return;
+        }
+        tab.location.href = next;
+        formMessage(form, res.checkout_url
+          ? "Completa el pago en la pestaña que se ha abierto. Al pagar verás allí tu reserva confirmada con todos los datos."
+          : `Reserva ${res.reference} confirmada. Pagas ${euros(res.total_cents)} en el taller el día de la clase (efectivo, tarjeta o Bizum). Tienes todos los datos en la pestaña nueva y en tu email.`);
+        $$("input[type=checkbox]", form).forEach((c) => { c.checked = false; });
+      } catch (err) {
+        tab?.close();
+        throw err;
       }
-      formMessage(form, `Reserva ${res.reference} confirmada. Pagas ${euros(res.total_cents)} en el taller el día de la clase (efectivo, tarjeta o Bizum). Te hemos enviado un email con los detalles.`);
-      $$("input[type=checkbox]", form).forEach((c) => { c.checked = false; });
     });
   }
 
@@ -1306,12 +1324,21 @@ function initPage() {
     sendForm(privateForm, async (f) => {
       if (!CLASSES?.private.length) throw new Error();
       requireCheck(f.terms, "Para enviar la solicitud tienes que aceptar las condiciones de las clases y la política de privacidad.");
-      await apiPost("bookings/private", {
-        class_id: Number(f.tipo.value), preferred_date: f.fecha.value, preferred_slot: f.franja.value,
-        customer: { name: f.nombre.value, email: f.email.value },
-        consents: consentsOf(f),
-      });
-      formMessage(privateForm, "Gracias. Te escribiremos en menos de 24 h para confirmar.");
+      const tab = openBookingTab();
+      let res;
+      try {
+        res = await apiPost("bookings/private", {
+          class_id: Number(f.tipo.value), preferred_date: f.fecha.value, preferred_slot: f.franja.value,
+          customer: { name: f.nombre.value, email: f.email.value },
+          consents: consentsOf(f),
+        });
+      } catch (err) {
+        tab?.close();
+        throw err;
+      }
+      if (tab && res.confirmation_url) tab.location.href = res.confirmation_url;
+      else tab?.close();
+      formMessage(privateForm, "Gracias. Te escribiremos en menos de 24 h para confirmar." + (tab && res.confirmation_url ? " Tienes los datos de tu solicitud en la pestaña nueva." : ""));
       privateForm.reset();
     });
   }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Charria\Services;
 
 use Charria\Database;
+use Charria\Env;
 
 /**
  * Qué pasa cuando Stripe confirma (o cancela) un pago. Lo llama el webhook,
@@ -182,19 +183,42 @@ final class Fulfillment
     {
         $method = $booking['payment_method'] ?? 'online';
         $inPerson = $method === 'in_person';
-        $when = $booking['starts_at'] ? date('d/m/Y H:i', strtotime($booking['starts_at'])) : '';
+        $when = $booking['starts_at'] ? self::longDate($booking['starts_at']) : '';
         $text = "Reserva {$booking['reference']}\n{$booking['class_title']} · $when\nPlazas: {$booking['seats']}\nTotal: " . Mailer::money((int) $booking['total_cents'])
             . match ($method) {
                 'in_person' => "\nPago: en el taller, el día de la clase (pendiente) · efectivo, tarjeta o Bizum",
                 'subscription' => "\nPago: suscripción mensual online (primera cuota pagada)",
                 default => "\nPago: online (pagado)",
             };
+        $where = trim(implode(', ', array_filter([Env::get('SITE_ADDRESS'), Env::get('SITE_CITY')])));
         Mailer::send($booking['customer_email'], "Reserva confirmada · {$booking['class_title']}",
             "Hola {$booking['customer_name']},\n\nTu plaza está confirmada."
             . ($method === 'subscription' ? ' La cuota se cobra cada mes en tu tarjeta; para darte de baja, escríbenos.' : '')
             . ($inPerson ? ' Pagas en el taller el día de la clase, en efectivo, con tarjeta o por Bizum. Si no puedes venir, avísanos para liberar la plaza.' : '')
-            . "\n\n$text\n\nNos vemos en el estudio.\nCharria Ceramics");
+            . "\n\n$text" . ($where ? "\nDónde: $where" : '')
+            . "\n\nTodos los datos de tu reserva:\n" . self::bookingUrl($booking['reference'])
+            . "\n\nNos vemos en el estudio.\nCharria Ceramics");
         Mailer::admin(($inPerson ? 'Nueva reserva (pago en el taller) ' : ($method === 'subscription' ? 'Nueva suscripción ' : 'Nueva reserva ')) . $booking['reference'],
             "$text\nCliente: {$booking['customer_name']} <{$booking['customer_email']}> {$booking['customer_phone']}");
+    }
+
+    /** Enlace privado a la página «Reserva confirmada» (reserva.html): sin la firma no se ven los datos. */
+    public static function bookingUrl(string $reference): string
+    {
+        return Settings::appUrl() . '/reserva.html?ref=' . rawurlencode($reference) . '&t=' . self::bookingToken($reference);
+    }
+
+    public static function bookingToken(string $reference): string
+    {
+        return substr(AppSettings::sign('booking-view|' . $reference), 0, 32);
+    }
+
+    /** «martes 3 de noviembre de 2026, 18:00» (sin depender de las locales del servidor). */
+    public static function longDate(string $datetime): string
+    {
+        $t = strtotime($datetime);
+        $days = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+        $months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        return $days[(int) date('N', $t) - 1] . ' ' . date('j', $t) . ' de ' . $months[(int) date('n', $t) - 1] . ' de ' . date('Y, H:i', $t);
     }
 }

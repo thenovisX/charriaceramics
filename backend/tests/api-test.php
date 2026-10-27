@@ -347,6 +347,13 @@ check('las plazas quedan retenidas durante el pago', $sess && $sess['seats_left'
 [$s] = webhook($base, $webhookSecret, ['id' => 'evt_' . bin2hex(random_bytes(6)), 'type' => 'checkout.session.completed', 'data' => ['object' => $paidB]]);
 [$s, $j] = call('GET', "$base/admin/bookings?session_id=$sid", null, $token);
 check('la reserva queda confirmada', ($j['data'][0]['status'] ?? '') === 'confirmed', $j);
+[$s, $j] = call('GET', "$base/bookings/confirmation?session_id=$bcs");
+$conf = $j['data'] ?? [];
+check('«Reserva confirmada» al volver de Stripe: pagada, con clase, fecha, plazas y cliente', $s === 200 && $conf['confirmed'] === true && $conf['paid'] === true && $conf['payment_method'] === 'online'
+    && $conf['seats'] === 2 && $conf['total_cents'] === 7000 && $conf['customer']['email'] === 'luis@example.com' && preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:00$/', (string) $conf['starts_at'])
+    && $conf['ends_at'] !== null && str_contains((string) $conf['link'], '/reserva.html?ref=') && array_key_exists('address', $conf['studio']), $conf);
+[$s] = call('GET', "$base/bookings/confirmation?session_id=cs_test_noexiste12345");
+check('…y una sesión de Stripe desconocida no enseña nada', $s === 404);
 [$s, $j] = call('DELETE', "$base/admin/sessions/$sid", null, $token);
 check('no se borra un horario con reservas', $s === 409, $j);
 
@@ -359,6 +366,14 @@ $sid2 = $j['data']['id'] ?? 0;
 $nora = ['session_id' => $sid2, 'seats' => 2, 'payment_method' => 'in_person', 'customer' => ['name' => 'Nora', 'email' => 'nora@example.com'], 'consents' => ['terms' => true]];
 [$s, $j] = call('POST', "$base/bookings", $nora);
 check('reservar para pagar en el taller: confirmada al momento y sin Stripe', $s === 201 && $j['data']['status'] === 'confirmed' && $j['data']['payment_method'] === 'in_person' && !isset($j['data']['checkout_url']) && $j['data']['total_cents'] === 8000, $j);
+$noraUrl = (string) ($j['data']['confirmation_url'] ?? '');
+parse_str((string) parse_url($noraUrl, PHP_URL_QUERY), $noraQ);
+[$s, $c] = call('GET', "$base/bookings/confirmation?" . http_build_query(['ref' => $noraQ['ref'] ?? '', 't' => $noraQ['t'] ?? '']));
+check('pago en el taller: abre «Reserva confirmada» con el pago pendiente', str_contains($noraUrl, '/reserva.html?ref=') && $s === 200 && $c['data']['confirmed'] === true
+    && $c['data']['paid'] === false && $c['data']['payment_method'] === 'in_person' && $c['data']['seats'] === 2 && $c['data']['customer']['name'] === 'Nora', $c);
+[$s1] = call('GET', "$base/bookings/confirmation?ref=" . urlencode($noraQ['ref'] ?? ''));
+[$s2] = call('GET', "$base/bookings/confirmation?ref=" . urlencode($noraQ['ref'] ?? '') . '&t=' . str_repeat('0', 32));
+check('…la referencia sola o con una firma falsa no enseña los datos', $s1 === 404 && $s2 === 404);
 [, $j] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
 $noraB = $j['data'][0] ?? [];
 check('…ocupa plazas y queda sin cobrar', ($noraB['payment_method'] ?? '') === 'in_person' && $noraB['paid_at'] === null && $noraB['status'] === 'confirmed', $j);
@@ -453,6 +468,9 @@ call('PATCH', "$base/admin/classes/$cid", ['pay_online' => true, 'pay_subscripti
 $privateId = $j['data']['private'][0]['id'] ?? 0;
 [$s, $j] = call('POST', "$base/bookings/private", ['class_id' => $privateId, 'preferred_date' => date('Y-m-d', strtotime('+5 days')), 'preferred_slot' => 'Tarde', 'customer' => ['name' => 'Eva', 'email' => 'eva@example.com'], 'consents' => ['terms' => true]]);
 check('solicitud de clase privada', $s === 201 && $j['data']['status'] === 'requested', $j);
+parse_str((string) parse_url((string) ($j['data']['confirmation_url'] ?? ''), PHP_URL_QUERY), $evaQ);
+[$s, $c] = call('GET', "$base/bookings/confirmation?" . http_build_query(['ref' => $evaQ['ref'] ?? '', 't' => $evaQ['t'] ?? '']));
+check('…y su página con el día y la franja preferidos', $s === 200 && $c['data']['kind'] === 'private' && $c['data']['status'] === 'requested' && $c['data']['preferred_slot'] === 'Tarde' && $c['data']['starts_at'] === null, $c);
 [$s, $j] = call('POST', "$base/bookings/private", ['class_id' => $privateId, 'preferred_date' => '2020-01-01', 'preferred_slot' => 'Noche', 'customer' => ['name' => 'Eva', 'email' => 'no-es-email']]);
 check('validación de la solicitud privada', $s === 422 && count($j['error']['fields']) >= 4 && isset($j['error']['fields']['consents.terms']), $j);
 

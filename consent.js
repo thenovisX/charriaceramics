@@ -110,7 +110,7 @@
   }
 
   /* ---------- Aviso (primera capa) ---------- */
-  const SOFT = /\/(cookies|privacidad|aviso-legal)(\.html)?$/.test(location.pathname);
+  const SOFT = /\/(cookies|privacidad|aviso-legal|reserva)(\.html)?$/.test(location.pathname);
   document.body.insertAdjacentHTML("beforeend", `
     <div class="consent-wall${SOFT ? " consent-wall--soft" : ""}" data-consent-wall hidden>
     <section class="consent" data-consent ${SOFT ? 'role="region" aria-label="Aviso de cookies"' : 'role="dialog" aria-modal="true" aria-labelledby="consent-title" tabindex="-1"'}>

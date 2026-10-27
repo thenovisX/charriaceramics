@@ -57,7 +57,7 @@ Sin Composer ni dependencias: se sube tal cual a `public_html`.
 
 ```
 public_html/
-├── index.html, productos.html, producto.html, galeria.html, contacto.html, checkout.html, gracias.html
+├── index.html, productos.html, producto.html, galeria.html, contacto.html, checkout.html, gracias.html, reserva.html
 ├── style.css, script.js, cart.js, checkout.js, gracias.js, data.js (respaldo)
 ├── .htaccess              ← bloquea .env, .git, backend/, *.sql, *.md… y fuerza HTTPS
 ├── api/
@@ -384,6 +384,9 @@ Reserva plazas de un horario y devuelve el pago.
 ```
 Errores: `404` horario no disponible, `409 not_enough_seats`, `422` (también si la clase no admite pagar en el taller), `503` (pago online sin Stripe).
 
+
+#### `GET /bookings/confirmation?session_id=cs_…` · `?ref=CL-…&t=…`
+Lo usa `reserva.html` («Reserva confirmada»), que se abre en una pestaña nueva al reservar: con `session_id` al volver de Stripe (pago online o suscripción) y con `ref` + `t` (firma HMAC con `APP_KEY`) en el pago en el taller, la clase privada y el enlace del email. La referencia sola no enseña nada (404). Devuelve clase, fecha y hora (`starts_at`/`ends_at`), plazas, precio, forma de pago, `paid`, cliente, dirección del estudio (Ajustes → Datos de la web) y `link`.
 #### `POST /bookings/private`
 Solicitud de clase privada (`preferred_slot`: `Mañana` o `Tarde`).
 ```json
