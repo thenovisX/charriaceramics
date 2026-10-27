@@ -57,8 +57,8 @@ Sin Composer ni dependencias: se sube tal cual a `public_html`.
 
 ```
 public_html/
-├── index.html, productos.html, producto.html, galeria.html, contacto.html, gracias.html
-├── style.css, script.js, cart.js, gracias.js, data.js (respaldo)
+├── index.html, productos.html, producto.html, galeria.html, contacto.html, checkout.html, gracias.html
+├── style.css, script.js, cart.js, checkout.js, gracias.js, data.js (respaldo)
 ├── .htaccess              ← bloquea .env, .git, backend/, *.sql, *.md… y fuerza HTTPS
 ├── api/
 │   ├── index.php          ← punto de entrada de la API
@@ -617,7 +617,7 @@ Mapa rápido por zona:
 | Zona | Ficheros |
 |---|---|
 | Panel | `admin/admin.js`, `admin/index.html`, `admin/admin.css`, `backend/src/Controllers/Admin/` |
-| Tienda y pago | `productos.html`, `producto.html`, `cart.js`, `gracias.*`, `backend/src/Controllers/{Checkout,Webhook,Public}Controller.php`, `backend/src/Services/{Catalog,Pricing,Shipping,Packlink,Stripe,Fulfillment}.php` |
+| Tienda y pago | `productos.html`, `producto.html`, `cart.js`, `checkout.*`, `gracias.*`, `backend/src/Controllers/{Checkout,Webhook,Public}Controller.php`, `backend/src/Services/{Catalog,Pricing,Shipping,Packlink,Stripe,Fulfillment}.php` |
 | Páginas públicas | `*.html`, `style.css`, `script.js`, `data.js`, `consent.js`, `mis-datos.js` |
 | API y base de datos | `backend/routes.php`, `backend/src/Http/`, `backend/database/schema.sql` |
 
