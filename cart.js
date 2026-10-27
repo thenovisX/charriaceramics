@@ -4,8 +4,7 @@
      foto y precio para pintarla rápido.
    - Cada vez que se abre, los precios, descuentos y disponibilidad se piden
      al servidor (/api/cart/quote); los totales que se ven son los del servidor.
-   - Al pagar solo se envían IDs y cantidades: el servidor calcula todo y
-     redirige a la página segura de Stripe.
+   - «Tramitar pedido» lleva a checkout.html (checkout.js): datos, envío y pago.
    ========================================================== */
 (function () {
   const API = "api";
@@ -15,12 +14,6 @@
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const money = (cents) => (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR", minimumFractionDigits: cents % 100 ? 2 : 0 });
   const button = (btn, text, icon) => (window.setButton ? window.setButton(btn, text, icon) : (btn.textContent = text));
-  // Casillas de consentimiento (RGPD): separadas y sin marcar. Las reservas tienen las mismas en index.html.
-  const CONSENT_CHECKS = () => `
-    <label class="check"><input type="checkbox" name="terms"><span>He leído y acepto las <a href="condiciones.html" target="_blank">condiciones de venta</a> y la <a href="privacidad.html" target="_blank">política de privacidad</a>.</span></label>
-    <label class="check"><input type="checkbox" name="marketing"><span>Quiero recibir por email novedades, piezas nuevas, talleres y ofertas de Charria Ceramics.<small>Opcional. Puedes darte de baja cuando quieras.</small></span></label>
-    <label class="check"><input type="checkbox" name="profile"><span>Guardar mis datos y crear mi perfil de cliente para próximas compras.<small>Opcional. Si no lo marcas, solo guardamos lo necesario para este pedido.</small></span></label>`;
-
   async function post(path, body) {
     const res = await fetch(`${API}/${path}`, {
       method: "POST",
@@ -81,13 +74,9 @@
   let lastFocus = null;
   let quote = null;     // última respuesta del servidor
   let offline = false;  // sin API (p. ej. Live Server): se muestran precios orientativos
-  let ship = { options: [], selected: "", loading: false, zip: "", country: "ES" };
-
-  // pedido.html es la pestaña donde se tramita el pedido: allí la cesta se abre sola en el paso de datos
-  const IS_ORDER = document.body.dataset.page === "pedido";
 
   const isOpen = () => root.classList.contains("is-open");
-  function open(view = "items") {
+  function open() {
     if (!isOpen()) {
       lastFocus = document.activeElement;
       root.classList.add("is-open");
@@ -96,11 +85,7 @@
       document.dispatchEvent(new CustomEvent("cart:open"));
       setTimeout(() => panel.focus(), 50);
     }
-    if (view === "order") {
-      refreshQuote().then(() => (read().length && quote && !quote.errors.length ? renderCheckout() : renderItems()));
-      return;
-    }
-    view === "checkout" ? renderCheckout() : renderItems();
+    renderItems();
   }
   function close() {
     if (!isOpen()) return;
@@ -188,14 +173,7 @@
       ${hasErrors ? '<p class="cart-line__error">Quita las piezas que ya no están disponibles para continuar.</p>' : ""}
       <button class="btn-primary cart__cta" type="button" data-next ${offline || hasErrors ? "disabled" : ""}>Tramitar pedido</button>`;
     $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim()));
-    $("[data-next]", foot).addEventListener("click", () => {
-      if (IS_ORDER) return renderCheckout();
-      // El pedido se tramita siempre en una pestaña nueva. Se abre ya, dentro del clic, para que
-      // el navegador no la bloquee; si aun así la bloquea, se tramita en esta misma pestaña.
-      const tab = window.open("pedido.html", "_blank");
-      if (tab) showPaying("pedido.html", true);
-      else renderCheckout();
-    });
+    $("[data-next]", foot).addEventListener("click", () => { window.location.href = "checkout.html"; });
   }
 
   body.addEventListener("click", (e) => {
@@ -212,201 +190,6 @@
     write(items);
     renderItems();
   });
-
-  /* ---------- Paso 2: datos, entrega y pago ---------- */
-  let saved = {};
-  try { saved = JSON.parse(sessionStorage.getItem("charria-checkout") || "{}"); } catch { /* */ }
-
-  function renderCheckout() {
-    if (!quote || quote.errors.length) return renderItems();
-    step.textContent = "Entrega y pago";
-    body.innerHTML = `
-      <button class="cart__back" type="button" data-back>← Volver a la cesta</button>
-      <form class="form cart__form" data-checkout novalidate>
-        <fieldset><legend class="eyebrow">Tus datos</legend>
-          <label class="form__field"><span>Nombre y apellidos</span><input name="name" autocomplete="name" required value="${esc(saved.name)}"></label>
-          <label class="form__field"><span>Email</span><input type="email" name="email" autocomplete="email" required value="${esc(saved.email)}"></label>
-          <label class="form__field"><span>Teléfono</span><input type="tel" name="phone" autocomplete="tel" value="${esc(saved.phone)}"><small>Para el transportista</small></label>
-        </fieldset>
-        <fieldset><legend class="eyebrow">Entrega</legend>
-          <div class="ship-options" data-ship-options></div>
-          <div class="cart__address" data-address hidden>
-            <label class="form__field"><span>Dirección</span><input name="street" autocomplete="street-address" value="${esc(saved.street)}"></label>
-            <div class="cart__two">
-              <label class="form__field"><span>Código postal</span><input name="postal_code" autocomplete="postal-code" inputmode="numeric" value="${esc(saved.postal_code)}"></label>
-              <label class="form__field"><span>Ciudad</span><input name="city" autocomplete="address-level2" value="${esc(saved.city)}"></label>
-            </div>
-            <label class="form__field"><span>País</span><select name="country" autocomplete="country">
-              ${[["ES", "España"], ["PT", "Portugal"], ["FR", "Francia"], ["IT", "Italia"], ["DE", "Alemania"], ["BE", "Bélgica"], ["NL", "Países Bajos"], ["AD", "Andorra"]]
-                .map(([v, t]) => `<option value="${v}" ${(saved.country || "ES") === v ? "selected" : ""}>${t}</option>`).join("")}
-            </select></label>
-          </div>
-        </fieldset>
-        <fieldset class="checks"><legend class="eyebrow">Antes de pagar</legend>
-          ${CONSENT_CHECKS()}
-          <p class="privacy-note">Responsable: Charria Ceramics. Usamos tus datos para gestionar el pedido y su factura; los reciben Stripe (pago) y, si eliges envío, Packlink y el transportista. Puedes consultarlos, borrarlos y ejercer tus demás derechos en <a href="mis-datos.html" target="_blank">Mis datos</a>. Más información en la <a href="privacidad.html" target="_blank">política de privacidad</a>.</p>
-        </fieldset>
-        <p class="cart-line__error" data-checkout-error hidden></p>
-      </form>`;
-    $("[data-back]", body).addEventListener("click", renderItems);
-    const form = $("[data-checkout]", body);
-    if (!ship.selected) ship.selected = saved.option || "";
-    form.addEventListener("input", (e) => {
-      if (e.target.type === "checkbox") { e.target.closest(".check")?.classList.remove("is-invalid"); return; } // las casillas no se recuerdan
-      saved[e.target.name] = e.target.value;
-      try { sessionStorage.setItem("charria-checkout", JSON.stringify(saved)); } catch { /* */ }
-    });
-    form.postal_code.addEventListener("change", () => loadShipping(form));
-    form.country.addEventListener("change", () => loadShipping(form));
-    $("[data-ship-options]", form).addEventListener("change", (e) => {
-      if (e.target.name !== "ship") return;
-      ship.selected = e.target.value;
-      saved.option = ship.selected;
-      renderShipping(form);
-      if (ship.selected === "__delivery" && form.postal_code.value.trim()) loadShipping(form);
-    });
-    renderShipping(form);
-    loadShipping(form);
-  }
-
-  async function loadShipping(form) {
-    const zip = form.postal_code.value.trim();
-    const country = form.country.value;
-    if (ship.zip === zip && ship.country === country && ship.options.length) return renderShipping(form);
-    ship = { ...ship, loading: true, zip, country };
-    renderShipping(form);
-    try {
-      const res = await post("shipping/quote", {
-        items: read().map((i) => ({ product_id: i.id, quantity: i.qty })),
-        address: { postal_code: zip, country },
-      });
-      ship.options = res.options;
-    } catch (e) {
-      ship.options = [];
-      showError(form, e.message);
-    }
-    ship.loading = false;
-    // Si se había elegido "envío" sin código postal, se pasa a la opción más barata
-    const delivery = ship.options.filter((o) => o.method === "delivery");
-    if (ship.selected !== "pickup" && !ship.options.some((o) => o.id === ship.selected) && delivery.length) {
-      ship.selected = delivery[0].id;
-    }
-    renderShipping(form);
-  }
-
-  function renderShipping(form) {
-    const box = $("[data-ship-options]", form);
-    const pickup = ship.options.filter((o) => o.method === "pickup");
-    const delivery = ship.options.filter((o) => o.method === "delivery");
-    const opts = [
-      ...pickup.map((o) => ({ id: o.id, name: o.name, price: o.price_cents, note: `${window.pickupPlace ? window.pickupPlace() : "En el estudio"} · te avisamos cuando esté lista` })),
-      ...(delivery.length
-        ? delivery.map((o) => ({ id: o.id, name: o.name, price: o.price_cents, note: o.transit_hours ? `Entrega estimada en ${Math.ceil(o.transit_hours / 24)} días laborables` : "" }))
-        : [{ id: "__delivery", name: "Envío a domicilio", price: null, note: ship.loading ? "Calculando tarifas…" : "Escribe tu código postal para ver las tarifas" }]),
-    ];
-    if (!opts.some((o) => o.id === ship.selected)) ship.selected = opts[0]?.id || "";
-    box.innerHTML = opts.map((o) => `
-      <label class="ship-option">
-        <input type="radio" name="ship" value="${esc(o.id)}" ${o.id === ship.selected ? "checked" : ""}>
-        <span class="ship-option__text"><span>${esc(o.name)}</span>${o.note ? `<small>${esc(o.note)}</small>` : ""}</span>
-        <span class="ship-option__price">${o.price === null ? "" : o.price === 0 ? "Gratis" : money(o.price)}</span>
-      </label>`).join("");
-    const isPickup = ship.selected === "pickup";
-    $("[data-address]", form).hidden = isPickup;
-    form.phone.required = !isPickup;
-
-    const chosen = ship.options.find((o) => o.id === ship.selected);
-    const total = quote.items_total_cents + (chosen ? chosen.price_cents : 0);
-    foot.innerHTML = `
-      <div class="cart__row"><span>Productos</span><span>${money(quote.items_total_cents)}</span></div>
-      <div class="cart__row"><span>Envío</span><span>${chosen ? (chosen.price_cents ? money(chosen.price_cents) : "Gratis") : "—"}</span></div>
-      <div class="cart__row cart__total"><span>Total</span><strong>${money(total)}</strong></div>
-      <button class="btn-primary cart__cta" type="button" data-pay ${chosen ? "" : "disabled"}>Pagar ${chosen ? money(total) : ""}</button>
-      <p class="cart__muted cart__secure">Pago seguro con tarjeta a través de Stripe. Tus datos de pago no pasan por esta web.</p>`;
-    $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim().replace(/\s+/g, " "), "arrow"));
-    $("[data-pay]", foot).addEventListener("click", () => pay(form));
-  }
-
-  function showError(form, msg) {
-    const el = $("[data-checkout-error]", form);
-    el.textContent = msg;
-    el.hidden = !msg;
-  }
-
-  async function pay(form) {
-    showError(form, "");
-    $$(".form__field", form).forEach((f) => f.classList.remove("is-invalid"));
-    const isPickup = ship.selected === "pickup";
-    const f = form.elements;
-    const required = ["name", "email", ...(isPickup ? [] : ["phone", "street", "postal_code", "city"])];
-    const missing = required.filter((n) => !f[n].value.trim() || (n === "email" && !f[n].checkValidity()));
-    if (missing.length) {
-      missing.forEach((n) => f[n].closest(".form__field").classList.add("is-invalid"));
-      f[missing[0]].focus();
-      return showError(form, "Revisa los campos marcados.");
-    }
-    if (!f.terms.checked) {
-      f.terms.closest(".check").classList.add("is-invalid");
-      f.terms.focus();
-      return showError(form, "Para pagar tienes que aceptar las condiciones de venta y la política de privacidad.");
-    }
-    const btn = $("[data-pay]", foot);
-    btn.disabled = true;
-    button(btn, "Preparando el pago…", "arrow");
-    // El pago de Stripe se abre en una pestaña nueva. La pestaña se abre ya, dentro del clic
-    // (si se abriera después de esperar al servidor, el navegador la bloquearía como ventana
-    // emergente), y se le pone la dirección cuando llega. Si aun así se bloquea, se paga aquí.
-    // En pedido.html ya estamos en una pestaña nueva: se paga aquí mismo.
-    const tab = IS_ORDER ? null : window.open("", "_blank");
-    if (tab) {
-      try {
-        tab.document.title = "Preparando el pago · Charria Ceramics";
-        tab.document.body.innerHTML = '<p style="font:16px/1.6 Georgia,serif;color:#1a1816;background:#f5f1ea;margin:0;min-height:100vh;display:grid;place-items:center">Preparando el pago seguro…</p>';
-      } catch { /* */ }
-    }
-    try {
-      const res = await post("checkout", {
-        items: read().map((i) => ({ product_id: i.id, quantity: i.qty })),
-        customer: { name: f.name.value, email: f.email.value, phone: f.phone.value },
-        shipping: { option_id: ship.selected },
-        address: isPickup ? undefined : { street: f.street.value, postal_code: f.postal_code.value, city: f.city.value, country: f.country.value },
-        consents: { terms: f.terms.checked, profile: f.profile.checked, marketing: f.marketing.checked },
-      });
-      if (tab && !tab.closed) {
-        tab.opener = null;
-        tab.location.href = res.checkout_url;
-        showPaying(res.checkout_url);
-      } else {
-        window.location.href = res.checkout_url;
-      }
-    } catch (e) {
-      tab?.close();
-      Object.keys(e.fields || {}).forEach((k) => f[k.split(".").pop()]?.closest(".form__field, .check")?.classList.add("is-invalid"));
-      showError(form, e.message);
-      if (e.status === 409) { quote = null; setTimeout(renderItems, 1800); }
-      btn.disabled = false;
-      button(btn, "Pagar", "arrow");
-    }
-  }
-
-  // Mientras se paga en la otra pestaña, la cesta lo dice y deja volver a abrir el pago
-  function showPaying(url, order = false) {
-    step.textContent = order ? "Pedido en curso" : "Pago en curso";
-    body.innerHTML = order ? `
-      <div class="cart__paying">
-        <p class="cart__paying-title">Hemos abierto tu pedido en una pestaña nueva.</p>
-        <p class="cart__muted">Completa allí tus datos y el pago seguro con Stripe. Cuando termines verás la confirmación del pedido en esa pestaña y te llegará un email.</p>
-      </div>` : `
-      <div class="cart__paying">
-        <p class="cart__paying-title">Hemos abierto el pago en una pestaña nueva.</p>
-        <p class="cart__muted">Termina el pago allí, en la página segura de Stripe. Cuando se complete verás la confirmación del pedido en esa pestaña y te llegará un email.</p>
-      </div>`;
-    foot.innerHTML = `
-      <a class="btn-primary cart__cta" href="${esc(url)}" target="_blank">${order ? "Volver a abrir el pedido" : "Volver a abrir el pago"}</a>
-      <button class="consent__link cart__back" type="button" data-paying-back>Volver a la cesta</button>`;
-    $$(".btn-primary", foot).forEach((b) => button(b, b.textContent.trim(), "arrow"));
-    $("[data-paying-back]", foot).addEventListener("click", () => renderItems());
-  }
 
   /* ---------- API pública para script.js ---------- */
   window.Cart = {
@@ -426,7 +209,6 @@
   };
 
   updateCount();
-  if (IS_ORDER) open("order");
   // Al volver de Stripe sin pagar, se reabre la cesta para reintentar
   if (new URLSearchParams(location.search).get("pago") === "cancelado" && read().length && !location.hash) setTimeout(() => open(), 600);
 })();

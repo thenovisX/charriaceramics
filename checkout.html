@@ -24,9 +24,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=22">
 </head>
-<body data-page="pedido">
+<body>
 
   <!-- Cabecera fija: transparente sobre la portada (mix-blend-mode) y con fondo marfil al bajar -->
   <header class="header">
@@ -56,12 +56,13 @@
 
   <main id="top">
 
-    <section class="page-head thanks">
-      <p class="eyebrow">Tu pedido</p>
-      <h1 class="page-head__title" data-split>Tramitar pedido</h1>
-      <div class="page-head__desc">
-        <p>Completa tus datos y el envío en la cesta para pasar al pago seguro.</p>
-        <button class="btn-primary" type="button" onclick="window.Cart && Cart.open('order')">Abrir mi pedido</button>
+    <section class="checkout" data-checkout-page>
+      <header class="checkout__head">
+        <a class="cart__back" href="productos.html">← Seguir comprando</a>
+        <h1 class="checkout__title">Tramitar pedido</h1>
+      </header>
+      <div class="checkout__grid" data-checkout-grid>
+        <p class="cart__muted">Cargando tu pedido…</p>
       </div>
     </section>
 
@@ -96,7 +97,8 @@
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="data.js?v=12"></script>
   <script src="script.js?v=20"></script>
-  <script src="cart.js?v=12"></script>
+  <script src="cart.js?v=13"></script>
   <script src="consent.js?v=2"></script>
+  <script src="checkout.js?v=1"></script>
 </body>
 </html>
