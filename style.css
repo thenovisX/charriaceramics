@@ -315,6 +315,14 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   font-size: .7rem; text-transform: uppercase; letter-spacing: .16em; line-height: 1.2;
 }
 .class-row .btn-primary { justify-self: end; --btn-icon: 2.2rem; padding-left: 1.3rem; }
+/* Semanales (arriba) y Fechas especiales: subtítulos dentro de Clases en grupo */
+.classes__sub {
+  padding: 0 var(--side); margin: 0 0 1.2rem; font-family: var(--serif); font-weight: 400;
+  font-size: clamp(1.25rem, 1rem + .8vw, 1.7rem); letter-spacing: 0;
+}
+.weekly { margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
+/* Un día con varias clases: el nombre del día solo en la primera fila */
+.class-row--same-day { border-top-style: dashed; }
 
 .class-float {
   position: fixed; left: 0; top: 0; z-index: 1;

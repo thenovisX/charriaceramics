@@ -26,6 +26,7 @@ final class Migrations
         7 => 'weekendHours',
         8 => 'webContent',
         9 => 'displayOptions',
+        10 => 'weeklyClasses',
     ];
 
     public static function latest(): int
@@ -262,6 +263,53 @@ final class Migrations
             $db->exec("UPDATE classes SET price_period = 'month' WHERE kind = 'group' AND pay_subscription = 1");
         }
         self::addColumn($db, 'classes', 'show_date', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER price_period');
+    }
+
+    /**
+     * 10 · Clases semanales por día de la semana (weekly_days, weekly_slots y
+     * class_sessions.slot_id). Los horarios que ya se repetían cada semana (misma
+     * clase, día y hora, sin etiqueta y con 2 o más fechas por venir) pasan solos a
+     * «Semanales» y conservan sus fechas y reservas.
+     */
+    private static function weeklyClasses(Database $db): void
+    {
+        self::createTables($db, ['weekly_days', 'weekly_slots']);
+        self::addColumn($db, 'class_sessions', 'slot_id', 'INT UNSIGNED NULL AFTER is_cancelled');
+        if (!$db->value("SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'class_sessions' AND INDEX_NAME = 'uq_sessions_slot'")) {
+            $db->pdo()->exec('ALTER TABLE class_sessions ADD UNIQUE KEY uq_sessions_slot (slot_id, starts_at)');
+        }
+        if ($db->value('SELECT COUNT(*) FROM weekly_slots')) {
+            return;
+        }
+        $groups = $db->all(
+            "SELECT cs.class_id, WEEKDAY(cs.starts_at) + 1 AS weekday, TIME(cs.starts_at) AS start_time,
+                    MIN(cs.price_cents) AS min_price, MAX(cs.price_cents) AS max_price, COUNT(cs.price_cents) AS priced,
+                    MIN(cs.capacity) AS min_cap, MAX(cs.capacity) AS max_cap, COUNT(cs.capacity) AS capped,
+                    COUNT(*) AS n, c.price_period, c.monthly_price_cents
+             FROM class_sessions cs JOIN classes c ON c.id = cs.class_id AND c.kind = 'group'
+             WHERE cs.label = '' AND cs.is_cancelled = 0 AND cs.starts_at > NOW() AND cs.slot_id IS NULL
+             GROUP BY cs.class_id, WEEKDAY(cs.starts_at), TIME(cs.starts_at), c.price_period, c.monthly_price_cents
+             HAVING n >= 2"
+        );
+        foreach ($groups as $g) {
+            // Precio y plazas propios solo si todas las fechas tenían el mismo
+            $price = (int) $g['priced'] === (int) $g['n'] && $g['min_price'] === $g['max_price'] ? $g['min_price'] : null;
+            $capacity = (int) $g['capped'] === (int) $g['n'] && $g['min_cap'] === $g['max_cap'] ? $g['min_cap'] : null;
+            // Una clase «por mes» enseñaba la cuota de la suscripción: ese pasa a ser su precio mensual
+            $monthly = $g['price_period'] === 'month';
+            if ($monthly && (int) $g['monthly_price_cents'] > 0) {
+                $price = (int) $g['monthly_price_cents'];
+            }
+            $slot = $db->insert('weekly_slots', [
+                'weekday' => (int) $g['weekday'], 'class_id' => (int) $g['class_id'], 'start_time' => $g['start_time'],
+                'price_cents' => $price, 'capacity' => $capacity, 'price_period' => $monthly ? 'month' : 'session',
+            ]);
+            $db->exec(
+                "UPDATE class_sessions SET slot_id = ?
+                 WHERE class_id = ? AND WEEKDAY(starts_at) + 1 = ? AND TIME(starts_at) = ? AND label = '' AND is_cancelled = 0 AND starts_at > NOW() AND slot_id IS NULL",
+                [$slot, $g['class_id'], $g['weekday'], $g['start_time']]
+            );
+        }
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */

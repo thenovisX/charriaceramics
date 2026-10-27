@@ -492,13 +492,14 @@ function wireUpload(box, path, onDone) {
 
 /* ---------- Clases y horarios ---------- */
 views.clases = async () => {
-  const classes = await api("GET", "/admin/classes");
+  const [classes, weekly] = await Promise.all([api("GET", "/admin/classes"), api("GET", "/admin/weekly")]);
   const group = classes.filter((c) => c.kind === "group");
   const priv = classes.filter((c) => c.kind === "private");
   main.innerHTML = `
-    <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Clases y horarios</h1><p>Cada clase en grupo tiene sus horarios con plazas. Un horario puede tener precio o plazas propios; si los dejas vacíos se usan los de la clase.</p></div>
+    <div class="page-head"><div><p class="eyebrow">Taller</p><h1>Clases y horarios</h1><p>Arriba, las clases de cada semana: elige qué días salen en la web y qué clases hay ese día, a qué hora y a qué precio. Debajo, cada clase (nombre, foto, plazas, formas de pago) y sus fechas especiales de un solo día.</p></div>
       <button class="btn" data-new>Nueva clase</button></div>
-    <h2 style="font-size:1.5rem;margin-bottom:1rem">Clases en grupo</h2>
+    ${weeklyEditor(weekly)}
+    <h2 style="font-size:1.5rem;margin:2.5rem 0 1rem">Clases en grupo · fechas especiales</h2>
     ${group.map(classCard).join("") || '<p class="muted">No hay clases en grupo.</p>'}
     <h2 style="font-size:1.5rem;margin:2.5rem 0 1rem">Clase privada · modalidades</h2>
     <div class="table-wrap"><table><thead><tr><th>Modalidad</th><th class="num">Precio</th><th>Visible</th><th></th></tr></thead><tbody>
@@ -506,6 +507,7 @@ views.clases = async () => {
         <td class="num"><button class="link-btn" data-edit="${c.id}">Editar</button></td></tr>`).join("") || '<tr><td colspan="4" class="empty">Sin modalidades.</td></tr>'}
     </tbody></table></div>`;
   $("[data-new]").addEventListener("click", () => classForm(null));
+  wireWeekly(weekly);
   $$("[data-edit]").forEach((b) => b.addEventListener("click", () => classForm(classes.find((c) => c.id === Number(b.dataset.edit)))));
   $$("[data-session-form]").forEach((form) => form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -527,8 +529,94 @@ views.clases = async () => {
   }));
 };
 
+/* ---------- Semanales: lunes a domingo ---------- */
+function weeklySlotRow(w, classes) {
+  const c = classes.find((x) => x.id === w.class_id) || classes[0];
+  return `<div class="weekly-slot" data-slot-row data-id="${w.id || ""}">
+    ${field("Clase", `<select data-k="class_id" required>${classes.map((x) => `<option value="${x.id}" ${x.id === c?.id ? "selected" : ""}>${esc(x.title)}${x.is_active ? "" : " (oculta)"}</option>`).join("")}</select>`)}
+    ${field("Hora", `<input type="time" data-k="time" value="${esc(w.time || "")}" required>`)}
+    ${field("Precio (€)", `<input data-k="price" inputmode="decimal" value="${esc(eurosInput(w.price_override_cents ?? null))}" placeholder="${esc(eurosInput(c?.price_cents))}">`)}
+    ${field("Se cobra", `<select data-k="price_period"><option value="session">Por clase</option><option value="month" ${w.price_period === "month" ? "selected" : ""}>Por mes</option></select>`)}
+    ${field("Plazas", `<input type="number" data-k="capacity" min="1" max="100" value="${esc(w.capacity_override ?? "")}" placeholder="${esc(c?.capacity ?? "")}">`)}
+    <button type="button" class="icon-btn" data-slot-del aria-label="Quitar esta clase">×</button>
+  </div>`;
+}
+
+function weeklyEditor(weekly) {
+  const head = `<h2 style="font-size:1.5rem;margin-bottom:.4rem">Semanales</h2>
+    <p class="muted" style="margin-bottom:1rem">Se repiten cada semana. La web enseña los días encendidos con sus clases y deja reservar las próximas ${weekly.weeks_ahead} semanas; las fechas nuevas aparecen solas. El precio y las plazas vacíos usan los de la clase.</p>`;
+  if (!weekly.classes.length) return `${head}<p class="muted">Primero crea una clase en grupo con «Nueva clase» (nombre, foto, plazas y formas de pago); luego aquí eliges qué días y a qué hora se da.</p>`;
+  return `${head}<form class="weekly" data-weekly novalidate>
+    ${weekly.days.map((d) => `<section class="weekly-day${d.is_open ? "" : " is-closed"}" data-day="${d.weekday}">
+      <header class="weekly-day__head"><h3>${esc(d.name)}</h3>${toggle(`open_${d.weekday}`, d.is_open, "Sale en la web")}</header>
+      <div class="weekly-day__slots" data-slots>${d.slots.map((w) => weeklySlotRow(w, weekly.classes)).join("")}</div>
+      <button type="button" class="btn btn--ghost btn--small" data-slot-add>+ Añadir clase u hora</button>
+    </section>`).join("")}
+    <div class="row row--end weekly__save"><button class="btn" type="submit">Guardar semana</button></div>
+  </form>`;
+}
+
+function wireWeekly(weekly) {
+  const form = $("[data-weekly]");
+  if (!form) return;
+  form.addEventListener("click", (e) => {
+    const add = e.target.closest("[data-slot-add]");
+    if (add) {
+      const box = $("[data-slots]", add.closest("[data-day]"));
+      // Una hora más de lo mismo: copia la última fila del día
+      const last = $$("[data-slot-row]", box).pop();
+      const base = last ? { class_id: Number($("[data-k=class_id]", last).value), price_period: $("[data-k=price_period]", last).value } : {};
+      box.insertAdjacentHTML("beforeend", weeklySlotRow(base, weekly.classes));
+      $$("[data-k=time]", box).pop().focus();
+    }
+    e.target.closest("[data-slot-del]")?.closest("[data-slot-row]").remove();
+  });
+  form.addEventListener("change", (e) => {
+    const day = e.target.closest("[data-day]");
+    if (e.target.name?.startsWith("open_")) day.classList.toggle("is-closed", !e.target.checked);
+    // Al cambiar de clase, los huecos vacíos enseñan el precio y las plazas de la nueva
+    if (e.target.dataset.k === "class_id") {
+      const c = weekly.classes.find((x) => x.id === Number(e.target.value));
+      const row = e.target.closest("[data-slot-row]");
+      $("[data-k=price]", row).placeholder = eurosInput(c?.price_cents);
+      $("[data-k=capacity]", row).placeholder = c?.capacity ?? "";
+    }
+  });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const days = $$("[data-day]", form).map((day, i) => ({
+      weekday: Number(day.dataset.day),
+      is_open: form.elements[`open_${day.dataset.day}`].checked,
+      slots: $$("[data-slot-row]", day).map((row, j) => {
+        // Nombres con la posición: así los errores del servidor se pintan en su casilla
+        $$("[data-k]", row).forEach((el) => { el.name = `days.${i}.slots.${j}.${el.dataset.k}`; });
+        const v = (k) => $(`[data-k=${k}]`, row).value.trim();
+        return {
+          id: row.dataset.id ? Number(row.dataset.id) : undefined,
+          class_id: Number(v("class_id")), time: v("time"), price_period: v("price_period"),
+          price_cents: v("price") === "" ? null : toCents(v("price")),
+          capacity: v("capacity") === "" ? null : Number(v("capacity")),
+        };
+      }),
+    }));
+    submitting(form, async () => {
+      const saved = await api("PUT", "/admin/weekly", { days });
+      toast(saved.cancelled_with_bookings
+        ? `Semana guardada. ${saved.cancelled_with_bookings} ${saved.cancelled_with_bookings === 1 ? "fecha quitada tenía" : "fechas quitadas tenían"} reservas: siguen en Reservas, avisa a esas personas.`
+        : "Semana guardada");
+      views.clases();
+    });
+  });
+}
+
 function classCard(c) {
-  const upcoming = c.sessions.filter((s) => new Date(s.starts_at.replace(" ", "T")) > new Date() || s.label);
+  const future = (s) => new Date(s.starts_at.replace(" ", "T")) > new Date();
+  const upcoming = c.sessions.filter((s) => !s.slot_id && (future(s) || s.label));
+  // Las fechas que crea «Semanales» van plegadas: solo se abren para cancelar una semana (p. ej. un festivo)
+  const weeklyDates = c.sessions.filter((s) => s.slot_id && future(s));
+  const sessionRow = (s) => `<tr><td>${fmtDate(s.starts_at)}${s.label ? ` · <span class="muted">${esc(s.label)}</span>` : ""} ${s.is_cancelled ? '<span class="badge badge--bad">Cancelado</span>' : ""}</td>
+        <td class="num">${s.seats_left} / ${s.capacity}</td><td class="num">${money(s.price_cents)}</td>
+        <td class="num"><button class="link-btn" data-class="${c.id}" data-session="${s.id}">Editar</button></td></tr>`;
   return `<article class="class-card">
     <div class="class-card__head">
       ${c.image ? `<img src="${esc(c.image.thumb_url)}" alt="">` : '<div class="class-card__ph"></div>'}
@@ -537,17 +625,17 @@ function classCard(c) {
       <button class="btn btn--ghost btn--small" data-edit="${c.id}">Editar clase</button>
     </div>
     ${upcoming.length ? `<table><thead><tr><th>Horario</th><th class="num">Plazas libres</th><th class="num">Precio</th><th></th></tr></thead><tbody>
-      ${upcoming.map((s) => `<tr><td>${fmtDate(s.starts_at)}${s.label ? ` · <span class="muted">${esc(s.label)}</span>` : ""} ${s.is_cancelled ? '<span class="badge badge--bad">Cancelado</span>' : ""}</td>
-        <td class="num">${s.seats_left} / ${s.capacity}</td><td class="num">${money(s.price_cents)}</td>
-        <td class="num"><button class="link-btn" data-class="${c.id}" data-session="${s.id}">Editar</button></td></tr>`).join("")}
+      ${upcoming.map(sessionRow).join("")}
     </tbody></table>` : ""}
+    ${weeklyDates.length ? `<details class="weekly-dates"><summary>Próximas fechas de Semanales (${weeklyDates.length})</summary>
+      <table><thead><tr><th>Fecha</th><th class="num">Plazas libres</th><th class="num">Precio</th><th></th></tr></thead><tbody>${weeklyDates.map(sessionRow).join("")}</tbody></table></details>` : ""}
     <div class="add-session"><form data-session-form="${c.id}">
-      ${field("Nuevo horario", '<input type="datetime-local" name="starts_at" required>', "Primer día")}
+      ${field("Nueva fecha especial", '<input type="datetime-local" name="starts_at" required>', "Para lo de cada semana, usa Semanales")}
       ${field("Repetir cada semana", `<select name="repeat">
-        <option value="1">No, solo ese día</option>
+        <option value="1" selected>No, solo ese día</option>
         <option value="4">Durante 1 mes</option>
         <option value="8">Durante 2 meses</option>
-        <option value="13" selected>Durante 3 meses</option>
+        <option value="13">Durante 3 meses</option>
         <option value="26">Durante 6 meses</option>
         <option value="52">Durante 1 año</option>
       </select>`, "Mismo día y hora")}

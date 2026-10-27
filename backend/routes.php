@@ -10,6 +10,7 @@ use Charria\Controllers\Admin\OrderAdminController as Orders;
 use Charria\Controllers\Admin\ProductAdminController as Products;
 use Charria\Controllers\Admin\ReviewAdminController as Reviews;
 use Charria\Controllers\Admin\SettingsController;
+use Charria\Controllers\Admin\WeeklyAdminController as Weekly;
 use Charria\Controllers\AuthController;
 use Charria\Controllers\BookingController;
 use Charria\Controllers\CheckoutController;
@@ -72,6 +73,8 @@ return static function (Router $r): void {
     $r->patch('/admin/classes/{id}', [Classes::class, 'update'], $admin);
     $r->delete('/admin/classes/{id}', [Classes::class, 'destroy'], $admin);
     $r->post('/admin/classes/{id}/image', [Classes::class, 'uploadImage'], $admin);
+    $r->get('/admin/weekly', [Weekly::class, 'show'], $admin);
+    $r->put('/admin/weekly', [Weekly::class, 'update'], $admin);
     $r->post('/admin/sessions', [Classes::class, 'storeSession'], $admin);
     $r->put('/admin/sessions/{id}', [Classes::class, 'updateSession'], $admin);
     $r->patch('/admin/sessions/{id}', [Classes::class, 'updateSession'], $admin);

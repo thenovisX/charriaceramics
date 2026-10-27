@@ -195,6 +195,28 @@ tr.is-clickable:hover td { background: var(--ivory); }
 .class-card__head h3 { font-size: 1.4rem; }
 .class-card table { border-top: 1px solid var(--line); }
 .class-card .add-session { padding: 1rem 1.3rem; border-top: 1px solid var(--line); background: var(--ivory); }
+.weekly-dates { border-top: 1px solid var(--line); }
+.weekly-dates summary { padding: .8rem 1.3rem; cursor: pointer; font-size: .85rem; color: var(--muted); }
+
+/* Semanales: un bloque por día (lunes a domingo) con sus clases y horas */
+.weekly { display: grid; gap: 1rem; max-width: 980px; }
+.weekly-day { border: 1px solid var(--line); border-radius: 10px; background: #fffdf9; padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: .8rem; }
+.weekly-day.is-closed { background: var(--paper); }
+.weekly-day.is-closed .weekly-day__slots, .weekly-day.is-closed [data-slot-add] { opacity: .45; }
+.weekly-day__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.weekly-day__head h3 { font-size: 1.25rem; }
+.weekly-day__slots { display: flex; flex-direction: column; gap: .7rem; }
+.weekly-day__slots:empty { display: none; }
+.weekly-day [data-slot-add] { align-self: flex-start; }
+.weekly-slot { display: grid; grid-template-columns: minmax(0, 2fr) minmax(8.5rem, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .7fr) auto; gap: .6rem; align-items: end; padding-top: .7rem; border-top: 1px dashed var(--line); }
+.weekly-slot .icon-btn { margin-bottom: .35rem; }
+.weekly__save { grid-column: 1 / -1; position: sticky; bottom: 0; padding: .8rem 0; background: linear-gradient(transparent, var(--ivory) 35%); }
+@media (max-width: 600px) {
+  .weekly-slot { grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; }
+  .weekly-slot > .field:first-child { grid-column: 1 / -1; padding-right: 2.8rem; }
+  .weekly-slot .icon-btn { position: absolute; top: .9rem; right: 0; margin: 0; }
+  .weekly__save .btn { width: 100%; }
+}
 .add-session form { display: grid; grid-template-columns: 1.3fr 1.3fr .7fr .8fr 1.2fr auto; gap: .8rem; align-items: start; }
 .add-session form > * { min-width: 0; }
 .add-session form > .btn { margin-top: 1.45rem; }

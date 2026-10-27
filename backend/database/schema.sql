@@ -201,10 +201,36 @@ CREATE TABLE IF NOT EXISTS class_sessions (
   price_cents  INT UNSIGNED NULL,
   capacity     SMALLINT UNSIGNED NULL,
   is_cancelled TINYINT(1)   NOT NULL DEFAULT 0,
+  slot_id      INT UNSIGNED NULL,  -- creado por una clase semanal (weekly_slots); NULL = fecha suelta
   created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_sessions_class (class_id, starts_at),
+  UNIQUE KEY uq_sessions_slot (slot_id, starts_at),
   CONSTRAINT fk_sessions_class FOREIGN KEY (class_id) REFERENCES classes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Clases semanales: qué días de la semana salen en la web (1 = lunes … 7 = domingo)
+CREATE TABLE IF NOT EXISTS weekly_days (
+  weekday TINYINT UNSIGNED NOT NULL,
+  is_open TINYINT(1)       NOT NULL DEFAULT 1,
+  PRIMARY KEY (weekday)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cada clase que se repite ese día a esa hora. Las fechas reservables (class_sessions
+-- con slot_id) se crean solas para las próximas semanas: Services/WeeklySchedule.php.
+-- price_cents / capacity NULL = se usan los de la clase.
+CREATE TABLE IF NOT EXISTS weekly_slots (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  weekday      TINYINT UNSIGNED NOT NULL,
+  class_id     INT UNSIGNED NOT NULL,
+  start_time   TIME         NOT NULL,
+  price_cents  INT UNSIGNED NULL,
+  price_period ENUM('session','month') NOT NULL DEFAULT 'session',  -- month: el precio es la cuota mensual
+  capacity     SMALLINT UNSIGNED NULL,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_slots_day (weekday, start_time),
+  CONSTRAINT fk_slots_class FOREIGN KEY (class_id) REFERENCES classes (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------- Reservas ----------

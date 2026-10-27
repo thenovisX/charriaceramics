@@ -147,6 +147,7 @@ final class Catalog
             'capacity' => $capacity,
             'seats_left' => $left,
             'is_cancelled' => (bool) $s['is_cancelled'],
+            'slot_id' => empty($s['slot_id']) ? null : (int) $s['slot_id'],
             'price_override_cents' => $s['price_cents'] === null ? null : (int) $s['price_cents'],
             'capacity_override' => $s['capacity'] === null ? null : (int) $s['capacity'],
         ];
