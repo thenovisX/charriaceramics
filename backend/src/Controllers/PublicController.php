@@ -91,8 +91,17 @@ final class PublicController
     public function classes(Request $r): Response
     {
         WeeklySchedule::sync();
-        $rows = Database::get()->all('SELECT * FROM classes WHERE is_active = 1 ORDER BY sort_order, id');
-        $classes = Catalog::classes($rows);
+        // Una clase oculta sigue saliendo en «Semanales» si tiene ahí alguna hora: solo se quita de la lista de debajo
+        $rows = Database::get()->all(
+            "SELECT * FROM classes WHERE is_active = 1 OR (kind = 'group' AND id IN (SELECT class_id FROM weekly_slots)) ORDER BY sort_order, id"
+        );
+        $hidden = array_column(array_filter($rows, static fn ($r) => !$r['is_active']), 'id', 'id');
+        $classes = array_map(static function ($c) use ($hidden) {
+            if (isset($hidden[$c['id']])) {
+                $c['sessions'] = array_values(array_filter($c['sessions'], static fn ($s) => $s['slot_id'] !== null));
+            }
+            return $c;
+        }, Catalog::classes($rows));
         return Response::json([
             'group' => array_values(array_filter($classes, static fn ($c) => $c['kind'] === 'group')),
             'private' => array_values(array_filter($classes, static fn ($c) => $c['kind'] === 'private')),
