@@ -564,6 +564,62 @@ foreach ([$single, $sub, $past] as $b) {
     call('PATCH', "$base/admin/bookings/{$b['id']}", ['status' => 'cancelled'], $token);
 }
 
+echo "Clases semanales\n";
+[$s, $j] = call('POST', "$base/admin/classes", ['title' => 'Torno semanal test', 'kind' => 'group', 'price_cents' => 2000, 'capacity' => 4, 'pay_subscription' => true, 'monthly_price_cents' => 5000], $token);
+$wcid = $j['data']['id'] ?? 0;
+$week = fn (array $days) => call('PUT', "$base/admin/weekly", ['days' => $days], $token);
+[$s, $j] = $week([['weekday' => 2, 'is_open' => true, 'slots' => [['class_id' => $wcid, 'time' => '25:00']]]]);
+check('semanales: rechaza una hora mal escrita', $s === 422 && isset($j['error']['fields']['days.0.slots.0.time']), $j);
+[$s, $j] = $week([
+    ['weekday' => 1, 'is_open' => false, 'slots' => [['class_id' => $wcid, 'time' => '11:00']]],
+    ['weekday' => 2, 'is_open' => true, 'slots' => [
+        ['class_id' => $wcid, 'time' => '18:00', 'price_cents' => 2500, 'price_period' => 'session'],
+        ['class_id' => $wcid, 'time' => '10:00', 'price_cents' => 6000, 'price_period' => 'month', 'capacity' => 2],
+    ]],
+]);
+$tue = $j['data']['days'][1] ?? [];
+check('semanales: guardar lunes apagado y martes con dos horas', $s === 200 && $j['data']['days'][0]['is_open'] === false && count($tue['slots'] ?? []) === 2 && $tue['slots'][0]['time'] === '10:00', $j);
+$slotEve = array_values(array_filter($tue['slots'] ?? [], fn ($x) => $x['time'] === '18:00'))[0]['id'] ?? 0;
+$slotMorning = array_values(array_filter($tue['slots'] ?? [], fn ($x) => $x['time'] === '10:00'))[0]['id'] ?? 0;
+call('GET', "$base/classes");
+[$s, $j] = call('GET', "$base/classes");
+$wc = array_values(array_filter($j['data']['group'] ?? [], fn ($c) => $c['id'] === $wcid))[0] ?? ['sessions' => []];
+$eve = array_values(array_filter($wc['sessions'], fn ($x) => $x['slot_id'] === $slotEve));
+$morning = array_values(array_filter($wc['sessions'], fn ($x) => $x['slot_id'] === $slotMorning));
+$webDays = array_column($j['data']['weekly'] ?? [], 'weekday');
+check('semanales: la web solo enseña los días encendidos', $webDays === [2] && count($j['data']['weekly'][0]['slots']) === 2, $j['data']['weekly'] ?? $j);
+check('semanales: crea las próximas 8 semanas una sola vez, en martes y a su hora', count($eve) === 8 && count($morning) === 8
+    && count(array_filter($eve, fn ($x) => date('N H:i', strtotime($x['starts_at'])) === '2 18:00')) === 8, $eve);
+check('semanales: precio y plazas propios en cada fecha', ($eve[0]['price_cents'] ?? 0) === 2500 && ($morning[0]['capacity'] ?? 0) === 2 && ($eve[0]['capacity'] ?? 0) === 4, [$eve[0] ?? null, $morning[0] ?? null]);
+[$s, $j] = call('POST', "$base/bookings", ['session_id' => $eve[0]['id'], 'seats' => 1, 'payment_method' => 'in_person', 'customer' => ['name' => 'Iria', 'email' => 'iria@example.com'], 'consents' => ['terms' => true]]);
+check('semanales: reservar la próxima fecha (en el taller, precio de esa hora)', $s === 201 && $j['data']['total_cents'] === 2500, $j);
+[$s, $j] = call('POST', "$base/bookings", ['session_id' => $morning[0]['id'], 'seats' => 1, 'payment_method' => 'subscription', 'customer' => ['name' => 'Iago', 'email' => 'iago@example.com'], 'consents' => ['terms' => true]]);
+check('semanales «por mes»: la suscripción cobra el precio de esa hora', $s === 201 && $j['data']['total_cents'] === 6000, $j);
+[$s, $j] = $week([['weekday' => 2, 'is_open' => true, 'slots' => [
+    ['id' => $slotEve, 'class_id' => $wcid, 'time' => '19:30', 'price_cents' => 2800],
+    ['id' => $slotMorning, 'class_id' => $wcid, 'time' => '10:00', 'price_cents' => 6000, 'price_period' => 'month', 'capacity' => 2],
+]]]);
+[, $jb] = call('GET', "$base/admin/bookings?session_id={$eve[0]['id']}", null, $token);
+[, $jc] = call('GET', "$base/classes");
+$wc = array_values(array_filter($jc['data']['group'] ?? [], fn ($c) => $c['id'] === $wcid))[0] ?? ['sessions' => []];
+$eve2 = array_values(array_filter($wc['sessions'], fn ($x) => $x['slot_id'] === $slotEve));
+check('semanales: cambiar la hora mueve las fechas y la reserva hecha', $s === 200 && str_ends_with((string) ($jb['data'][0]['starts_at'] ?? ''), '19:30:00')
+    && count($eve2) === 8 && $eve2[0]['id'] === $eve[0]['id'] && $eve2[0]['price_cents'] === 2800, [$jb, $eve2[0] ?? null]);
+[$s, $j] = $week([['weekday' => 2, 'is_open' => false, 'slots' => [
+    ['id' => $slotEve, 'class_id' => $wcid, 'time' => '19:30'],
+    ['id' => $slotMorning, 'class_id' => $wcid, 'time' => '10:00'],
+]]]);
+[, $jc] = call('GET', "$base/classes");
+$wc = array_values(array_filter($jc['data']['group'] ?? [], fn ($c) => $c['id'] === $wcid))[0] ?? ['sessions' => []];
+[, $jb] = call('GET', "$base/admin/bookings?session_id={$eve[0]['id']}", null, $token);
+check('semanales: apagar el día quita sus fechas y avisa de las que tenían reserva', $s === 200 && $j['data']['cancelled_with_bookings'] === 2
+    && ($jc['data']['weekly'] ?? null) === [] && $wc['sessions'] === [] && ($jb['data'][0]['status'] ?? '') === 'confirmed', [$j['data']['cancelled_with_bookings'] ?? null, $wc['sessions'], $jb]);
+[$s, $j] = $week([['weekday' => 2, 'is_open' => true, 'slots' => []]]);
+check('semanales: quitar todas las clases del día', $s === 200 && $j['data']['days'][1]['slots'] === [], $j);
+call('PATCH', "$base/admin/bookings/" . ($jb['data'][0]['id'] ?? 0), ['status' => 'cancelled'], $token);
+[$s] = call('DELETE', "$base/admin/classes/$wcid", null, $token);
+check('borrar la clase semanal', $s === 204);
+
 echo "Limpieza\n";
 [$s] = call('DELETE', "$base/admin/products/$pid", null, $token);
 check('borrar producto', $s === 204);

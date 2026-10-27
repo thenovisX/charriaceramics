@@ -128,6 +128,12 @@
       </div>
 
       <!-- Fechas, plazas y precios llegan de Panel → Clases (API /classes): aquí no se escriben a mano -->
+      <!-- Semanales: los días y horas de Panel → Clases → Semanales; arriba del todo -->
+      <div class="weekly" data-weekly hidden>
+        <h3 class="classes__sub">Semanales</h3>
+        <ul class="class-list class-list--weekly" aria-live="polite"></ul>
+      </div>
+      <h3 class="classes__sub" data-oneoff-title hidden>Fechas especiales</h3>
       <ul class="class-list" aria-live="polite" aria-busy="true">
         <li class="class-row class-row--empty"><span class="class-row__name">Cargando las próximas fechas…</span></li>
       </ul>

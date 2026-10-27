@@ -61,9 +61,12 @@ final class BookingController
             if (!$session || !$class || $session['is_cancelled'] || strtotime($session['starts_at']) <= time()) {
                 throw HttpError::notFound('Este horario ya no está disponible');
             }
+            // Clase semanal «por mes»: su precio es la cuota mensual, sea cual sea la forma de pago
+            $monthly = !empty($session['slot_id'])
+                && $db->value("SELECT 1 FROM weekly_slots WHERE id = ? AND price_period = 'month'", [$session['slot_id']]);
             $allowed = match ($method) {
                 'in_person' => $class['pay_in_person'],
-                'subscription' => $class['pay_subscription'] && (int) $class['monthly_price_cents'] > 0,
+                'subscription' => $class['pay_subscription'] && ($monthly || (int) $class['monthly_price_cents'] > 0),
                 default => $class['pay_online'],
             };
             if (!$allowed) {
@@ -71,7 +74,7 @@ final class BookingController
             }
             $info = Catalog::session($session, $class, Catalog::seatsTaken([$session['id']]));
             // La suscripción cobra la cuota mensual de la clase; lo demás, el precio de este horario
-            $unit = $subscription ? (int) $class['monthly_price_cents'] : $info['price_cents'];
+            $unit = $subscription && !$monthly ? (int) $class['monthly_price_cents'] : $info['price_cents'];
             if ($info['seats_left'] < $seats) {
                 throw new HttpError(409, 'not_enough_seats', $info['seats_left']
                     ? "Solo quedan {$info['seats_left']} plazas en este horario"

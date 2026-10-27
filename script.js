@@ -302,7 +302,7 @@ function renderContent() {
   }
 
   // Portada: clases en grupo (una fila por horario) y modalidades de clase privada
-  const classList = $(".class-list");
+  const classList = $(".class-list:not(.class-list--weekly)");
   if (classList) classList.removeAttribute("aria-busy");
   if (classList && !CLASSES) classList.innerHTML = '<li class="class-row class-row--empty"><span class="class-row__name">Escríbenos y te contamos las próximas fechas.</span><a class="btn-primary" href="contacto.html">Contactar</a></li>';
   if (classList && CLASSES) {
@@ -310,16 +310,42 @@ function renderContent() {
     const weekday = (d) => d.toLocaleDateString("es-ES", { weekday: "long" }).replace(/^\w/, (m) => m.toUpperCase());
     const hours = (min) => `${String(min / 60).replace(".", ",")} h`;
     const timeOf = (d) => d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-    // Las clases semanales (misma clase, mismo día de la semana y hora, sin etiqueta) van en una sola fila
+    const plazasOf = (n) => `${n} ${n === 1 ? "plaza" : "plazas"}`;
+    // Las clases semanales (misma clase, mismo día de la semana y hora, sin etiqueta) van en una sola fila;
+    // las de Panel → Semanales (slot_id) se agrupan por su clase semanal y salen arriba, en «Semanales»
     const slots = new Map();
     CLASSES.group.forEach((c) => c.sessions.forEach((s) => {
       const d = new Date(s.starts_at.replace(" ", "T"));
-      const key = s.label ? `s${s.id}` : `${c.id}|${d.getDay()}|${timeOf(d)}`;
+      const key = s.slot_id ? `w${s.slot_id}` : s.label ? `s${s.id}` : `${c.id}|${d.getDay()}|${timeOf(d)}`;
       if (!slots.has(key)) slots.set(key, { key, c, sessions: [] });
       slots.get(key).sessions.push({ ...s, date: d });
     }));
     SLOTS = slots;
+    const weeklyBox = $("[data-weekly]");
+    const byId = new Map(CLASSES.group.map((c) => [c.id, c]));
+    const weeklyRows = (CLASSES.weekly || []).flatMap((day) => day.slots.map((w, i) => {
+      const c = byId.get(w.class_id);
+      const slot = slots.get(`w${w.id}`);
+      if (!c || !slot) return "";
+      slot.weekly = w;
+      const s = slot.sessions.find((x) => x.seats_left > 0) || slot.sessions[0];
+      const free = slot.sessions.some((x) => x.seats_left > 0);
+      const next = free ? `Próxima: ${s.date.getDate()} ${s.date.toLocaleDateString("es-ES", { month: "short" }).replace(".", "")} · ${plazasOf(s.seats_left)}` : "Completo";
+      const monthly = w.price_period === "month";
+      return `<li class="class-row${i ? " class-row--same-day" : ""}" data-img="${esc(c.image?.url || "")}">
+        <span class="class-row__date">${i ? "" : esc(day.name)}</span>
+        <span class="class-row__name">${esc(c.title)}</span>
+        <span class="class-row__meta">${esc(w.time)} · ${hours(c.duration_minutes)} · ${next}</span>
+        <span class="class-row__price class-row__price--month">${euros(w.price_cents)}<small class="class-row__period">${monthly ? "por mes" : "por clase"}</small></span>
+        <button class="btn-primary" type="button" data-book="${s.id}" data-slot="w${w.id}" data-seats="${s.seats_left}" data-title="${esc(c.title)} · ${esc(day.name.toLowerCase())} ${esc(w.time)}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
+      </li>`;
+    })).filter(Boolean);
+    if (weeklyBox) {
+      weeklyBox.hidden = !weeklyRows.length;
+      $(".class-list", weeklyBox).innerHTML = weeklyRows.join("");
+    }
     const rows = [...slots.values()]
+      .filter((x) => !x.key.startsWith("w"))
       // Por fecha; los cursos largos (con etiqueta, p. ej. "Martes · 12 sesiones") al final
       .sort((a, b) => (!!a.sessions[0].label - !!b.sessions[0].label) || a.sessions[0].starts_at.localeCompare(b.sessions[0].starts_at));
     classList.innerHTML = rows.length ? rows.map(({ key, c, sessions }) => {
@@ -343,6 +369,10 @@ function renderContent() {
         <button class="btn-primary" type="button" data-book="${s.id}" data-slot="${esc(key)}" data-seats="${s.seats_left}" data-title="${esc(c.title)}${weekly || !showDate ? "" : ` · ${day(s.date)}`}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
       </li>`;
     }).join("") : '<li class="class-row class-row--empty"><span class="class-row__name">Pronto publicaremos nuevas fechas.</span><a class="btn-primary" href="contacto.html">Avísame</a></li>';
+    // Con semanales, las fechas sueltas van debajo con su título, y si no hay ninguna no se dice nada
+    const oneOffTitle = $("[data-oneoff-title]");
+    if (oneOffTitle) oneOffTitle.hidden = !(weeklyRows.length && rows.length);
+    classList.hidden = !!weeklyRows.length && !rows.length;
   }
   const privateSelect = $("[data-private-form] select[name=tipo]");
   if (privateSelect && CLASSES?.private.length) {
@@ -890,7 +920,8 @@ function initPage() {
       if ($(".class-list")) {
         gsap.from(".class-row", {
           opacity: 0, y: 40, stagger: 0.1, duration: 1, ease: "power3.out",
-          scrollTrigger: { trigger: ".class-list", start: "top 80%" },
+          // .classes y no .class-list: arriba puede estar «Semanales» o solo las fechas especiales
+          scrollTrigger: { trigger: ".classes", start: "top 55%" },
         });
       }
       if ($(".private")) {
@@ -1214,7 +1245,7 @@ function initPage() {
           const max = Math.max(1, Math.min(6, Number(seatsLeft) || 3));
           form.elements.seats.innerHTML = Array.from({ length: max }, (_, i) => `<option>${i + 1}</option>`).join("");
         };
-        if (slot && slot.sessions.length > 1 && slot.c.show_date !== false) {
+        if (slot && slot.sessions.length > 1 && (slot.weekly || slot.c.show_date !== false)) {
           // Clase semanal: se elige la semana
           const label = (x) => x.date.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }) + (x.seats_left ? "" : " · completo");
           form.elements.date.innerHTML = slot.sessions.map((x) => `<option value="${x.id}" ${x.seats_left ? "" : "disabled"} ${String(x.id) === btn.dataset.book ? "selected" : ""}>${esc(label(x))}</option>`).join("");
@@ -1227,13 +1258,15 @@ function initPage() {
         // Formas de pago que la clase tiene activadas; se elige solo si hay más de una
         const stripeOn = CLASSES?.online_payment !== false;
         const c = slot?.c;
+        // Semanal «por mes»: la cuota es el precio de esa clase semanal
+        const monthlyCents = slot?.weekly?.price_period === "month" ? slot.weekly.price_cents : c?.monthly_price_cents;
         const methods = c ? [
           stripeOn && c.pay_online !== false && "online",
-          stripeOn && c.pay_subscription && c.monthly_price_cents > 0 && "subscription",
+          stripeOn && c.pay_subscription && monthlyCents > 0 && "subscription",
           c.pay_in_person && "in_person",
         ].filter(Boolean) : ["online"];
         $$("[data-pay-option]", payField).forEach((o) => { o.hidden = !methods.includes(o.dataset.payOption); });
-        $("[data-sub-price]", payField).textContent = `${c?.monthly_price_cents > 0 ? `${euros(c.monthly_price_cents)} al mes por plaza. ` : ""}Pagas online cada mes con tarjeta en Stripe. Para darte de baja, escríbenos.`;
+        $("[data-sub-price]", payField).textContent = `${monthlyCents > 0 ? `${euros(monthlyCents)} al mes por plaza. ` : ""}Pagas online cada mes con tarjeta en Stripe. Para darte de baja, escríbenos.`;
         payField.hidden = methods.length < 2;
         form.elements.pay.value = methods[0] || "online";
         showPay();

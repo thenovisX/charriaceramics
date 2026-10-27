@@ -16,6 +16,7 @@ use Charria\Services\Packlink;
 use Charria\Services\Pricing;
 use Charria\Services\RateLimiter;
 use Charria\Services\Stripe;
+use Charria\Services\WeeklySchedule;
 use Charria\Validator;
 
 /** Lectura pública: catálogo, galería y clases. Solo devuelve lo publicado. */
@@ -89,11 +90,14 @@ final class PublicController
      */
     public function classes(Request $r): Response
     {
+        WeeklySchedule::sync();
         $rows = Database::get()->all('SELECT * FROM classes WHERE is_active = 1 ORDER BY sort_order, id');
         $classes = Catalog::classes($rows);
         return Response::json([
             'group' => array_values(array_filter($classes, static fn ($c) => $c['kind'] === 'group')),
             'private' => array_values(array_filter($classes, static fn ($c) => $c['kind'] === 'private')),
+            // Semanales: días abiertos con sus clases; las fechas reservables son las sessions con ese slot_id
+            'weekly' => WeeklySchedule::forWeb(),
             'online_payment' => Stripe::isConfigured(),
         ]);
     }
