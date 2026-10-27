@@ -612,8 +612,17 @@ check('semanales: la web solo enseña los días encendidos', $webDays === [2] &&
 check('semanales: crea las próximas 8 semanas una sola vez, en martes y a su hora', count($eve) === 8 && count($morning) === 8
     && count(array_filter($eve, fn ($x) => date('N H:i', strtotime($x['starts_at'])) === '2 18:00')) === 8, $eve);
 check('semanales: precio y plazas propios en cada fecha', ($eve[0]['price_cents'] ?? 0) === 2500 && ($morning[0]['capacity'] ?? 0) === 2 && ($eve[0]['capacity'] ?? 0) === 4, [$eve[0] ?? null, $morning[0] ?? null]);
+[, $j] = call('POST', "$base/admin/sessions", ['class_id' => $wcid, 'starts_at' => date('Y-m-d', strtotime('+9 days')) . 'T12:00'], $token);
+$oneOff = $j['data']['id'] ?? 0;
+call('PATCH', "$base/admin/classes/$wcid", ['is_active' => false], $token);
+[, $j] = call('GET', "$base/classes");
+$wc = array_values(array_filter($j['data']['group'] ?? [], fn ($c) => $c['id'] === $wcid))[0] ?? ['sessions' => []];
+check('clase oculta: sigue en Semanales y desaparece de las fechas de debajo', count($j['data']['weekly'] ?? []) === 1 && count($wc['sessions']) === 16
+    && !in_array($oneOff, array_column($wc['sessions'], 'id'), true), [$j['data']['weekly'] ?? null, count($wc['sessions'])]);
+[$s, $j] = call('POST', "$base/bookings", ['session_id' => $oneOff, 'seats' => 1, 'payment_method' => 'in_person', 'customer' => ['name' => 'Ana', 'email' => 'ana@example.com'], 'consents' => ['terms' => true]]);
+check('clase oculta: su fecha especial ya no se puede reservar', $s === 404, $j);
 [$s, $j] = call('POST', "$base/bookings", ['session_id' => $eve[0]['id'], 'seats' => 1, 'payment_method' => 'in_person', 'customer' => ['name' => 'Iria', 'email' => 'iria@example.com'], 'consents' => ['terms' => true]]);
-check('semanales: reservar la próxima fecha (en el taller, precio de esa hora)', $s === 201 && $j['data']['total_cents'] === 2500, $j);
+check('semanales: reservar la próxima fecha aunque la clase esté oculta (en el taller, precio de esa hora)', $s === 201 && $j['data']['total_cents'] === 2500, $j);
 [$s, $j] = call('POST', "$base/bookings", ['session_id' => $morning[0]['id'], 'seats' => 1, 'payment_method' => 'subscription', 'customer' => ['name' => 'Iago', 'email' => 'iago@example.com'], 'consents' => ['terms' => true]]);
 check('semanales «por mes»: la suscripción cobra el precio de esa hora', $s === 201 && $j['data']['total_cents'] === 6000, $j);
 [$s, $j] = $week([['weekday' => 2, 'is_open' => true, 'slots' => [

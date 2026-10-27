@@ -583,7 +583,7 @@ views.clases = async () => {
 function weeklySlotRow(w, classes) {
   const c = classes.find((x) => x.id === w.class_id) || classes[0];
   return `<div class="weekly-slot" data-slot-row data-id="${w.id || ""}">
-    ${field("Clase", `<select data-k="class_id" required>${classes.map((x) => `<option value="${x.id}" ${x.id === c?.id ? "selected" : ""}>${esc(x.title)}${x.is_active ? "" : " (oculta)"}</option>`).join("")}</select>`)}
+    ${field("Clase", `<select data-k="class_id" required>${classes.map((x) => `<option value="${x.id}" ${x.id === c?.id ? "selected" : ""}>${esc(x.title)}${x.is_active ? "" : " (solo en Semanales)"}</option>`).join("")}</select>`)}
     ${field("Hora", `<input type="time" data-k="time" value="${esc(w.time || "")}" required>`)}
     ${field("Precio (€)", `<input data-k="price" inputmode="decimal" value="${esc(eurosInput(w.price_override_cents ?? null))}" placeholder="${esc(eurosInput(c?.price_cents))}">`)}
     ${field("Se cobra", `<select data-k="price_period"><option value="session">Por clase</option><option value="month" ${w.price_period === "month" ? "selected" : ""}>Por mes</option></select>`)}
@@ -709,7 +709,8 @@ function classForm(c) {
       </div>
       ${field("Descripción", `<textarea name="description">${esc(c?.description)}</textarea>`)}
       ${field("Orden", input("sort_order", c?.sort_order ?? 0, "type=number"), "Las clases se muestran de menor a mayor")}
-      ${toggle("is_active", c ? c.is_active : true, "Visible en la web")}
+      ${toggle("is_active", c ? c.is_active : true, c?.kind === "private" ? "Visible en la web" : "Visible en las fechas especiales")}
+      ${c?.kind === "private" ? "" : '<p class="muted" style="font-size:.82rem;margin-top:-.4rem">Apagado, la clase no sale en la lista de fechas de debajo, pero sí en «Semanales» si tiene alguna hora allí.</p>'}
       ${c?.kind === "private" ? "" : `<fieldset class="stack" data-show-toggle><legend>Cómo se ve en la web</legend>
         ${toggle("price_monthly", c ? c.price_period === "month" : false, "El precio es mensual (la web pone «por mes»)")}
         ${toggle("show_date", c ? c.show_date : true, "Enseñar el día y la hora")}

@@ -57,7 +57,8 @@ final class BookingController
         $booking = $db->transaction(static function (Database $db) use ($sessionId, $seats, $customer, $hold, $consents, $r, $inPerson, $subscription, $method) {
             // Bloquea el horario para que dos personas no se lleven la última plaza a la vez
             $session = $db->one('SELECT * FROM class_sessions WHERE id = ? FOR UPDATE', [$sessionId]);
-            $class = $session ? $db->one("SELECT * FROM classes WHERE id = ? AND kind = 'group' AND is_active = 1", [$session['class_id']]) : null;
+            // Una clase oculta solo se reserva en sus fechas de «Semanales»
+            $class = $session ? $db->one("SELECT * FROM classes WHERE id = ? AND kind = 'group' AND (is_active = 1 OR ? IS NOT NULL)", [$session['class_id'], $session['slot_id'] ?? null]) : null;
             if (!$session || !$class || $session['is_cancelled'] || strtotime($session['starts_at']) <= time()) {
                 throw HttpError::notFound('Este horario ya no está disponible');
             }

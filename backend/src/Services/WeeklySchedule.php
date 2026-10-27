@@ -49,14 +49,15 @@ final class WeeklySchedule
     }
 
     /**
-     * Para la web: los días abiertos con sus clases (solo clases en grupo visibles).
+     * Para la web: los días abiertos con sus clases en grupo (también las ocultas:
+     * ocultar una clase solo la quita de la lista de fechas de debajo).
      * [{weekday, name, slots: [{id, class_id, time, price_cents, price_period, capacity}]}]
      */
     public static function forWeb(): array
     {
         $db = Database::get();
         $open = self::days();
-        $classes = array_column($db->all("SELECT * FROM classes WHERE kind = 'group' AND is_active = 1"), null, 'id');
+        $classes = array_column($db->all("SELECT * FROM classes WHERE kind = 'group'"), null, 'id');
         $out = [];
         foreach (self::slots() as $s) {
             $class = $classes[$s['class_id']] ?? null;
