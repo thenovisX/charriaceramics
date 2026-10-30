@@ -174,6 +174,10 @@ views.resumen = async () => {
       <a href="#pedidos">${icon("box")}Ver pedidos</a>
       <a href="#clases">${icon("class")}Clases y horarios</a>
     </div>
+    <div class="shop-state${s.shop_open ? "" : " is-closed"}">
+      ${toggle("SHOP_OPEN", s.shop_open, `<span><strong>${s.shop_open ? "Tienda abierta" : "Tienda cerrada"}</strong><small>${s.shop_open ? "Se puede comprar en la web" : "La web avisa de que no está disponible y no deja comprar"}</small></span>`)}
+      <a class="link-btn" href="#ajustes/tienda">Cambiar aviso</a>
+    </div>
     <h2 class="block-title">Pendiente</h2>
     ${todo.length ? `<div class="todo">${listBox(todo.map(([n, href, ic, filter, title, sub]) => listItem({
       tag: "a", attrs: `href="${href}"${filter ? ` data-booking-filter="${filter}"` : ""}`, av: icon(ic), avClass: ic === "alert" ? "li__av--bad" : "li__av--warn",
@@ -193,6 +197,16 @@ views.resumen = async () => {
       title: esc(p.title), side: `<strong>${p.stock}</strong>${p.stock === 1 ? "unidad" : "unidades"}` })), "")
       : '<p class="muted">Todo bien de stock.</p>'}`;
   $$("[data-booking-filter]").forEach((a) => a.addEventListener("click", () => { state.bookingStatus = a.dataset.bookingFilter; }));
+  // Abrir o cerrar la tienda desde Inicio, sin ir a Ajustes
+  $(".shop-state input").addEventListener("change", async (e) => {
+    const open = e.target.checked;
+    e.target.disabled = true;
+    try {
+      await api("PUT", "/admin/settings", { values: { SHOP_OPEN: open } });
+      toast(open ? "Tienda abierta: ya se puede comprar" : "Tienda cerrada: la web enseña el aviso");
+      await views.resumen();
+    } catch (err) { e.target.checked = !open; e.target.disabled = false; fail(err); }
+  });
 };
 
 /* ---------- Mensajes: contacto, encargos y clases privadas ---------- */
@@ -1300,7 +1314,7 @@ views.ajustes = async () => {
       <section class="stack">
         <h2 class="settings__title">Tienda</h2>
         ${toggle("SHOP_OPEN", v.SHOP_OPEN !== "false", "Tienda abierta (compra y cesta activas)")}
-        ${field("Aviso cuando está cerrada", input("SHOP_CLOSED_MESSAGE", v.SHOP_CLOSED_MESSAGE, 'placeholder="No disponible en estos momentos"'), "Se ve en la tienda y en las fichas. Los pedidos ya pagados no cambian.")}
+        ${field("Aviso cuando está cerrada", input("SHOP_CLOSED_MESSAGE", v.SHOP_CLOSED_MESSAGE, 'placeholder="Tienda no disponible por ahora. Volvemos muy pronto."'), "Se ve en la tienda, en las fichas y en la página de pago. Si lo dejas vacío sale el texto de ejemplo. Los pedidos ya pagados no cambian.")}
       </section>
 
       <section class="stack">

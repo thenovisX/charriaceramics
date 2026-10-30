@@ -142,6 +142,7 @@ final class OrderAdminController
             'upcoming_sessions' => (int) $db->value('SELECT COUNT(*) FROM class_sessions WHERE is_cancelled = 0 AND starts_at > NOW()'),
             'low_stock' => array_map(static fn ($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'stock' => (int) $p['stock']],
                 $db->all('SELECT id, title, stock FROM products WHERE is_active = 1 AND sold_out = 0 AND stock <= 1 ORDER BY stock, title')),
+            'shop_open' => AppSettings::shopOpen(),
             'payments_configured' => Stripe::isConfigured(),
             'packlink_configured' => Packlink::isConfigured(),
             'mail_configured' => Mailer::canSend(),
