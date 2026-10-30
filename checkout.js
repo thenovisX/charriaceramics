@@ -68,7 +68,16 @@
     }
   }
 
+  // Tienda cerrada desde el panel: el aviso en lugar del formulario (el servidor tampoco deja pagar)
+  function closed(msg) {
+    grid.innerHTML = `<div class="cart__empty"><p class="shop-closed" role="status">${esc(msg)}</p><p class="cart__muted">Mientras tanto puedes apuntarte a una clase o escribirnos.</p><a class="btn-primary" href="index.html#clases">Ver las clases</a></div>`;
+  }
+
   async function init() {
+    try {
+      const site = await fetch(`${API}/site`, { headers: { Accept: "application/json" } }).then((r) => r.json());
+      if (site?.data?.shop_open === false) return closed(site.data.shop_message || "Tienda no disponible por ahora. Volvemos muy pronto.");
+    } catch { /* sin respuesta: sigue y el servidor decide al pagar */ }
     if (!read().length) return empty("Tu cesta está vacía.");
     try { await refreshQuote(); } catch { return empty("La tienda online no está disponible ahora mismo. Inténtalo en unos minutos."); }
     if (!read().length) return empty("Tu cesta está vacía.");

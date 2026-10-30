@@ -120,11 +120,16 @@ check('el resumen avisa de los datos legales que faltan', in_array('LEGAL_ADDRES
 call('PUT', "$base/admin/settings", ['values' => ['LEGAL_OWNER' => '', 'LEGAL_TAX_ID' => '', 'GA_MEASUREMENT_ID' => '']], $token);
 [, $site] = call('GET', "$base/site");
 check('tienda abierta por defecto en /site', ($site['data']['shop_open'] ?? null) === true, $site);
+call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => false]], $token);
+[, $site] = call('GET', "$base/site");
+check('tienda cerrada sin aviso propio: sale el de por defecto', $site['data']['shop_open'] === false && $site['data']['shop_message'] === 'Tienda no disponible por ahora. Volvemos muy pronto.', $site);
+[, $stats] = call('GET', "$base/admin/stats", null, $token);
+check('el resumen del panel sabe que la tienda está cerrada', ($stats['data']['shop_open'] ?? null) === false, $stats);
 call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => false, 'SHOP_CLOSED_MESSAGE' => 'Volvemos en septiembre']], $token);
 [, $site] = call('GET', "$base/site");
 check('tienda cerrada: /site lo indica con su aviso', $site['data']['shop_open'] === false && $site['data']['shop_message'] === 'Volvemos en septiembre', $site);
 [$s, $j] = call('POST', "$base/checkout", ['items' => []]);
-check('tienda cerrada: el pago se rechaza en el servidor', $s === 503 && ($j['error']['code'] ?? '') === 'shop_closed', $j);
+check('tienda cerrada: el pago se rechaza en el servidor con el aviso', $s === 503 && ($j['error']['code'] ?? '') === 'shop_closed' && ($j['error']['message'] ?? '') === 'Volvemos en septiembre', $j);
 call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => true, 'SHOP_CLOSED_MESSAGE' => '']], $token);
 [, $site] = call('GET', "$base/site");
 check('tienda reabierta desde el panel', $site['data']['shop_open'] === true, $site);

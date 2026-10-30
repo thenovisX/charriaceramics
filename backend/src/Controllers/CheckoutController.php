@@ -78,7 +78,7 @@ final class CheckoutController
     public function checkout(Request $r): Response
     {
         if (!AppSettings::shopOpen()) {
-            throw new HttpError(503, 'shop_closed', 'La tienda no está disponible en estos momentos.');
+            throw new HttpError(503, 'shop_closed', AppSettings::shopMessage());
         }
         if (!Stripe::isConfigured()) {
             throw new HttpError(503, 'payments_unavailable', 'La tienda online aún no acepta pagos. Escríbenos y te lo preparamos.');

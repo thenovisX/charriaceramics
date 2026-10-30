@@ -284,7 +284,7 @@ Datos de contacto que se editan en **Panel → Ajustes → Datos de la web**. Lo
 #### `GET /reviews`
 Reseñas publicadas, en el orden del panel: `[{ "id", "author", "context", "body", "rating", "review_date" }]`. Vacío = la portada no enseña la sección.
 
-**Cerrar la tienda**: Panel → Ajustes → **Tienda** tiene el interruptor «Tienda abierta» (`SHOP_OPEN`) y un aviso opcional (`SHOP_CLOSED_MESSAGE`, por defecto «No disponible en estos momentos»). Cerrada, `/site` devuelve `shop_open: false`, la web oculta la cesta y los botones de compra y enseña el aviso en la tienda y las fichas, y `POST /checkout` responde 503 `shop_closed`. Los pedidos ya pagados no se tocan; el resto del sitio (clases, galería, contacto) sigue igual.
+**Cerrar la tienda**: en **Inicio** del panel hay un interruptor «Tienda abierta / Tienda cerrada» (el mismo que Panel → Ajustes → **Tienda**, `SHOP_OPEN`), y en Ajustes se puede cambiar el aviso (`SHOP_CLOSED_MESSAGE`, por defecto «Tienda no disponible por ahora. Volvemos muy pronto.»). Cerrada, `/site` devuelve `shop_open: false`, la web oculta la cesta y los botones de compra y enseña el aviso en la tienda, las fichas y la página de pago (checkout.html), y `POST /checkout` responde 503 `shop_closed` con ese mismo aviso. `/admin/stats` incluye `shop_open`. Los pedidos ya pagados no se tocan; el resto del sitio (clases, galería, contacto) sigue igual.
 ```json
 { "data": { "address": "Calle del Barro 12", "city": "36740 Tomiño (Pontevedra)", "hours": "Lunes - Viernes: 10:00–20:00\nSábados - Domingos: Cerrado (Abierto exclusivamente para clases programadas con reserva)",
   "email": "hola@charriaceramics.com", "phone": "+34 600 000 000", "whatsapp": null,

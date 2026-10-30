@@ -81,9 +81,17 @@ final class AppSettings
         'LEGAL_EMAIL' => 'legal_email', 'LEGAL_REGISTRY' => 'legal_registry', 'GA_MEASUREMENT_ID' => 'ga_id',
     ];
 
+    public const SHOP_CLOSED_DEFAULT = 'Tienda no disponible por ahora. Volvemos muy pronto.';
+
     public static function shopOpen(): bool
     {
         return Env::get('SHOP_OPEN') !== 'false';
+    }
+
+    /** Aviso que se ve en la tienda, las fichas y el pago mientras la tienda está cerrada. */
+    public static function shopMessage(): string
+    {
+        return Env::get('SHOP_CLOSED_MESSAGE') ?: self::SHOP_CLOSED_DEFAULT;
     }
 
     /** Datos del titular que tienen que estar rellenos para que las páginas legales estén completas. */
@@ -103,7 +111,7 @@ final class AppSettings
         }
         $out['studio_image'] = self::studioImage();
         $out['shop_open'] = self::shopOpen();
-        $out['shop_message'] = Env::get('SHOP_CLOSED_MESSAGE') ?: 'No disponible en estos momentos';
+        $out['shop_message'] = self::shopMessage();
         return $out;
     }
 

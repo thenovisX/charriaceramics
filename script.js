@@ -103,7 +103,7 @@ async function loadContent() {
 // Las 3 piezas más recientes llevan la etiqueta "Nuevo"; las agotadas, "Agotado".
 // La foto y el nombre llevan a la ficha; si hay segunda foto, aparece al pasar el ratón.
 const shopClosed = () => SITE?.shop_open === false;
-const closedNote = () => `<p class="shop-closed" role="status">${esc(SITE?.shop_message || "No disponible en estos momentos")}</p>`;
+const closedNote = () => `<p class="shop-closed" role="status">${esc(SITE?.shop_message || "Tienda no disponible por ahora. Volvemos muy pronto.")}</p>`;
 
 const productHTML = (p, i, tall = false) => `
   <article class="product${tall ? " product--tall" : ""}${p.soldOut ? " is-sold-out" : ""}" style="order:${i}" data-category="${esc(p.category)}">
@@ -623,7 +623,7 @@ function renderProductPage() {
     !p.soldOut && !shopClosed() && ["Envío", "2–5 días laborables"],
   ].filter(Boolean);
   const paragraphs = (t) => String(t).split(/\n{2,}|\n/).map((l) => l.trim()).filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join("");
-  const stockNote = p.soldOut ? "Agotada · escríbenos si quieres una parecida" : p.lowStock ? "Últimas unidades" : "Disponible · envío en 2–5 días laborables";
+  const stockNote = shopClosed() ? "" : p.soldOut ? "Agotada · escríbenos si quieres una parecida" : p.lowStock ? "Últimas unidades" : "Disponible · envío en 2–5 días laborables";
 
   $("[data-pdp-crumb]").innerHTML = `<a href="productos.html">Tienda</a><span aria-hidden="true">/</span>${p.category ? `<a href="productos.html?cat=${encodeURIComponent(p.category)}">${esc(p.category)}</a><span aria-hidden="true">/</span>` : ""}<span aria-current="page">${esc(p.name)}</span>`;
   $("[data-pdp-gallery]").innerHTML = `
@@ -636,7 +636,7 @@ function renderProductPage() {
     <p class="eyebrow">${esc(p.category || "Pieza única")}</p>
     <h1 class="pdp__title" data-split>${esc(p.name)}</h1>
     <p class="pdp__price">${p.discount ? `<s>${euros(p.originalCents)}</s> ` : ""}${euros(p.priceCents)}${p.discount ? ` <span class="pdp__off">−${p.discount} %</span>` : ""}</p>
-    <p class="pdp__stock${p.soldOut ? " is-out" : p.lowStock ? " is-low" : ""}">${stockNote}</p>
+    ${stockNote ? `<p class="pdp__stock${p.soldOut ? " is-out" : p.lowStock ? " is-low" : ""}">${stockNote}</p>` : ""}
     <div class="pdp__buy">
       ${shopClosed() ? closedNote()
         : p.soldOut ? `<a class="btn-primary btn-primary--ghost" href="contacto.html">Preguntar por una parecida</a>`
