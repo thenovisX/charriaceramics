@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Charria\Controllers;
 
 use Charria\Database;
+use Charria\Http\HttpError;
 use Charria\Http\Request;
 use Charria\Http\Response;
 use Charria\Services\Fulfillment;
@@ -19,7 +20,14 @@ final class WebhookController
 {
     public function stripe(Request $r): Response
     {
-        $event = Stripe::verifyWebhook($r->rawBody, $r->header('stripe-signature'));
+        try {
+            $event = Stripe::verifyWebhook($r->rawBody, $r->header('stripe-signature'));
+        } catch (HttpError $e) {
+            // Lo más habitual: el secreto whsec_ guardado es de otro webhook o del otro modo (prueba/real)
+            Stripe::note('stripe_webhook_rejected', $e->getMessage());
+            throw $e;
+        }
+        Stripe::note('stripe_webhook_ok', $event['type']);
         $db = Database::get();
         if ($db->value('SELECT id FROM stripe_events WHERE id = ?', [$event['id']])) {
             return Response::json(['received' => true, 'duplicate' => true]);

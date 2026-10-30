@@ -10,7 +10,7 @@ use Charria\Services\AppSettings;
 use Charria\Services\ImageProcessor;
 use Charria\Services\Mailer;
 use Charria\Services\Packlink;
-use Charria\Services\Stripe;
+use Charria\Services\StripeCheck;
 
 /** Ajustes > Stripe, Packlink, envíos y correo (panel). */
 final class SettingsController
@@ -53,16 +53,7 @@ final class SettingsController
     {
         $service = $r->input('service');
         if ($service === 'stripe') {
-            if (!Stripe::isConfigured()) {
-                throw HttpError::validation(['STRIPE_SECRET_KEY' => 'Primero guarda la clave secreta de Stripe']);
-            }
-            try {
-                $account = Stripe::request('GET', '/v1/account');
-            } catch (HttpError) {
-                throw new HttpError(502, 'stripe_error', 'Stripe ha rechazado la clave. Revisa que sea la clave secreta (sk_...) correcta.');
-            }
-            $name = $account['settings']['dashboard']['display_name'] ?? $account['business_profile']['name'] ?? $account['email'] ?? '';
-            return Response::json(['ok' => true, 'message' => 'Conectado con Stripe' . ($name ? " · $name" : '')]);
+            return Response::json(StripeCheck::run($r));
         }
         if ($service === 'packlink') {
             if (!Packlink::isConfigured()) {

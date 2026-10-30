@@ -450,6 +450,16 @@ webhook($base, $webhookSecret, ['id' => 'evt_' . bin2hex(random_bytes(6)), 'type
 [, $j] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
 $saraB = array_values(array_filter($j['data'] ?? [], fn ($b) => $b['customer']['email'] === 'sara@example.com'))[0] ?? [];
 check('al cobrarse la cuota vuelve a «pagada»', $saraB['paid_at'] !== null && $saraB['subscription_status'] === 'active', $saraB);
+// Webhooks creados hoy en Stripe (API 2025-03-31 o posterior): la suscripción va en parent.subscription_details
+$newInvoice = ['id' => 'in_' . bin2hex(random_bytes(4)), 'billing_reason' => 'subscription_cycle', 'parent' => ['type' => 'subscription_details', 'subscription_details' => ['subscription' => $subId]], 'lines' => ['data' => [['period' => ['end' => strtotime('+3 months')]]]]];
+webhook($base, $webhookSecret, ['id' => 'evt_' . bin2hex(random_bytes(6)), 'type' => 'invoice.payment_failed', 'data' => ['object' => $newInvoice]]);
+[, $j] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
+$saraB = array_values(array_filter($j['data'] ?? [], fn ($b) => $b['customer']['email'] === 'sara@example.com'))[0] ?? [];
+check('cuota fallida con el formato nuevo de Stripe (parent.subscription_details)', $saraB['paid_at'] === null && $saraB['subscription_status'] === 'past_due', $saraB);
+webhook($base, $webhookSecret, ['id' => 'evt_' . bin2hex(random_bytes(6)), 'type' => 'invoice.paid', 'data' => ['object' => $newInvoice]]);
+[, $j] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
+$saraB = array_values(array_filter($j['data'] ?? [], fn ($b) => $b['customer']['email'] === 'sara@example.com'))[0] ?? [];
+check('…y cuota cobrada con el formato nuevo', $saraB['paid_at'] !== null && $saraB['subscription_status'] === 'active', $saraB);
 webhook($base, $webhookSecret, ['id' => 'evt_' . bin2hex(random_bytes(6)), 'type' => 'customer.subscription.deleted', 'data' => ['object' => ['id' => $subId]]]);
 [, $j] = call('GET', "$base/admin/bookings?session_id=$sid2", null, $token);
 $saraB = array_values(array_filter($j['data'] ?? [], fn ($b) => $b['customer']['email'] === 'sara@example.com'))[0] ?? [];
@@ -667,6 +677,30 @@ check('semanales: quitar todas las clases del día', $s === 200 && $j['data']['d
 call('PATCH', "$base/admin/bookings/" . ($jb['data'][0]['id'] ?? 0), ['status' => 'cancelled'], $token);
 [$s] = call('DELETE', "$base/admin/classes/$wcid", null, $token);
 check('borrar la clase semanal', $s === 204);
+
+echo "Probar conexión con Stripe\n";
+$stripeCheck = static function () use ($base, $token): array {
+    [$s, $j] = call('POST', "$base/admin/settings/test", ['service' => 'stripe'], $token);
+    $titles = array_column($j['data']['checks'] ?? [], 'status', 'title');
+    return [$s, $j, $titles];
+};
+[$s, $j, $titles] = $stripeCheck();
+$has = static fn (array $titles, string $start, string $status) => (bool) array_filter($titles, static fn ($st, $t) => str_starts_with($t, $start) && $st === $status, ARRAY_FILTER_USE_BOTH);
+check('Stripe: la comprobación crea un pago de prueba y repasa clave y webhook', $s === 200 && $has($titles, 'Clave correcta', 'warn') && $has($titles, 'Stripe acepta crear pagos', 'ok')
+    && $has($titles, 'Al webhook le faltan los eventos de las suscripciones', 'warn') && $has($titles, 'Último aviso de Stripe recibido', 'ok') && ($j['data']['ok'] ?? null) === true, $j);
+$t = time();
+call('POST', "$base/webhooks/stripe", '{"id":"evt_x","type":"checkout.session.completed"}', null, ["Stripe-Signature: t=$t,v1=" . hash_hmac('sha256', "$t.{}", 'whsec_otro'), 'Content-Type: application/json'], true);
+[$s, $j, $titles] = $stripeCheck();
+check('Stripe: un webhook con otro secreto se explica en la comprobación', $has($titles, 'Stripe avisa a la web pero la firma no coincide', 'bad') && ($j['data']['ok'] ?? null) === false, $j);
+[$s, $j] = call('POST', "$base/admin/settings/test", ['service' => 'stripe'], $token, ['Host: charria-nuevo.example']);
+$fix = array_values(array_filter($j['data']['checks'] ?? [], static fn ($c) => isset($c['fix'])))[0]['fix'] ?? null;
+check('Stripe: avisa si la web se usa en otra dirección y propone corregirla', ($fix['value'] ?? '') === 'https://charria-nuevo.example', $j);
+[$s, $j] = call('PUT', "$base/admin/settings", ['values' => ['APP_URL' => 'http://sin-https.example']], $token);
+check('la dirección de la web tiene que ser https', $s === 422 && isset($j['error']['fields']['APP_URL']), $j);
+call('PUT', "$base/admin/settings", ['values' => ['STRIPE_SECRET_KEY' => 'sk_test_clavequenoexiste1']], $token);
+[$s, $j, $titles] = $stripeCheck();
+check('Stripe: una clave rechazada se explica con el mensaje de Stripe', $has($titles, 'Stripe rechaza la clave secreta', 'bad') && str_contains(json_encode($j, JSON_UNESCAPED_UNICODE), 'bad key'), $j);
+call('PUT', "$base/admin/settings", ['values' => [], 'clear' => ['STRIPE_SECRET_KEY']], $token);
 
 echo "Limpieza\n";
 [$s] = call('DELETE', "$base/admin/products/$pid", null, $token);

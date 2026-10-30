@@ -528,3 +528,14 @@ body:has(.drawer:not([hidden])), body:has(.sheet:not([hidden])) { overflow: hidd
 .howto ol { margin: .9rem 0 .8rem 1.2rem; display: grid; gap: .55rem; font-size: .92rem; line-height: 1.5; }
 .howto a { text-decoration: underline; }
 [data-mail-only][hidden] { display: none; }
+
+/* Ajustes → Pagos · resultado de «Probar conexión con Stripe» */
+.stripe-report { margin: .5rem 0 0; }
+.stripe-report__list { list-style: none; margin: .7rem 0 0; padding: 0; display: grid; gap: .7rem; }
+.stripe-report__item { display: grid; grid-template-columns: 1.6rem 1fr; gap: .6rem; align-items: start; }
+.stripe-report__item small { display: block; margin-top: .15rem; opacity: .85; }
+.stripe-report__item .btn { margin-top: .45rem; }
+.stripe-report__icon { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .8rem; background: var(--ok-soft); color: #2f4529; }
+.stripe-report__item--warn .stripe-report__icon { background: var(--warn-soft); color: var(--warn); }
+.stripe-report__item--bad .stripe-report__icon { background: var(--bad-soft); color: var(--bad); }
+.settings .notice--soft .muted { overflow-wrap: anywhere; }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Charria\Services;
 
+use Charria\Database;
 use Charria\Env;
 use Charria\Http\HttpError;
 
@@ -13,6 +14,9 @@ use Charria\Http\HttpError;
  */
 final class Stripe
 {
+    /** Mensaje de Stripe del último error (para explicarlo en el panel; al cliente se le da uno genérico). */
+    public static ?string $lastError = null;
+
     private static function base(): string
     {
         // STRIPE_API_BASE solo se cambia en los tests automáticos
@@ -56,6 +60,12 @@ final class Stripe
         $data = is_string($raw) ? json_decode($raw, true) : null;
         if ($raw === false || !is_array($data) || $status >= 400) {
             Log::error('Stripe error', ['status' => $status, 'curl' => $err, 'body' => is_string($raw) ? substr($raw, 0, 1000) : null]);
+            self::$lastError = $raw === false
+                ? 'Este servidor no ha podido conectar con Stripe (' . ($err ?: 'sin respuesta') . ')'
+                : (string) ($data['error']['message'] ?? "Stripe ha respondido con un error $status");
+            if ($path !== '/v1/account' && !str_starts_with($path, '/v1/webhook_endpoints') && !str_ends_with($path, '/expire')) {
+                self::note('stripe_last_error', self::$lastError);
+            }
             throw new HttpError(502, 'payment_provider_error', 'No se pudo conectar con la pasarela de pago. Inténtalo de nuevo.');
         }
         return $data;
@@ -109,6 +119,37 @@ final class Stripe
             ]];
         }
         return self::request('POST', '/v1/checkout/sessions', $params);
+    }
+
+    /**
+     * Guarda en la tabla settings cuándo pasó algo con Stripe (último error, último
+     * webhook recibido o rechazado) para que «Probar conexión» lo pueda contar.
+     * Estos nombres no están en AppSettings::KEYS, así que no se cargan como ajustes.
+     */
+    public static function note(string $name, ?string $message): void
+    {
+        try {
+            AppSettings::ensureTable();
+            Database::get()->exec(
+                'INSERT INTO settings (name, value, is_secret) VALUES (?, ?, 0)
+                 ON DUPLICATE KEY UPDATE value = VALUES(value)',
+                [$name, json_encode(['at' => date('Y-m-d H:i:s'), 'message' => mb_substr((string) $message, 0, 500)], JSON_UNESCAPED_UNICODE)]
+            );
+        } catch (\Throwable) {
+            // Sin base de datos no se apunta nada; no debe romper el pago
+        }
+    }
+
+    /** ['at' => fecha, 'message' => texto] o null */
+    public static function noted(string $name): ?array
+    {
+        try {
+            $raw = Database::get()->value('SELECT value FROM settings WHERE name = ?', [$name]);
+        } catch (\Throwable) {
+            return null;
+        }
+        $data = is_string($raw) ? json_decode($raw, true) : null;
+        return is_array($data) ? $data : null;
     }
 
     public static function retrieveCheckoutSession(string $id): array
