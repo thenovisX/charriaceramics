@@ -109,7 +109,8 @@ Todo lo que sigue se escribe en `https://tudominio.com/admin/` → **Ajustes**. 
 1. Crea la cuenta en [dashboard.stripe.com](https://dashboard.stripe.com) y empieza en **modo de prueba**.
 2. **Desarrolladores → Claves de API** → copia la **clave secreta** (`sk_test_…`) en “Clave secreta”.
 3. **Desarrolladores → Webhooks → Añadir destino**: pega la URL que muestra el panel (`https://tudominio.com/api/webhooks/stripe`) y marca los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired` y, para las suscripciones de las clases, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`. Copia su **secreto de firma** (`whsec_…`) en “Secreto del webhook”.
-4. **Guardar ajustes** y **Probar conexión con Stripe**. La etiqueta indica “Modo prueba” o “Modo real”.
+4. **Guardar ajustes** y **Probar conexión con Stripe**. La etiqueta indica “Modo prueba” o “Modo real”. La prueba repasa todo y dice qué falta: clave aceptada y cuenta activada, un pago de prueba de 1 € creado y cancelado al momento (el mismo tipo de pago que la web), si la dirección guardada de la web coincide con la que usas (si no, botón para corregirla: va en los enlaces de vuelta de Stripe y en la URL del webhook), si existe el webhook en Stripe con esa URL y sus eventos, el último aviso recibido o rechazado por firma (`whsec_` equivocado) y el último error de Stripe con un cliente.
+   Las cuotas mensuales funcionan con webhooks de cualquier versión de la API (desde 2025-03-31 la suscripción viene en `invoice.parent.subscription_details`).
 5. Prueba una compra con la tarjeta `4242 4242 4242 4242` (cualquier fecha futura y CVC).
 6. Para cobrar de verdad: activa la cuenta, pon la clave `sk_live_…` y crea el webhook también en modo live (tiene otro `whsec_`).
 

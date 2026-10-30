@@ -1354,6 +1354,8 @@ views.ajustes = async () => {
         </div>
         ${secret("STRIPE_WEBHOOK_SECRET", "Secreto del webhook", "whsec_…")}
         <div class="row"><button type="button" class="btn btn--ghost" data-test="stripe">Probar conexión con Stripe</button></div>
+        <p class="muted">Repasa la clave, prepara un pago de prueba de 1 € (que se cancela al momento), mira el webhook en Stripe y te dice qué falta.</p>
+        ${state.stripeReport ? stripeReport(state.stripeReport) : ""}
       </section>
 
       </div>
@@ -1501,10 +1503,36 @@ views.ajustes = async () => {
       await api("PUT", "/admin/settings", { values: collect() });
       const r = await api("POST", "/admin/settings/test", { service: b.dataset.test });
       toast(r.message);
+      if (b.dataset.test === "stripe") state.stripeReport = r;
       await views.ajustes();
     } catch (e) { if (e.fields) { showFieldErrors(form, e.fields); revealError(); } fail(e); } finally { b.disabled = false; }
   }));
 };
+
+// Resultado de «Probar conexión con Stripe»: una lista de comprobaciones con su arreglo
+const stripeReport = (r) => {
+  const icon = { ok: "✓", warn: "!", bad: "✕" };
+  return `<div class="notice ${r.ok ? "notice--soft" : ""} stripe-report" data-stripe-report>
+    <p><strong>${esc(r.message)}</strong></p>
+    <ul class="stripe-report__list">${(r.checks || []).map((c) => `
+      <li class="stripe-report__item stripe-report__item--${esc(c.status)}">
+        <span class="stripe-report__icon" aria-hidden="true">${icon[c.status] || "·"}</span>
+        <div><strong>${esc(c.title)}</strong>${c.detail ? `<small>${esc(c.detail)}</small>` : ""}
+        ${c.fix?.action === "app_url" ? `<button type="button" class="btn btn--small" data-fix-url="${esc(c.fix.value)}">${esc(c.fix.label)}</button>` : ""}</div>
+      </li>`).join("")}</ul>
+  </div>`;
+};
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-fix-url]");
+  if (!b) return;
+  b.disabled = true;
+  try {
+    await api("PUT", "/admin/settings", { values: { APP_URL: b.dataset.fixUrl } });
+    state.stripeReport = await api("POST", "/admin/settings/test", { service: "stripe" });
+    toast("Dirección de la web guardada");
+    await views.ajustes();
+  } catch (err) { fail(err); b.disabled = false; }
+});
 
 views.cuenta = async () => {
   main.innerHTML = `

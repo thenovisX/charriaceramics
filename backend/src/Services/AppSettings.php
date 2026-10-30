@@ -43,6 +43,8 @@ final class AppSettings
         'LEGAL_EMAIL' => ['email', false],
         'LEGAL_REGISTRY' => ['text', false],
         'GA_MEASUREMENT_ID' => ['ga_id', false],
+        // Dirección pública de la web (vuelta de Stripe, webhook, enlaces de los emails); si falta, la del .env
+        'APP_URL' => ['url', false],
         'STRIPE_SECRET_KEY' => ['stripe_key', true],
         'STRIPE_WEBHOOK_SECRET' => ['webhook_secret', true],
         'PACKLINK_API_KEY' => ['packlink_key', true],

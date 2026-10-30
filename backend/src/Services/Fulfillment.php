@@ -34,7 +34,7 @@ final class Fulfillment
         $db = Database::get();
         if (($session['metadata']['type'] ?? '') === 'order') {
             $db->exec("UPDATE orders SET status = 'cancelled' WHERE reference = ? AND status = 'pending'", [$reference]);
-        } else {
+        } elseif (($session['metadata']['type'] ?? 'booking') === 'booking') {
             $db->exec("UPDATE bookings SET status = 'cancelled' WHERE reference = ? AND status = 'pending_payment'", [$reference]);
         }
     }
@@ -173,7 +173,10 @@ final class Fulfillment
 
     private static function bookingOfInvoice(array $invoice): ?array
     {
-        $subscription = is_string($invoice['subscription'] ?? null) ? $invoice['subscription'] : '';
+        // Webhooks con versión de API 2025-03-31 o posterior (los que crea hoy el panel de Stripe)
+        // ya no traen invoice.subscription: va en invoice.parent.subscription_details.subscription
+        $subscription = $invoice['subscription'] ?? $invoice['parent']['subscription_details']['subscription'] ?? null;
+        $subscription = is_string($subscription) ? $subscription : (is_array($subscription) ? (string) ($subscription['id'] ?? '') : '');
         return $subscription === '' ? null
             : Database::get()->one("SELECT * FROM bookings WHERE stripe_subscription_id = ? AND payment_method = 'subscription'", [$subscription]);
     }

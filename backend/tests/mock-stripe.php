@@ -15,6 +15,11 @@ if (!in_array($_SERVER['HTTP_AUTHORIZATION'] ?? '', ['Bearer sk_test_mock', 'Bea
 if ($path === '/v1/account') {
     exit(json_encode(['id' => 'acct_mock', 'object' => 'account', 'settings' => ['dashboard' => ['display_name' => 'Charria Mock']]]));
 }
+if ($path === '/v1/webhook_endpoints') {
+    // Un destino con los eventos de pago pero sin los de suscripción (la URL es la APP_URL del .env de test)
+    exit(json_encode(['object' => 'list', 'data' => [['id' => 'we_mock', 'url' => 'http://localhost:8000/api/webhooks/stripe', 'status' => 'enabled',
+        'enabled_events' => ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired']]]]));
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $path === '/v1/checkout/sessions') {
     parse_str(file_get_contents('php://input'), $p);
     $id = 'cs_test_' . bin2hex(random_bytes(12));
