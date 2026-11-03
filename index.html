@@ -25,7 +25,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
   <link rel="preload" as="image" type="image/webp" imagesrcset="assets/inicio-800.webp 800w, assets/inicio-1195.webp 1195w" imagesizes="100vw" fetchpriority="high">
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -82,7 +82,8 @@
     <section class="studio" id="estudio" data-studio>
       <figure class="studio__media">
         <picture>
-          <img data-studio-img src="https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=1000&h=1250&q=80" width="1000" height="1250" loading="lazy" decoding="async" alt="Manos centrando el barro en el torno del estudio">
+          <source type="image/webp" srcset="assets/galeria/creafogar-mesa-800.webp 597w, assets/galeria/creafogar-mesa.webp 896w" sizes="(max-width: 900px) 100vw, 50vw">
+          <img data-studio-img src="assets/galeria/creafogar-mesa.jpg" srcset="assets/galeria/creafogar-mesa-800.jpg 597w, assets/galeria/creafogar-mesa.jpg 896w" sizes="(max-width: 900px) 100vw, 50vw" width="896" height="1200" loading="lazy" decoding="async" alt="Mesa puesta con piezas de Charria bajo una lámpara de mimbre">
         </picture>
       </figure>
       <div class="studio__content">
@@ -141,7 +142,10 @@
     <!-- 3. CLASES PRIVADAS 1 a 1: imagen fija + formulario -->
     <section class="private" id="privadas">
       <div class="private__media">
-        <img src="https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?auto=format&fit=crop&w=1400&q=80" alt="Manos de la ceramista modelando una pieza de barro en el torno del estudio">
+        <picture>
+          <source type="image/webp" srcset="assets/galeria/encaje-800.webp 800w, assets/galeria/encaje.webp 1232w" sizes="(max-width: 900px) 100vw, 55vw">
+          <img src="assets/galeria/encaje.jpg" srcset="assets/galeria/encaje-800.jpg 800w, assets/galeria/encaje.jpg 1232w" sizes="(max-width: 900px) 100vw, 55vw" width="1232" height="1232" loading="lazy" decoding="async" alt="Escultura de porcelana veteada envuelta en encaje y tul, hecha en el estudio" style="object-position: 38% 50%">
+        </picture>
       </div>
       <div class="private__content">
         <h2 class="section-head__title" data-split>Clase privada</h2>
@@ -274,7 +278,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
-  <script src="data.js?v=12"></script>
+  <script src="data.js?v=13"></script>
   <script src="script.js?v=23"></script>
   <script src="cart.js?v=13"></script>
   <script src="consent.js?v=3"></script>
