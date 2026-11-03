@@ -27,6 +27,24 @@ final class Migrations
         8 => 'webContent',
         9 => 'displayOptions',
         10 => 'weeklyClasses',
+        11 => 'realGallery',
+    ];
+
+    /**
+     * Fotos reales de la galería (assets/galeria): nombre, ancho, alto, título,
+     * técnica, etiqueta y texto alternativo (seed.sql lleva las mismas).
+     */
+    private const REAL_GALLERY = [
+        ['creafogar-vitrina', 1027, 1078, 'En Creafogar', 'Exposición · Santiago', 'none', 'Piezas de Charria en un armario de madera y sobre una mesa de Creafogar, rúa Nova 24, Santiago de Compostela'],
+        ['azul-rosa', 750, 1000, 'Boca rosa', 'Cerámica esmaltada', 'unique', 'Pieza de cerámica azul oscuro con la boca abierta y el interior rosa, sobre tela blanca'],
+        ['estrellas', 800, 1000, 'Estrellas de Navidad', 'Cerámica pintada a mano', 'on_request', 'Adornos de Navidad de cerámica en forma de estrella pintados a mano, sobre madera con eucalipto y piñas'],
+        ['casita', 1024, 1024, 'Casita blanca', 'Cerámica blanca', 'on_request', 'Casita de cerámica blanca sobre una pila de revistas con ramas de abeto'],
+        ['collar-malla', 1200, 514, 'Collar en malla', 'Porcelana y malla', 'unique', 'Escultura alargada a modo de collar con piezas blancas y negras envueltas en malla'],
+        ['dos-bocas', 1000, 625, 'Azul de dos bocas', 'Cerámica esmaltada', 'unique', 'Pieza de cerámica esmaltada en azul oscuro con dos bocas e interior rosa, sobre tela blanca'],
+        ['envuelta', 1000, 626, 'Forma envuelta', 'Cerámica y media', 'unique', 'Escultura de tono beige envuelta en una media, sobre una peana blanca'],
+        ['creafogar-mesa', 896, 1200, 'Mesa en Creafogar', 'Exposición · Santiago', 'none', 'Mesa con piezas de Charria bajo una lámpara de mimbre en Creafogar, Santiago de Compostela'],
+        ['encaje', 1232, 1232, 'Encaje y tul', 'Porcelana, encaje y tul', 'unique', 'Escultura de porcelana veteada envuelta en encaje y tul'],
+        ['azul-alargada', 1000, 750, 'Azul alargada', 'Cerámica esmaltada', 'unique', 'Pieza alargada de cerámica esmaltada en azul oscuro con la boca rosa, sobre tela blanca'],
     ];
 
     public static function latest(): int
@@ -309,6 +327,38 @@ final class Migrations
                  WHERE class_id = ? AND WEEKDAY(starts_at) + 1 = ? AND TIME(starts_at) = ? AND label = '' AND is_cancelled = 0 AND starts_at > NOW() AND slot_id IS NULL",
                 [$slot, $g['class_id'], $g['weekday'], $g['start_time']]
             );
+        }
+    }
+
+    /**
+     * 11 · Galería con las fotos reales del estudio en lugar de las fotos de
+     * ejemplo (Unsplash) del principio. Solo toca las obras que siguen con una
+     * foto de ejemplo; las que ya se subieron desde el panel no cambian.
+     */
+    private static function realGallery(Database $db): void
+    {
+        $stock = $db->all(
+            "SELECT g.id, g.image_id FROM gallery_items g JOIN images i ON i.id = g.image_id
+             WHERE i.url LIKE 'https://images.unsplash.com/%' ORDER BY g.sort_order, g.id"
+        );
+        // Sin las fotos en el servidor (otra tienda con este mismo backend) no se toca nada
+        if (!$stock || !is_file(PUBLIC_DIR . '/assets/galeria/' . self::REAL_GALLERY[0][0] . '.webp')) {
+            return;
+        }
+        $order = (int) $db->value('SELECT COALESCE(MAX(sort_order), 0) FROM gallery_items');
+        foreach (self::REAL_GALLERY as $i => [$name, $width, $height, $title, $technique, $availability, $alt]) {
+            $image = [
+                'url' => "/assets/galeria/$name.webp", 'thumb_url' => "/assets/galeria/$name-800.webp",
+                'mime' => 'image/webp', 'width' => $width, 'height' => $height, 'alt' => $alt,
+            ];
+            $item = ['title' => $title, 'technique' => $technique, 'year' => '2026', 'availability' => $availability];
+            if (isset($stock[$i])) {
+                $db->update('images', $image, 'id = :id', ['id' => $stock[$i]['image_id']]);
+                $db->update('gallery_items', $item, 'id = :id', ['id' => $stock[$i]['id']]);
+            } else {
+                $imageId = $db->insert('images', ['kind' => 'gallery'] + $image);
+                $db->insert('gallery_items', $item + ['image_id' => $imageId, 'sort_order' => ++$order, 'is_published' => 1]);
+            }
         }
     }
 

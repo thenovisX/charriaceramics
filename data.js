@@ -21,13 +21,18 @@ window.PRODUCTS = [
   { id: "set-mesa-lenta", name: "Set Mesa Lenta", price: 140, category: "Sets",     added: "2026-09-01", img: UNSPLASH("photo-1631125915902-d8abe9225ff2"), alt: "Vajilla de gres hecha a mano sobre una mesa de madera", description: "Vajilla para dos: platos, cuencos y tazas.", images: [UNSPLASH("photo-1631125915902-d8abe9225ff2"), UNSPLASH("photo-1604335399105-a0c585fd81a1")], ...FICHA("Platos Ø 26 cm · cuencos Ø 14 cm", "Gres", [{ label: "Incluye", value: "2 platos, 2 cuencos y 2 tazas" }]) },
 ];
 
+// Fotos reales del estudio (assets/galeria): webp a tamaño grande y miniatura de 800 px
+const FOTO = (name) => ({ img: `assets/galeria/${name}.webp`, thumb: `assets/galeria/${name}-800.webp` });
+
 window.GALLERY = [
-  { title: "Serie Raíz",     year: "2025", technique: "Gres y engobe",           availability: "unique", img: UNSPLASH("photo-1578500494198-246f612d3b3d", 1600), alt: "Escultura de gres con engobe, serie Raíz" },
-  { title: "Silencio blanco", year: "2025", technique: "Porcelana sin esmaltar", availability: "on_request", img: UNSPLASH("photo-1610701596061-2ecf227e85b2", 1600), alt: "Cuencos de porcelana blanca sin esmaltar apilados" },
-  { title: "Vasija nº 7",    year: "2025", technique: "Torno, cocción a leña",   availability: "unique", img: UNSPLASH("photo-1603204077779-bed963ea7d0e", 1600), alt: "Vasija de barro torneada a mano y cocida a leña, nº 7" },
-  { title: "Mesa de taller", year: "2024", technique: "Vajilla de uso diario",   availability: "on_request", img: UNSPLASH("photo-1631125915902-d8abe9225ff2", 1600), alt: "Vajilla de gres de uso diario sobre la mesa del taller" },
-  { title: "Tierra cocida",  year: "2024", technique: "Barro rojo bruñido",      availability: "unique", img: UNSPLASH("photo-1607344645866-009c320b63e0", 1600), alt: "Piezas de barro rojo bruñido a mano" },
-  { title: "Ceniza",         year: "2024", technique: "Esmalte de ceniza",       availability: "on_request", img: UNSPLASH("photo-1571950484368-7b15b0a5ad46", 1600), alt: "Detalle de un esmalte de ceniza sobre gres" },
-  { title: "Tres formas",    year: "2024", technique: "Gres blanco",             availability: "unique", img: UNSPLASH("photo-1565193566173-7a0ee3dbe261", 1600), alt: "Tres jarrones de gres blanco torneados a mano sobre fondo neutro" },
-  { title: "Manos en el torno", year: "2023", technique: "El estudio",          availability: "none", img: UNSPLASH("photo-1606760227091-3dd870d97f1d", 1600), alt: "Manos modelando barro en el torno del estudio" },
+  { title: "En Creafogar", year: "2026", technique: "Exposición · Santiago", availability: "none", ...FOTO("creafogar-vitrina"), alt: "Piezas de Charria en un armario de madera y sobre una mesa de Creafogar, rúa Nova 24, Santiago de Compostela" },
+  { title: "Boca rosa", year: "2026", technique: "Cerámica esmaltada", availability: "unique", ...FOTO("azul-rosa"), alt: "Pieza de cerámica azul oscuro con la boca abierta y el interior rosa, sobre tela blanca" },
+  { title: "Estrellas de Navidad", year: "2026", technique: "Cerámica pintada a mano", availability: "on_request", ...FOTO("estrellas"), alt: "Adornos de Navidad de cerámica en forma de estrella pintados a mano, sobre madera con eucalipto y piñas" },
+  { title: "Casita blanca", year: "2026", technique: "Cerámica blanca", availability: "on_request", ...FOTO("casita"), alt: "Casita de cerámica blanca sobre una pila de revistas con ramas de abeto" },
+  { title: "Collar en malla", year: "2026", technique: "Porcelana y malla", availability: "unique", ...FOTO("collar-malla"), alt: "Escultura alargada a modo de collar con piezas blancas y negras envueltas en malla" },
+  { title: "Azul de dos bocas", year: "2026", technique: "Cerámica esmaltada", availability: "unique", ...FOTO("dos-bocas"), alt: "Pieza de cerámica esmaltada en azul oscuro con dos bocas e interior rosa, sobre tela blanca" },
+  { title: "Forma envuelta", year: "2026", technique: "Cerámica y media", availability: "unique", ...FOTO("envuelta"), alt: "Escultura de tono beige envuelta en una media, sobre una peana blanca" },
+  { title: "Mesa en Creafogar", year: "2026", technique: "Exposición · Santiago", availability: "none", ...FOTO("creafogar-mesa"), alt: "Mesa con piezas de Charria bajo una lámpara de mimbre en Creafogar, Santiago de Compostela" },
+  { title: "Encaje y tul", year: "2026", technique: "Porcelana, encaje y tul", availability: "unique", ...FOTO("encaje"), alt: "Escultura de porcelana veteada envuelta en encaje y tul" },
+  { title: "Azul alargada", year: "2026", technique: "Cerámica esmaltada", availability: "unique", ...FOTO("azul-alargada"), alt: "Pieza alargada de cerámica esmaltada en azul oscuro con la boca rosa, sobre tela blanca" },
 ];

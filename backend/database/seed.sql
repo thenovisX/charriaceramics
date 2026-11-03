@@ -17,14 +17,6 @@ INSERT INTO images (id, kind, url, width, height, alt) VALUES
   (8,  'product', 'https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=900&q=80', 900, 1125, 'Vasija escultórica de gres con engobe y formas orgánicas'),
   (9,  'product', 'https://images.unsplash.com/photo-1603204077779-bed963ea7d0e?auto=format&fit=crop&w=900&q=80', 900, 1125, 'Vasija de barro torneada a mano con cocción a leña'),
   (10, 'product', 'https://images.unsplash.com/photo-1631125915902-d8abe9225ff2?auto=format&fit=crop&w=900&q=80', 900, 1125, 'Vajilla de gres hecha a mano sobre una mesa de madera'),
-  (11, 'gallery', 'https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Escultura de gres con engobe, serie Raíz'),
-  (12, 'gallery', 'https://images.unsplash.com/photo-1610701596061-2ecf227e85b2?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Cuencos de porcelana blanca sin esmaltar apilados'),
-  (13, 'gallery', 'https://images.unsplash.com/photo-1603204077779-bed963ea7d0e?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Vasija de barro torneada a mano y cocida a leña, nº 7'),
-  (14, 'gallery', 'https://images.unsplash.com/photo-1631125915902-d8abe9225ff2?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Vajilla de gres de uso diario sobre la mesa del taller'),
-  (15, 'gallery', 'https://images.unsplash.com/photo-1607344645866-009c320b63e0?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Piezas de barro rojo bruñido a mano'),
-  (16, 'gallery', 'https://images.unsplash.com/photo-1571950484368-7b15b0a5ad46?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Detalle de un esmalte de ceniza sobre gres'),
-  (17, 'gallery', 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Tres jarrones de gres blanco torneados a mano sobre fondo neutro'),
-  (18, 'gallery', 'https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?auto=format&fit=crop&w=1600&q=80', 1600, 1000, 'Manos modelando barro en el torno del estudio'),
   (19, 'class',   'https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=700&q=80', 700, 875, 'Torno de alfarero con una pieza de barro en proceso'),
   (20, 'class',   'https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?auto=format&fit=crop&w=700&q=80', 700, 875, 'Manos modelando barro con la técnica de pellizco'),
   (21, 'class',   'https://images.unsplash.com/photo-1556011284-54aa6466d402?auto=format&fit=crop&w=700&q=80', 700, 875, 'Botes de esmalte y pinceles para esmaltar cerámica'),
@@ -52,15 +44,30 @@ INSERT INTO product_images (product_id, image_id, sort_order) VALUES
   (1, 1, 0), (2, 2, 0), (3, 3, 0), (4, 4, 0), (5, 5, 0), (6, 6, 0), (7, 7, 0), (8, 8, 0), (9, 9, 0), (10, 10, 0),
   (1, 23, 1), (2, 24, 1), (7, 25, 1), (10, 26, 1), (3, 27, 1);
 
+-- Galería: fotos reales del estudio (assets/galeria, en webp con miniatura de 800 px)
+INSERT INTO images (id, kind, url, thumb_url, width, height, alt) VALUES
+  (11, 'gallery', '/assets/galeria/creafogar-vitrina.webp', '/assets/galeria/creafogar-vitrina-800.webp', 1027, 1078, 'Piezas de Charria en un armario de madera y sobre una mesa de Creafogar, rúa Nova 24, Santiago de Compostela'),
+  (12, 'gallery', '/assets/galeria/azul-rosa.webp', '/assets/galeria/azul-rosa-800.webp', 750, 1000, 'Pieza de cerámica azul oscuro con la boca abierta y el interior rosa, sobre tela blanca'),
+  (13, 'gallery', '/assets/galeria/estrellas.webp', '/assets/galeria/estrellas-800.webp', 800, 1000, 'Adornos de Navidad de cerámica en forma de estrella pintados a mano, sobre madera con eucalipto y piñas'),
+  (14, 'gallery', '/assets/galeria/casita.webp', '/assets/galeria/casita-800.webp', 1024, 1024, 'Casita de cerámica blanca sobre una pila de revistas con ramas de abeto'),
+  (15, 'gallery', '/assets/galeria/collar-malla.webp', '/assets/galeria/collar-malla-800.webp', 1200, 514, 'Escultura alargada a modo de collar con piezas blancas y negras envueltas en malla'),
+  (16, 'gallery', '/assets/galeria/dos-bocas.webp', '/assets/galeria/dos-bocas-800.webp', 1000, 625, 'Pieza de cerámica esmaltada en azul oscuro con dos bocas e interior rosa, sobre tela blanca'),
+  (17, 'gallery', '/assets/galeria/envuelta.webp', '/assets/galeria/envuelta-800.webp', 1000, 626, 'Escultura de tono beige envuelta en una media, sobre una peana blanca'),
+  (18, 'gallery', '/assets/galeria/creafogar-mesa.webp', '/assets/galeria/creafogar-mesa-800.webp', 896, 1200, 'Mesa con piezas de Charria bajo una lámpara de mimbre en Creafogar, Santiago de Compostela'),
+  (28, 'gallery', '/assets/galeria/encaje.webp', '/assets/galeria/encaje-800.webp', 1232, 1232, 'Escultura de porcelana veteada envuelta en encaje y tul'),
+  (29, 'gallery', '/assets/galeria/azul-alargada.webp', '/assets/galeria/azul-alargada-800.webp', 1000, 750, 'Pieza alargada de cerámica esmaltada en azul oscuro con la boca rosa, sobre tela blanca');
+
 INSERT INTO gallery_items (image_id, title, technique, year, availability, sort_order) VALUES
-  (11, 'Serie Raíz',        'Gres y engobe',           '2025', 'unique',     1),
-  (12, 'Silencio blanco',   'Porcelana sin esmaltar',  '2025', 'on_request', 2),
-  (13, 'Vasija nº 7',       'Torno, cocción a leña',   '2025', 'unique',     3),
-  (14, 'Mesa de taller',    'Vajilla de uso diario',   '2024', 'on_request', 4),
-  (15, 'Tierra cocida',     'Barro rojo bruñido',      '2024', 'unique',     5),
-  (16, 'Ceniza',            'Esmalte de ceniza',       '2024', 'on_request', 6),
-  (17, 'Tres formas',       'Gres blanco',             '2024', 'unique',     7),
-  (18, 'Manos en el torno', 'El estudio',              '2023', 'none',       8);
+  (11, 'En Creafogar', 'Exposición · Santiago', '2026', 'none', 1),
+  (12, 'Boca rosa', 'Cerámica esmaltada', '2026', 'unique', 2),
+  (13, 'Estrellas de Navidad', 'Cerámica pintada a mano', '2026', 'on_request', 3),
+  (14, 'Casita blanca', 'Cerámica blanca', '2026', 'on_request', 4),
+  (15, 'Collar en malla', 'Porcelana y malla', '2026', 'unique', 5),
+  (16, 'Azul de dos bocas', 'Cerámica esmaltada', '2026', 'unique', 6),
+  (17, 'Forma envuelta', 'Cerámica y media', '2026', 'unique', 7),
+  (18, 'Mesa en Creafogar', 'Exposición · Santiago', '2026', 'none', 8),
+  (28, 'Encaje y tul', 'Porcelana, encaje y tul', '2026', 'unique', 9),
+  (29, 'Azul alargada', 'Cerámica esmaltada', '2026', 'unique', 10);
 
 INSERT INTO classes (id, slug, kind, title, description, duration_minutes, price_cents, capacity, image_id, sort_order) VALUES
   (1, 'iniciacion-torno',   'group',   'Iniciación al torno',                'Primer contacto con el torno: centrado, apertura y subida de paredes.', 180, 6500,  6, 19, 1),
