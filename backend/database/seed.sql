@@ -69,17 +69,23 @@ INSERT INTO gallery_items (image_id, title, technique, year, availability, sort_
   (28, 'Encaje y tul', 'Porcelana, encaje y tul', '2026', 'unique', 9),
   (29, 'Azul alargada', 'Cerámica esmaltada', '2026', 'unique', 10);
 
-INSERT INTO classes (id, slug, kind, title, description, duration_minutes, price_cents, capacity, image_id, sort_order) VALUES
-  (1, 'iniciacion-torno',   'group',   'Iniciación al torno',                'Primer contacto con el torno: centrado, apertura y subida de paredes.', 180, 6500,  6, 19, 1),
-  (2, 'modelado-a-mano',    'group',   'Modelado a mano: pellizco y churro', 'Técnicas de modelado sin torno para crear tus propias piezas.',       150, 5500,  6, 20, 2),
-  (3, 'esmaltes-y-color',   'group',   'Esmaltes y color',                   'Aprende a esmaltar y a combinar colores sobre piezas bizcochadas.',  180, 7000,  6, 21, 3),
-  (4, 'curso-trimestral',   'group',   'Curso trimestral de torno',          'Doce sesiones semanales para dominar el torno.',                     120, 39000, 6, 22, 4),
-  (5, 'privada-1-persona',  'private', '1 persona · 2 h',                    'Clase privada para una persona.',                                    120, 9000,  1, NULL, 10),
-  (6, 'privada-2-personas', 'private', '2 personas · 2 h',                   'Clase privada para dos personas.',                                   120, 15000, 2, NULL, 11),
-  (7, 'privada-pack-4',     'private', 'Pack 4 sesiones',                    'Cuatro sesiones privadas de 2 horas.',                               480, 32000, 1, NULL, 12);
+-- Clases y horario semanal reales (el horario «Weekly» de Charria): todas de 2 h.
+-- Las fechas reservables las crea solas Services/WeeklySchedule.php a partir de weekly_slots.
+-- Migrations::realSchedule (paso 13) lleva lo mismo para las webs ya instaladas.
+INSERT INTO classes (id, slug, kind, title, description, duration_minutes, price_cents, capacity, pay_subscription, monthly_price_cents, image_id, sort_order) VALUES
+  (1, 'ceramica-grupo',          'group',   'Cerámica en grupo',                    'Clase de cerámica de 2 h en grupo reducido. Sesión puntual 30 € o cada semana con la cuota mensual de 60 € (2 h/semana).', 120, 3000,  4, 1, 6000,  20, 1),
+  (2, 'torno-grupo',             'group',   'Torno en grupo',                       'Clase de torno de 2 h en grupo reducido. Sesión puntual 35 € o cada semana con la cuota mensual de 65 € (2 h/semana).',   120, 3500,  4, 1, 6500,  19, 2),
+  (3, 'clase-individualizada',   'group',   'Clase individualizada',                'Clase de 2 h solo para ti. Sesión puntual 45 € o cada semana con la cuota mensual de 100 € (2 h/semana).',               120, 4500,  1, 1, 10000, 22, 3),
+  (4, 'individualizada-puntual', 'private', 'Individualizada puntual · 2 h',        'Una sesión individualizada de 2 horas en otro día u hora.',                                                               120, 4500,  1, 0, NULL,  NULL, 10),
+  (5, 'individualizada-mensual', 'private', 'Individualizada mensual · 2 h/semana', 'Clases individualizadas de 2 horas cada semana.',                                                                         120, 10000, 1, 0, NULL,  NULL, 11);
 
-INSERT INTO class_sessions (class_id, starts_at, label, capacity) VALUES
-  (1, '2026-11-08 10:00:00', '', 4),
-  (2, '2026-11-13 18:30:00', '', 2),
-  (3, '2026-11-22 11:00:00', '', NULL),
-  (4, '2026-11-03 19:00:00', 'Martes · 12 sesiones', NULL);
+INSERT INTO weekly_days (weekday, is_open) VALUES (1, 1), (2, 1), (3, 1), (4, 1), (5, 1);
+
+-- Lunes 10, 12 y 16 · miércoles 11 · jueves y viernes 10 y 12: individualizada (los huecos «Libre»)
+-- Martes y miércoles 18:00 · viernes 17:30: cerámica en grupo
+INSERT INTO weekly_slots (weekday, class_id, start_time) VALUES
+  (1, 3, '10:00:00'), (1, 3, '12:00:00'), (1, 3, '16:00:00'),
+  (2, 1, '18:00:00'),
+  (3, 3, '11:00:00'), (3, 1, '18:00:00'),
+  (4, 3, '10:00:00'), (4, 3, '12:00:00'),
+  (5, 3, '10:00:00'), (5, 3, '12:00:00'), (5, 1, '17:30:00');

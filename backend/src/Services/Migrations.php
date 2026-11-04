@@ -29,6 +29,40 @@ final class Migrations
         10 => 'weeklyClasses',
         11 => 'realGallery',
         12 => 'christmasWorkshops',
+        13 => 'realSchedule',
+    ];
+
+    /**
+     * Horario semanal real de Charria (noviembre de 2026): clases de 2 h.
+     * slug => [tipo, título, descripción, precio de una sesión, cuota mensual, plazas, orden, foto de la clase de ejemplo]
+     * seed.sql lleva lo mismo.
+     */
+    private const REAL_CLASSES = [
+        'ceramica-grupo' => ['group', 'Cerámica en grupo', 'Clase de cerámica de 2 h en grupo reducido. Sesión puntual 30 € o cada semana con la cuota mensual de 60 € (2 h/semana).', 3000, 6000, 4, 1, 'modelado-a-mano'],
+        'torno-grupo' => ['group', 'Torno en grupo', 'Clase de torno de 2 h en grupo reducido. Sesión puntual 35 € o cada semana con la cuota mensual de 65 € (2 h/semana).', 3500, 6500, 4, 2, 'iniciacion-torno'],
+        'clase-individualizada' => ['group', 'Clase individualizada', 'Clase de 2 h solo para ti. Sesión puntual 45 € o cada semana con la cuota mensual de 100 € (2 h/semana).', 4500, 10000, 1, 3, 'curso-trimestral'],
+        'individualizada-puntual' => ['private', 'Individualizada puntual · 2 h', 'Una sesión individualizada de 2 horas en otro día u hora.', 4500, null, 1, 10, null],
+        'individualizada-mensual' => ['private', 'Individualizada mensual · 2 h/semana', 'Clases individualizadas de 2 horas cada semana.', 10000, null, 1, 11, null],
+    ];
+
+    /** [día de la semana (1 = lunes), hora, clase]. Los huecos «Libre» del horario son las clases individualizadas. */
+    private const REAL_SLOTS = [
+        [1, '10:00', 'clase-individualizada'], [1, '12:00', 'clase-individualizada'], [1, '16:00', 'clase-individualizada'],
+        [2, '18:00', 'ceramica-grupo'],
+        [3, '11:00', 'clase-individualizada'], [3, '18:00', 'ceramica-grupo'],
+        [4, '10:00', 'clase-individualizada'], [4, '12:00', 'clase-individualizada'],
+        [5, '10:00', 'clase-individualizada'], [5, '12:00', 'clase-individualizada'], [5, '17:30', 'ceramica-grupo'],
+    ];
+
+    /** Clases de ejemplo del principio (slug => título): se ocultan si siguen tal cual. */
+    private const EXAMPLE_CLASSES = [
+        'iniciacion-torno' => 'Iniciación al torno',
+        'modelado-a-mano' => 'Modelado a mano: pellizco y churro',
+        'esmaltes-y-color' => 'Esmaltes y color',
+        'curso-trimestral' => 'Curso trimestral de torno',
+        'privada-1-persona' => '1 persona · 2 h',
+        'privada-2-personas' => '2 personas · 2 h',
+        'privada-pack-4' => 'Pack 4 sesiones',
     ];
 
     /**
@@ -410,6 +444,64 @@ final class Migrations
                 }
             }
         }
+    }
+
+    /**
+     * 13 · Horario semanal real (el PDF «Weekly» de Charria) por defecto en «Semanales»:
+     * cerámica en grupo martes y miércoles a las 18:00 y viernes a las 17:30, y clases
+     * individualizadas en los huecos libres (lunes 10, 12 y 16; miércoles 11; jueves y
+     * viernes 10 y 12). Crea las clases con sus precios si no existen (si ya existen no
+     * se tocan), deja ese horario como el de la semana (una hora que ya estaba se
+     * reutiliza y conserva sus reservas) y oculta las clases de ejemplo que sigan tal cual.
+     */
+    private static function realSchedule(Database $db): void
+    {
+        // Solo en la web de Charria (otra tienda con este mismo backend no tiene sus fotos)
+        if (!is_file(PUBLIC_DIR . '/assets/galeria/' . self::REAL_GALLERY[0][0] . '.webp')) {
+            return;
+        }
+        $ids = [];
+        foreach (self::REAL_CLASSES as $slug => [$kind, $title, $description, $price, $monthly, $capacity, $order, $photoFrom]) {
+            $id = $db->value('SELECT id FROM classes WHERE slug = ?', [$slug]);
+            if (!$id) {
+                $image = $photoFrom ? $db->value('SELECT image_id FROM classes WHERE slug = ?', [$photoFrom]) : null;
+                $id = $db->insert('classes', [
+                    'slug' => $slug, 'kind' => $kind, 'title' => $title, 'description' => $description,
+                    'duration_minutes' => 120, 'price_cents' => $price, 'capacity' => $capacity,
+                    'pay_in_person' => 1, 'pay_online' => 1, 'pay_subscription' => $monthly ? 1 : 0,
+                    'monthly_price_cents' => $monthly, 'price_period' => 'session', 'show_date' => 1,
+                    'image_id' => $image ?: null, 'is_active' => 1, 'sort_order' => $order,
+                ]);
+            }
+            $ids[$slug] = (int) $id;
+        }
+
+        foreach (self::EXAMPLE_CLASSES as $slug => $title) {
+            $db->exec('UPDATE classes SET is_active = 0 WHERE slug = ? AND title = ?', [$slug, $title]);
+        }
+
+        // Lunes a viernes encendidos; el fin de semana no tiene clases en el horario
+        foreach ([1, 2, 3, 4, 5] as $day) {
+            $db->exec('INSERT INTO weekly_days (weekday, is_open) VALUES (?, 1) ON DUPLICATE KEY UPDATE is_open = 1', [$day]);
+        }
+        $keep = [];
+        foreach (self::REAL_SLOTS as [$day, $time, $slug]) {
+            $data = ['class_id' => $ids[$slug], 'price_cents' => null, 'price_period' => 'session', 'capacity' => null];
+            $found = $db->value(
+                'SELECT id FROM weekly_slots WHERE weekday = ? AND TIME_FORMAT(start_time, \'%H:%i\') = ?'
+                . ($keep ? ' AND id NOT IN (' . implode(',', $keep) . ')' : '') . ' ORDER BY id LIMIT 1',
+                [$day, $time]
+            );
+            if ($found) {
+                $db->update('weekly_slots', $data, 'id = :id', ['id' => $found]);
+                $keep[] = (int) $found;
+            } else {
+                $keep[] = $db->insert('weekly_slots', $data + ['weekday' => $day, 'start_time' => "$time:00"]);
+            }
+        }
+        // Lo que no está en el horario se quita; WeeklySchedule::sync() borra sus fechas
+        // sin reservas y cancela (conservando las reservas) las que sí tienen
+        $db->exec('DELETE FROM weekly_slots WHERE id NOT IN (' . implode(',', $keep) . ')');
     }
 
     /** Crea tablas nuevas con la misma definición que tienen en schema.sql. */
