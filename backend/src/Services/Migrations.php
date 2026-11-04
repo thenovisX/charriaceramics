@@ -28,6 +28,7 @@ final class Migrations
         9 => 'displayOptions',
         10 => 'weeklyClasses',
         11 => 'realGallery',
+        12 => 'christmasWorkshops',
     ];
 
     /**
@@ -45,6 +46,21 @@ final class Migrations
         ['creafogar-mesa', 896, 1200, 'Mesa en Creafogar', 'Exposición · Santiago', 'none', 'Mesa con piezas de Charria bajo una lámpara de mimbre en Creafogar, Santiago de Compostela'],
         ['encaje', 1232, 1232, 'Encaje y tul', 'Porcelana, encaje y tul', 'unique', 'Escultura de porcelana veteada envuelta en encaje y tul'],
         ['azul-alargada', 1000, 750, 'Azul alargada', 'Cerámica esmaltada', 'unique', 'Pieza alargada de cerámica esmaltada en azul oscuro con la boca rosa, sobre tela blanca'],
+    ];
+
+    /**
+     * Talleres especiales de Navidad (assets/clases): slug, título, descripción,
+     * minutos, precio en céntimos, foto, texto alternativo y fechas (hora de inicio).
+     */
+    private const CHRISTMAS_WORKSHOPS = [
+        ['decora-tus-adornos-navidenos', 'Decora tus adornos navideños',
+            'Taller especial de Navidad: decoras 5 piezas ya hechas por Charria Ceramics. El turno de las 11:00 es con brunch y el de las 17:00, con una pequeña merienda.',
+            120, 5500, 'adornos-navidad', 'Adornos de Navidad de cerámica en forma de estrella pintados a mano, sobre madera con eucalipto y piñas',
+            ['2026-11-28 11:00:00', '2026-11-28 17:00:00']],
+        ['crea-tu-casita-de-navidad', 'Crea tu casita de Navidad',
+            'Taller especial de Navidad: creas tu propia casita de cerámica, con un pequeño desayuno.',
+            180, 6000, 'casita-navidad', 'Casita de cerámica blanca sobre una pila de revistas con ramas de abeto',
+            ['2026-11-21 11:00:00']],
     ];
 
     public static function latest(): int
@@ -358,6 +374,40 @@ final class Migrations
             } else {
                 $imageId = $db->insert('images', ['kind' => 'gallery'] + $image);
                 $db->insert('gallery_items', $item + ['image_id' => $imageId, 'sort_order' => ++$order, 'is_published' => 1]);
+            }
+        }
+    }
+
+    /**
+     * 12 · Talleres especiales de Navidad de 2026 (clases en grupo con sus fechas
+     * en «Fechas especiales»). Se pueden cambiar o borrar desde Panel → Clases.
+     * No hace nada en una instalación nueva (sin clases todavía), si las fotos no
+     * están en el servidor (otra tienda con este backend) o si el taller ya existe.
+     */
+    private static function christmasWorkshops(Database $db): void
+    {
+        if (!$db->value('SELECT COUNT(*) FROM classes') || !is_file(PUBLIC_DIR . '/assets/clases/adornos-navidad.webp')) {
+            return;
+        }
+        // Plazas: las que tienen las demás clases en grupo (6 si no hay ninguna)
+        $capacity = (int) ($db->value("SELECT capacity FROM classes WHERE kind = 'group' GROUP BY capacity ORDER BY COUNT(*) DESC, capacity DESC LIMIT 1") ?: 6);
+        foreach (self::CHRISTMAS_WORKSHOPS as [$slug, $title, $description, $minutes, $price, $photo, $alt, $dates]) {
+            if ($db->value('SELECT 1 FROM classes WHERE slug = ?', [$slug])) {
+                continue;
+            }
+            $imageId = $db->insert('images', [
+                'kind' => 'class', 'url' => "/assets/clases/$photo.webp", 'thumb_url' => "/assets/clases/$photo.webp",
+                'mime' => 'image/webp', 'width' => 680, 'height' => 889, 'alt' => $alt,
+            ]);
+            $classId = $db->insert('classes', [
+                'slug' => $slug, 'kind' => 'group', 'title' => $title, 'description' => $description,
+                'duration_minutes' => $minutes, 'price_cents' => $price, 'capacity' => $capacity,
+                'image_id' => $imageId, 'sort_order' => 0,
+            ]);
+            foreach ($dates as $startsAt) {
+                if (strtotime($startsAt) > time()) {
+                    $db->insert('class_sessions', ['class_id' => $classId, 'starts_at' => $startsAt]);
+                }
             }
         }
     }
