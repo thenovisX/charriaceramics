@@ -595,6 +595,13 @@ function renderProductPage() {
   document.title = `${p.name} | Charria Ceramics`;
   const desc = $('meta[name="description"]');
   if (desc) desc.content = (p.description || `${p.name}, cerámica hecha a mano en Charria Ceramics.`).slice(0, 160);
+  // Cada pieza tiene su propia dirección (producto.html?p=…): canonical y Open Graph apuntan a ella
+  const pieceUrl = `https://charriaceramics.es/${productUrl(p)}`;
+  $('link[rel="canonical"]')?.setAttribute("href", pieceUrl);
+  $('meta[property="og:url"]')?.setAttribute("content", pieceUrl);
+  $('meta[property="og:title"]')?.setAttribute("content", `${p.name} | Charria Ceramics`);
+  $('meta[property="og:description"]')?.setAttribute("content", desc?.content || "");
+  if (p.img) $('meta[property="og:image"]')?.setAttribute("content", new URL(p.img, location.href).href);
 
   const images = p.images.length ? p.images : [{ url: p.img, thumb: p.img, alt: p.alt }];
   // Medidas en su propio bloque (Panel → Productos → Medidas de la pieza): alto, diámetro, ancho,
