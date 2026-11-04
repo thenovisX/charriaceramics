@@ -308,6 +308,11 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .class-row__name { font-family: var(--serif); font-size: clamp(1.45rem, 1.1rem + 1.4vw, 2.4rem); line-height: 1.2; letter-spacing: 0; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
 .class-row:hover .class-row__name { transform: translateX(1.2rem); font-style: italic; }
 .class-row__meta { font-size: var(--fs-small); color: var(--muted); }
+/* Fechas especiales: la descripción de la clase (Panel → Clases) bajo el nombre */
+.class-row__desc {
+  display: block; max-width: 46ch; margin-top: .55rem;
+  font-family: var(--sans); font-size: var(--fs-small); font-style: normal; line-height: 1.5; color: var(--muted);
+}
 .class-row__price { font-size: var(--fs-body); }
 /* Precio mensual: la cifra y debajo «por mes» en una pastilla, para que no se lea como pago único */
 .class-row__price--month { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; font-size: 1.3rem; white-space: nowrap; }
