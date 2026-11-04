@@ -71,7 +71,7 @@ INSERT INTO gallery_items (image_id, title, technique, year, availability, sort_
 
 -- Clases y horario semanal reales (el horario «Weekly» de Charria): todas de 2 h.
 -- Las fechas reservables las crea solas Services/WeeklySchedule.php a partir de weekly_slots.
--- Migrations::realSchedule (paso 12) lleva lo mismo para las webs ya instaladas.
+-- Migrations::realSchedule (paso 13) lleva lo mismo para las webs ya instaladas.
 INSERT INTO classes (id, slug, kind, title, description, duration_minutes, price_cents, capacity, pay_subscription, monthly_price_cents, image_id, sort_order) VALUES
   (1, 'ceramica-grupo',          'group',   'Cerámica en grupo',                    'Clase de cerámica de 2 h en grupo reducido. Sesión puntual 30 € o cada semana con la cuota mensual de 60 € (2 h/semana).', 120, 3000,  4, 1, 6000,  20, 1),
   (2, 'torno-grupo',             'group',   'Torno en grupo',                       'Clase de torno de 2 h en grupo reducido. Sesión puntual 35 € o cada semana con la cuota mensual de 65 € (2 h/semana).',   120, 3500,  4, 1, 6500,  19, 2),

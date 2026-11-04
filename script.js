@@ -363,10 +363,10 @@ function renderContent() {
       const price = monthly && c.monthly_price_cents > 0 ? c.monthly_price_cents : s.price_cents;
       return `<li class="class-row${showDate ? "" : " class-row--nodate"}" data-img="${esc(c.image?.url || "")}">
         <span class="class-row__date">${!showDate ? "" : weekly ? `Cada ${weekday(s.date).toLowerCase()}` : day(s.date)}</span>
-        <span class="class-row__name">${esc(c.title)}</span>
+        <span class="class-row__name">${esc(c.title)}${c.description ? `<small class="class-row__desc">${esc(c.description)}</small>` : ""}</span>
         <span class="class-row__meta">${meta}</span>
         <span class="class-row__price${monthly ? " class-row__price--month" : ""}">${euros(price)}${monthly ? '<small class="class-row__period">por mes</small>' : ""}</span>
-        <button class="btn-primary" type="button" data-book="${s.id}" data-slot="${esc(key)}" data-seats="${s.seats_left}" data-title="${esc(c.title)}${weekly || !showDate ? "" : ` · ${day(s.date)}`}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
+        <button class="btn-primary" type="button" data-book="${s.id}" data-slot="${esc(key)}" data-seats="${s.seats_left}" data-title="${esc(c.title)}${weekly || !showDate ? "" : ` · ${day(s.date)}${s.label ? "" : ` ${timeOf(s.date)}`}`}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
       </li>`;
     }).join("") : '<li class="class-row class-row--empty"><span class="class-row__name">Pronto publicaremos nuevas fechas.</span><a class="btn-primary" href="contacto.html">Avísame</a></li>';
     // Con semanales, las fechas sueltas van debajo con su título, y si no hay ninguna no se dice nada
