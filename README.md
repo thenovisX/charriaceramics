@@ -292,7 +292,7 @@ Reseñas publicadas, en el orden del panel: `[{ "id", "author", "context", "body
 ```
 
 #### `GET /products` · `GET /products?category=Jarrones`
-Productos visibles, del más nuevo al más antiguo.
+Productos visibles, del más nuevo al más antiguo. Con la tienda cerrada desde el panel devuelve `[]` (aunque haya productos activos) y la web enseña «Productos no disponibles».
 ```json
 { "data": [ {
   "id": 2, "slug": "jarron-duna", "title": "Jarrón Duna", "description": "…", "category": "Jarrones",
@@ -304,7 +304,7 @@ Productos visibles, del más nuevo al más antiguo.
 ```
 
 #### `GET /products/{id|slug}`
-Un producto (mismo formato). `404` si no existe o está oculto.
+Un producto (mismo formato). `404` si no existe, está oculto o la tienda está cerrada.
 
 #### `GET /gallery`
 Obras publicadas en orden.

@@ -1217,6 +1217,15 @@ html.consent-open { overflow: hidden; }
 .shop-is-closed .cart-btn { display: none; }
 .shop-closed { margin: 0 var(--gutter, 1.5rem) 2rem; padding: 1.1rem 1.4rem; border: 1px solid var(--line, #d9d2c7); text-align: center; letter-spacing: .08em; text-transform: uppercase; font-size: var(--fs-small, .85rem); }
 .pdp__buy .shop-closed { margin: 0; }
+/* Tienda cerrada: «Productos no disponibles» en lugar de las piezas (Tienda, portada y ficha) */
+.shop-is-closed .shop-bar, .shop-is-closed .shop__ui, .shop-is-closed .shop__more, .shop-is-closed [data-filter-sheet] { display: none; }
+.shop-off { margin: 0 var(--side) var(--gap); padding: clamp(3rem, 2rem + 6vw, 7rem) var(--side); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1.4rem; text-align: center; }
+.shop-off .eyebrow { margin: 0; }
+.shop-off__title { font-family: var(--serif); font-weight: 400; font-size: var(--fs-h2); line-height: .95; letter-spacing: -0.015em; margin: 0; }
+.shop-off__text { color: var(--muted); max-width: 32rem; margin: 0; }
+.shop-off__links { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1.2rem 2rem; margin-top: .6rem; }
+.pdp-missing .shop-off { align-self: stretch; margin: 0; }
+.shop > .shop-off { margin-bottom: 0; }
 .cart__empty p.shop-closed { margin: 0 0 1.2rem; font-family: inherit; font-size: var(--fs-small, .85rem); letter-spacing: .08em; }
 
 /* ---------- El estudio (portada): foto en el torno y el proceso ---------- */
