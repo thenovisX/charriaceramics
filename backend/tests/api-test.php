@@ -172,6 +172,15 @@ check('especificación a medias rechazada', $s === 422 && isset($j['error']['fie
 check('ficha: peso de la pieza', $s === 200 && $j['data']['piece_weight_grams'] === 620 && $j['data']['weight_grams'] === 500, $j);
 [$s, $j] = call('PATCH', "$base/admin/products/$pid", ['piece_weight_grams' => ''], $token);
 check('ficha: peso vacío = sin indicar', $s === 200 && $j['data']['piece_weight_grams'] === 0, $j);
+call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => false]], $token);
+[$s, $j] = call('GET', "$base/products");
+[$s2, $j2] = call('GET', "$base/products/$pid");
+check('tienda cerrada: /products no devuelve ninguna pieza aunque haya productos', $s === 200 && $j['data'] === [], $j);
+check('tienda cerrada: la ficha de una pieza tampoco se sirve', $s2 === 404, $j2);
+call('PUT', "$base/admin/settings", ['values' => ['SHOP_OPEN' => true]], $token);
+[$s, $j] = call('GET', "$base/products");
+[$s2] = call('GET', "$base/products/$pid");
+check('tienda reabierta: vuelven las piezas', $s === 200 && in_array($pid, array_column($j['data'], 'id'), true) && $s2 === 200, $j);
 [$s, $j] = call('PATCH', "$base/admin/products/$pid/sold-out", ['sold_out' => true], $token);
 check('interruptor Agotado: activar', $s === 200 && $j['data']['sold_out'] === true, $j);
 [$s, $j] = call('POST', "$base/cart/quote", ['items' => [['product_id' => $pid, 'quantity' => 1]]]);

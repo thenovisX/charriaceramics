@@ -94,8 +94,11 @@ async function loadContent() {
   ]);
   SITE = site;
   REVIEWS = reviews || [];
-  PRODUCTS = (products ? products.map(fromApiProduct) : (window.PRODUCTS || []).map(fromLocalProduct))
-    .sort((a, b) => b.added.localeCompare(a.added));
+  // Tienda cerrada desde el panel: no se enseña ninguna pieza (ni las de ejemplo de data.js),
+  // aunque haya productos creados; el servidor tampoco las devuelve
+  PRODUCTS = site?.shop_open === false ? []
+    : (products ? products.map(fromApiProduct) : (window.PRODUCTS || []).map(fromLocalProduct))
+      .sort((a, b) => b.added.localeCompare(a.added));
   GALLERY = gallery ? gallery.map(fromApiGallery) : (window.GALLERY || []);
   CLASSES = classes;
 }
@@ -104,6 +107,17 @@ async function loadContent() {
 // La foto y el nombre llevan a la ficha; si hay segunda foto, aparece al pasar el ratón.
 const shopClosed = () => SITE?.shop_open === false;
 const closedNote = () => `<p class="shop-closed" role="status">${esc(SITE?.shop_message || "Tienda no disponible por ahora. Volvemos muy pronto.")}</p>`;
+// Aviso grande en lugar de las piezas (Tienda, portada y ficha) mientras la tienda está cerrada
+const unavailableHTML = (tag = "h2") => `
+  <div class="shop-off" role="status">
+    <p class="eyebrow">Tienda · cerrada por ahora</p>
+    <${tag} class="shop-off__title">Productos no disponibles</${tag}>
+    <p class="shop-off__text">${esc(SITE?.shop_message || "Tienda no disponible por ahora. Volvemos muy pronto.")}</p>
+    <div class="shop-off__links">
+      <a class="btn-primary" href="index.html#clases">Ver las clases</a>
+      <a class="link-btn" href="galeria.html">Ver la galería</a>
+    </div>
+  </div>`;
 
 const productHTML = (p, i, tall = false) => `
   <article class="product${tall ? " product--tall" : ""}${p.soldOut ? " is-sold-out" : ""}" style="order:${i}" data-category="${esc(p.category)}">
@@ -246,10 +260,24 @@ function renderContent() {
   renderReviews();
   if (shopClosed()) {
     // Tienda cerrada desde el panel: fuera la cesta y el botón de compra, y aviso en el catálogo
+    // y, en lugar de las piezas, el aviso «Productos no disponibles»
     document.documentElement.classList.add("shop-is-closed");
     const catalog = $("[data-catalog]");
-    if (catalog) catalog.insertAdjacentHTML("beforebegin", closedNote());
+    if (catalog) catalog.outerHTML = unavailableHTML();
+    const latest = $("[data-latest-products]");
+    if (latest) latest.outerHTML = unavailableHTML("h3");
+    const page = $("[data-product-page]");
+    if (page) {
+      document.title = "Productos no disponibles | Charria Ceramics";
+      page.innerHTML = `<section class="pdp-missing">${unavailableHTML("h1")}</section>`;
+    }
+    return renderNonShop();
   }
+  renderShop();
+  renderNonShop();
+}
+
+function renderShop() {
   // Portada: las 6 piezas más recientes, dos por columna (3 columnas con parallax) para que
   // la rejilla quede completa también en tablet (3 filas de 2)
   const latest = $("[data-latest-products]");
@@ -270,7 +298,10 @@ function renderContent() {
 
   // producto.html: ficha con galería y especificaciones
   if ($("[data-product-page]")) renderProductPage();
+}
 
+// El resto de la web (galería, clases, reseñas…) se pinta igual con la tienda abierta o cerrada
+function renderNonShop() {
   // Portada: galería (cada foto lleva a galeria.html)
   const galleryTrack = $("[data-gallery-track]");
   if (galleryTrack) {

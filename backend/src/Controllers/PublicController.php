@@ -43,6 +43,10 @@ final class PublicController
     /** GET /products?category=Jarrones */
     public function products(Request $r): Response
     {
+        // Tienda cerrada desde el panel: no se enseña ninguna pieza, aunque haya productos activos
+        if (!AppSettings::shopOpen()) {
+            return Response::json([]);
+        }
         $sql = 'SELECT * FROM products WHERE is_active = 1';
         $params = [];
         if (!empty($r->query['category']) && is_string($r->query['category'])) {
@@ -57,6 +61,9 @@ final class PublicController
     public function product(Request $r): Response
     {
         $key = $r->param('id');
+        if (!AppSettings::shopOpen()) {
+            throw HttpError::notFound('Productos no disponibles');
+        }
         $row = Database::get()->one(
             'SELECT * FROM products WHERE is_active = 1 AND ' . (ctype_digit($key) ? 'id = ?' : 'slug = ?'),
             [$key]
