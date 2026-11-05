@@ -25,7 +25,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.css">
   <link rel="preload" as="image" type="image/webp" imagesrcset="assets/inicio-800.webp 800w, assets/inicio-1195.webp 1195w" imagesizes="100vw" fetchpriority="high">
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -48,7 +48,7 @@
   <!-- Menú para móvil y tablet -->
   <nav class="mobile-menu" data-mobile-menu aria-hidden="true">
     <a href="productos.html"><span>Tienda</span></a>
-    <a href="#clases"><span>Clases en grupo</span></a>
+    <a href="#clases"><span>Clases</span></a>
     <a href="#privadas"><span>Clase privada</span></a>
     <a href="galeria.html"><span>Galería</span></a>
     <a href="contacto.html"><span>Contacto</span></a>
@@ -119,23 +119,24 @@
       </div>
     </section>
 
-    <!-- 2. CLASES GRUPALES: lista editorial con imagen flotante al hover -->
+    <!-- 2. CLASES: talleres y fechas especiales arriba; debajo el horario de cada semana (en grupo e individuales) -->
     <section class="classes" id="clases">
       <div class="section-head">
-        <h2 class="section-head__title" data-split>Clases en grupo</h2>
-        <p class="section-head__desc">Clases de 2 horas en grupos de máximo cuatro personas. Ven a una sesión puntual o apúntate cada semana con la cuota mensual. Barro, herramientas y dos cocciones incluidas.</p>
+        <h2 class="section-head__title" data-split>Clases</h2>
+        <p class="section-head__desc">Clases de 2 horas en el estudio: en grupo, de máximo cuatro personas, o individuales, solo para ti. Ven a una sesión suelta o apúntate cada semana. Barro, herramientas y dos cocciones incluidas.</p>
       </div>
 
       <!-- Fechas, plazas y precios llegan de Panel → Clases (API /classes): aquí no se escriben a mano -->
-      <!-- Semanales: los días y horas de Panel → Clases → Semanales; arriba del todo -->
-      <div class="weekly" data-weekly hidden>
-        <h3 class="classes__sub">Semanales</h3>
-        <ul class="weekly__list" aria-live="polite"></ul>
-      </div>
-      <h3 class="classes__sub" data-oneoff-title hidden>Fechas especiales</h3>
+      <!-- Talleres y fechas especiales (Panel → Clases → Fechas especiales): lo primero, con su foto -->
+      <h3 class="classes__sub" data-oneoff-title hidden>Talleres y fechas especiales</h3>
       <ul class="class-list" aria-live="polite" aria-busy="true">
         <li class="class-row class-row--empty"><span class="class-row__name">Cargando las próximas fechas…</span></li>
       </ul>
+      <!-- Cada semana: los días y horas de Panel → Clases → Semanales -->
+      <div class="weekly" data-weekly hidden>
+        <h3 class="classes__sub">Cada semana</h3>
+        <ul class="weekly__list" aria-live="polite"></ul>
+      </div>
       <div class="class-float" aria-hidden="true"><img src="" alt=""></div>
     </section>
 
@@ -244,6 +245,7 @@
       <button class="modal__close" data-close aria-label="Cerrar">×</button>
       <p class="eyebrow">Reserva</p>
       <h3 class="modal__title" data-modal-title>Clase</h3>
+      <p class="modal__meta" data-modal-meta hidden></p>
       <form class="form" data-form>
         <label class="form__field" data-date-field hidden><span>Día</span><select name="date"></select></label>
         <label class="form__field"><span>Plazas</span><select name="seats"><option>1</option><option>2</option><option>3</option></select></label>
@@ -278,7 +280,7 @@
   <script src="https://unpkg.com/split-type@0.3.4/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swiper@11.1.14/swiper-bundle.min.js"></script>
   <script src="data.js?v=13"></script>
-  <script src="script.js?v=24"></script>
+  <script src="script.js?v=25"></script>
   <script src="cart.js?v=13"></script>
   <script src="consent.js?v=3"></script>
 </body>

@@ -169,7 +169,16 @@ function renderSite() {
   // Pie de todas las páginas
   $$(".footer__cols").forEach((cols) => {
     if (SITE.address || SITE.city) setCol(cols, "Estudio", place(false));
-    if (SITE.hours) setCol(cols, "Horario", esc(lines(SITE.hours)[0] || ""));
+    if (SITE.hours) setCol(cols, "Horario", lines(SITE.hours).map(esc).join("<br>"));
+    // «Escríbenos» con el email y el teléfono de Panel → Ajustes (el WhatsApp ya sale en «Síguenos»)
+    const write = [SITE.email && `<a href="mailto:${esc(SITE.email)}">${breakableEmail(SITE.email)}</a>`,
+      SITE.phone && link(`tel:${digits(SITE.phone)}`, SITE.phone, false)].filter(Boolean);
+    if (write.length && !cols.querySelector("[data-footer-write]")) {
+      const col = document.createElement("div");
+      col.dataset.footerWrite = "";
+      col.innerHTML = `<span class="eyebrow">Escríbenos</span><p>${write.join("<br>")}</p>`;
+      cols.append(col);
+    }
   });
   const legal = $(".footer__legal");
   if (legal && SITE.city) legal.textContent = `© ${new Date().getFullYear()} Charria Ceramics · ${SITE.city.replace(/^\d{4,5}\s*/, "")}`;
@@ -323,23 +332,48 @@ function renderContent() {
     SLOTS = slots;
     const weeklyBox = $("[data-weekly]");
     const byId = new Map(CLASSES.group.map((c) => [c.id, c]));
-    const weeklyRows = (CLASSES.weekly || []).flatMap((day) => day.slots.map((w, i) => {
-      const c = byId.get(w.class_id);
-      const slot = slots.get(`w${w.id}`);
-      if (!c || !slot) return "";
-      slot.weekly = w;
-      const s = slot.sessions.find((x) => x.seats_left > 0) || slot.sessions[0];
-      const free = slot.sessions.some((x) => x.seats_left > 0);
-      const next = free ? `Próxima: ${s.date.getDate()} ${s.date.toLocaleDateString("es-ES", { month: "short" }).replace(".", "")} · ${plazasOf(s.seats_left)}` : "Completo";
-      const monthly = w.price_period === "month";
-      return `<li class="class-row${i ? " class-row--same-day" : ""}" data-img="${esc(c.image?.url || "")}">
-        <span class="class-row__date">${i ? "" : esc(day.name)}</span>
+    // «Cada semana»: las clases en grupo, una fila por día y hora; las individuales (1 plaza) en una
+    // sola fila por clase con sus huecos como botones, para no repetir la misma clase diez veces
+    const shortDay = (name) => name.slice(0, 3);
+    const solo = new Map();
+    const weeklyRows = (CLASSES.weekly || []).flatMap((day) => {
+      let first = true;
+      return day.slots.map((w) => {
+        const c = byId.get(w.class_id);
+        const slot = slots.get(`w${w.id}`);
+        if (!c || !slot) return "";
+        slot.weekly = w;
+        const s = slot.sessions.find((x) => x.seats_left > 0) || slot.sessions[0];
+        const free = slot.sessions.some((x) => x.seats_left > 0);
+        if ((w.capacity ?? c.capacity) === 1) {
+          if (!solo.has(c.id)) solo.set(c.id, { c, w, times: [] });
+          solo.get(c.id).times.push({ day, w, s, free });
+          return "";
+        }
+        const next = free ? `Próxima: ${s.date.getDate()} ${s.date.toLocaleDateString("es-ES", { month: "short" }).replace(".", "")} · ${plazasOf(s.seats_left)}` : "Completo";
+        const monthly = w.price_period === "month";
+        const sameDay = !first;
+        first = false;
+        return `<li class="class-row${sameDay ? " class-row--same-day" : ""}" data-img="${esc(c.image?.url || "")}">
+        <span class="class-row__date">${sameDay ? "" : esc(day.name)}</span>
         <span class="class-row__name">${esc(c.title)}</span>
         <span class="class-row__meta">${esc(w.time)} · ${hours(c.duration_minutes)} · ${next}</span>
         <span class="class-row__price class-row__price--month">${euros(w.price_cents)}<small class="class-row__period">${monthly ? "por mes" : "por clase"}</small></span>
         <button class="btn-primary" type="button" data-book="${s.id}" data-slot="w${w.id}" data-seats="${s.seats_left}" data-title="${esc(c.title)} · ${esc(day.name.toLowerCase())} ${esc(w.time)}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
       </li>`;
-    })).filter(Boolean);
+      });
+    }).filter(Boolean);
+    solo.forEach(({ c, w, times }) => {
+      const prices = new Set(times.map((t) => `${t.w.price_cents}|${t.w.price_period}`));
+      const monthly = w.price_period === "month";
+      const price = prices.size === 1 ? `${euros(w.price_cents)}<small class="class-row__period">${monthly ? "por mes" : "por clase"}</small>` : "";
+      weeklyRows.push(`<li class="class-row class-row--solo" data-img="${esc(c.image?.url || "")}">
+        <span class="class-row__date">Individual</span>
+        <span class="class-row__name">${esc(c.title)}<small class="class-row__desc">Solo para ti, a tu ritmo. Elige día y hora:</small></span>
+        <span class="class-row__price class-row__price--month">${price}</span>
+        <span class="class-row__times">${times.map(({ day, w: t, s, free }) => `<button class="class-time" type="button" data-book="${s.id}" data-slot="w${t.id}" data-seats="${s.seats_left}" data-title="${esc(c.title)} · ${esc(day.name.toLowerCase())} ${esc(t.time)}" ${free ? "" : "disabled"} aria-label="${esc(day.name)} ${esc(t.time)}${free ? "" : ", completo"}">${esc(shortDay(day.name))} ${esc(t.time)}</button>`).join("")}</span>
+      </li>`);
+    });
     if (weeklyBox) {
       weeklyBox.hidden = !weeklyRows.length;
       $(".weekly__list", weeklyBox).innerHTML = weeklyRows.join("");
@@ -361,15 +395,16 @@ function renderContent() {
       // «El precio es mensual»: la cuota de la suscripción si la hay; si no, el precio de la clase
       const monthly = c.price_period === "month";
       const price = monthly && c.monthly_price_cents > 0 ? c.monthly_price_cents : s.price_cents;
-      return `<li class="class-row${showDate ? "" : " class-row--nodate"}" data-img="${esc(c.image?.url || "")}">
-        <span class="class-row__date">${!showDate ? "" : weekly ? `Cada ${weekday(s.date).toLowerCase()}` : day(s.date)}</span>
+      const photo = c.image?.thumb_url || c.image?.url;
+      return `<li class="class-row${showDate ? "" : " class-row--nodate"}${photo ? " class-row--photo" : ""}" data-img="${esc(c.image?.url || "")}">
+        <span class="class-row__date">${!showDate ? "" : weekly ? `Cada ${weekday(s.date).toLowerCase()}` : day(s.date)}${photo ? `<img class="class-row__img" src="${esc(photo)}" alt="${esc(c.image.alt || c.title)}" loading="lazy">` : ""}</span>
         <span class="class-row__name">${esc(c.title)}${c.description ? `<small class="class-row__desc">${esc(c.description)}</small>` : ""}</span>
         <span class="class-row__meta">${meta}</span>
         <span class="class-row__price${monthly ? " class-row__price--month" : ""}">${euros(price)}${monthly ? '<small class="class-row__period">por mes</small>' : ""}</span>
         <button class="btn-primary" type="button" data-book="${s.id}" data-slot="${esc(key)}" data-seats="${s.seats_left}" data-title="${esc(c.title)}${weekly || !showDate ? "" : ` · ${day(s.date)}${s.label ? "" : ` ${timeOf(s.date)}`}`}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
       </li>`;
     }).join("") : '<li class="class-row class-row--empty"><span class="class-row__name">Pronto publicaremos nuevas fechas.</span><a class="btn-primary" href="contacto.html">Avísame</a></li>';
-    // Con semanales, las fechas sueltas van debajo con su título, y si no hay ninguna no se dice nada
+    // Talleres y fechas especiales van arriba con su título; si no hay ninguno no se dice nada
     const oneOffTitle = $("[data-oneoff-title]");
     if (oneOffTitle) oneOffTitle.hidden = !(weeklyRows.length && rows.length);
     classList.hidden = !!weeklyRows.length && !rows.length;
@@ -1211,7 +1246,7 @@ function initPage() {
     } catch (err) {
       const fields = Object.values(err.fields || {});
       formMessage(form, err.status === 404 || !err.status
-        ? "Ahora mismo no podemos recibir reservas online. Escríbenos a hola@charriaceramics.com."
+        ? `Ahora mismo no podemos recibir reservas online. ${SITE?.email ? `Escríbenos a ${SITE.email}.` : "Escríbenos desde la página de contacto."}`
         : err.message + (fields.length ? ` (${fields.join(" · ")})` : ""), true);
     } finally {
       btn.disabled = false;
@@ -1262,6 +1297,20 @@ function initPage() {
           dateField.hidden = true;
         }
         setSession(btn.dataset.book, btn.dataset.seats);
+        // Precio y duración bajo el título, para no reservar a ciegas
+        const metaEl = $("[data-modal-meta]", modal);
+        if (metaEl) {
+          const sc = slot?.c;
+          const session = slot?.sessions.find((x) => String(x.id) === btn.dataset.book) || slot?.sessions[0];
+          const cents = slot?.weekly ? slot.weekly.price_cents : session?.price_cents ?? sc?.price_cents;
+          const perMonth = slot?.weekly ? slot.weekly.price_period === "month" : sc?.price_period === "month";
+          const parts = [
+            cents > 0 && `${euros(perMonth && !slot?.weekly && sc?.monthly_price_cents > 0 ? sc.monthly_price_cents : cents)} ${perMonth ? "al mes" : "por persona"}`,
+            sc?.duration_minutes && `${String(sc.duration_minutes / 60).replace(".", ",")} h`,
+          ].filter(Boolean);
+          metaEl.textContent = parts.join(" · ");
+          metaEl.hidden = !parts.length;
+        }
         // Formas de pago que la clase tiene activadas; se elige solo si hay más de una
         const stripeOn = CLASSES?.online_payment !== false;
         const c = slot?.c;

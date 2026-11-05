@@ -72,16 +72,19 @@ final class Installer
 
         $conn = Database::get();
         $conn->runSqlFile(BACKEND_DIR . '/database/schema.sql');
-        Migrations::run(); // por si ya había tablas de una versión anterior
         if ((int) $conn->value('SELECT COUNT(*) FROM admins') > 0) {
+            Migrations::run(); // por si ya había tablas de una versión anterior
             throw new HttpError(409, 'already_installed', 'La web ya está instalada. Entra en el panel con tu usuario.');
         }
         Auth::createAdmin($admin['email'], $admin['password'], $admin['name']);
+        // Primero los datos de inicio y después las migraciones: algunas (galería real, horario
+        // semanal) crean filas propias, y si van antes chocan con los ids fijos de seed.sql
         $seeded = false;
         if ($seed && (int) $conn->value('SELECT COUNT(*) FROM products') === 0) {
             $conn->runSqlFile(BACKEND_DIR . '/database/seed.sql');
             $seeded = true;
         }
+        Migrations::run();
         return [
             'installed' => true,
             'seeded' => $seeded,
