@@ -19,6 +19,18 @@ ErrorDocument 404 /404.html
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Web en obras: las páginas de la raíz enseñan en-obras.html mientras NO exista
+  # backend/storage/web-abierta (lo crea o lo borra el interruptor de Inicio del panel).
+  # Sin instalar tampoco existe, así que una web recién subida sale «en obras».
+  # /admin, /api, /assets y /uploads no se tocan. La cookie charria_vista=web la pone
+  # el panel («Ver la web») para que tú puedas ver la web real mientras tanto.
+  # La carpeta se saca de la ruta del fichero pedido para no depender de DOCUMENT_ROOT.
+  RewriteCond %{REQUEST_FILENAME} ^(.*/)[^/]*$
+  RewriteCond %1backend/storage/web-abierta !-f
+  RewriteCond %{HTTP_COOKIE} !(^|;\s*)charria_vista=web(;|$)
+  RewriteCond %{REQUEST_URI} !^/(en-obras|404)\.html$
+  RewriteRule ^([^/]+\.html)?$ en-obras.html [L]
 </IfModule>
 
 <FilesMatch "(?i)(^\.|\.(env|sql|log|md|lock|sh|ini|bak)$|composer\.(json|lock)$)">

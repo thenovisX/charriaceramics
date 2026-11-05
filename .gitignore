@@ -10,3 +10,6 @@ uploads/*
 # Herramientas de IA (se regeneran: ver "Herramientas para IA" en README.md)
 repomix-output.*
 graphify-out/
+
+# Modo «en obras»: si existe, la web está abierta (lo cambia el panel, ver Services/Maintenance.php)
+backend/storage/web-abierta

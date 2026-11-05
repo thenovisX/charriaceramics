@@ -57,7 +57,7 @@ form.addEventListener("submit", async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         db: { host: f["db.host"].value.trim(), port: Number(f["db.port"].value) || 3306, name: f["db.name"].value.trim(), user: f["db.user"].value.trim(), pass: f["db.pass"].value },
-        name: f.name.value.trim(), email: f.email.value.trim(), password: f.password.value, seed: f.seed.checked,
+        name: f.name.value.trim(), email: f.email.value.trim(), password: f.password.value, seed: f.seed.checked, open: f.open.checked,
       }),
     });
     const json = await res.json().catch(() => ({}));
@@ -68,6 +68,7 @@ form.addEventListener("submit", async (e) => {
     }
     form.hidden = true;
     $("[data-warn-config]").hidden = json.data?.config_outside_public_html !== false;
+    $("[data-works]").hidden = !json.data?.maintenance;
     show("[data-done]");
   } catch (ex) {
     showError(ex.message);

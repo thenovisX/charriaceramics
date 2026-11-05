@@ -178,6 +178,13 @@ views.resumen = async () => {
       ${toggle("SHOP_OPEN", s.shop_open, `<span><strong>${s.shop_open ? "Tienda abierta" : "Tienda cerrada"}</strong><small>${s.shop_open ? "Se puede comprar en la web" : "La web avisa de que no está disponible y no deja comprar"}</small></span>`)}
       <a class="link-btn" href="#ajustes/tienda">Cambiar aviso</a>
     </div>
+    <div class="shop-state site-state${s.maintenance ? " is-works" : ""}">
+      ${toggle("SITE_MAINTENANCE", s.maintenance, `<span><strong>${s.maintenance ? "Web en obras" : "Web abierta"}</strong><small>${s.maintenance ? "Los visitantes ven la página «en obras». El panel sigue funcionando." : "Los visitantes ven la web normal"}</small></span>`)}
+      <span class="site-state__links">
+        <a class="link-btn" href="/en-obras.html" target="_blank" rel="noopener">Ver «en obras»</a>
+        ${s.maintenance ? '<a class="link-btn" href="/" target="_blank" rel="noopener" data-preview>Ver la web (solo tú)</a>' : ""}
+      </span>
+    </div>
     <h2 class="block-title">Pendiente</h2>
     ${todo.length ? `<div class="todo">${listBox(todo.map(([n, href, ic, filter, title, sub]) => listItem({
       tag: "a", attrs: `href="${href}"${filter ? ` data-booking-filter="${filter}"` : ""}`, av: icon(ic), avClass: ic === "alert" ? "li__av--bad" : "li__av--warn",
@@ -207,7 +214,29 @@ views.resumen = async () => {
       await views.resumen();
     } catch (err) { e.target.checked = !open; e.target.disabled = false; fail(err); }
   });
+  // Web en obras: los visitantes ven /en-obras.html (lo aplica el .htaccess de la raíz)
+  $(".site-state input").addEventListener("change", async (e) => {
+    const on = e.target.checked;
+    e.target.disabled = true;
+    try {
+      await api("PUT", "/admin/settings", { values: { SITE_MAINTENANCE: on } });
+      const applied = await siteShowsWorks();
+      if (applied !== null && applied !== on) toast("Guardado, pero el servidor aún enseña la web anterior. Recarga en un minuto; si sigue igual, avísanos.", true);
+      else toast(on ? "Web en obras: los visitantes ven la página «en obras»" : "Web abierta: los visitantes ya ven la web");
+      await views.resumen();
+    } catch (err) { e.target.checked = !on; e.target.disabled = false; fail(err); }
+  });
+  // «Ver la web (solo tú)»: cookie de esta sesión del navegador para saltarse «en obras»
+  $("[data-preview]")?.addEventListener("click", () => { document.cookie = "charria_vista=web; path=/; SameSite=Lax"; });
 };
+
+/** Comprueba qué ve un visitante en la portada (sin cookies). null = no se pudo comprobar. */
+async function siteShowsWorks() {
+  try {
+    const res = await fetch("/?comprobar=" + Date.now(), { credentials: "omit", cache: "no-store" });
+    return (await res.text()).includes("data-en-obras");
+  } catch { return null; }
+}
 
 /* ---------- Mensajes: contacto, encargos y clases privadas ---------- */
 const MESSAGE_TYPE = { contact: ["Contacto", ""], request: ["Encargo", "ink"], private_class: ["Clase privada", "warn"] };
@@ -1540,6 +1569,7 @@ views.cuenta = async () => {
   });
   $("[data-logout]").addEventListener("click", async () => {
     try { await api("POST", "/auth/logout"); } catch { /* da igual */ }
+    document.cookie = "charria_vista=; path=/; max-age=0"; // deja de saltarse «en obras»
     setToken(null); showLogin();
   });
 };

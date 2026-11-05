@@ -143,6 +143,7 @@ final class OrderAdminController
             'low_stock' => array_map(static fn ($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'stock' => (int) $p['stock']],
                 $db->all('SELECT id, title, stock FROM products WHERE is_active = 1 AND sold_out = 0 AND stock <= 1 ORDER BY stock, title')),
             'shop_open' => AppSettings::shopOpen(),
+            'maintenance' => \Charria\Services\Maintenance::on(),
             'payments_configured' => Stripe::isConfigured(),
             'packlink_configured' => Packlink::isConfigured(),
             'mail_configured' => Mailer::canSend(),

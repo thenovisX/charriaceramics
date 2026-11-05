@@ -192,6 +192,10 @@ h2.section-title, .main > h2 { font-size: 1.2rem; margin: 2rem 0 .9rem; }
 .shop-state .switch span { display: flex; flex-direction: column; line-height: 1.3; }
 .shop-state .switch small { color: var(--muted); font-size: .8rem; }
 .shop-state .link-btn { flex-shrink: 0; }
+.site-state { background: var(--ok-soft); }
+.site-state.is-works { background: var(--warn-soft, #f6ead6); }
+.site-state__links { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex-shrink: 0; }
+@media (max-width: 420px) { .site-state { flex-wrap: wrap; } .site-state__links { flex-direction: row; flex-wrap: wrap; width: 100%; justify-content: flex-start; gap: .4rem 1.2rem; } }
 
 /* ---------- Tarjetas de números ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .8rem; margin-bottom: 2rem; }
