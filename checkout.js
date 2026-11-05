@@ -177,6 +177,9 @@
       showError(form, e.message);
     }
     ship.loading = false;
+    // Sin elegir todavía: «Recogida en el estudio» primero (muchos clientes son de la zona)
+    const pickupOption = ship.options.find((o) => o.method === "pickup");
+    if (!saved.option && ship.selected === "__delivery" && pickupOption) ship.selected = pickupOption.id;
     // Si se había elegido "envío" sin código postal, se pasa a la opción más barata
     const delivery = ship.options.filter((o) => o.method === "delivery");
     if (ship.selected !== "pickup" && !ship.options.some((o) => o.id === ship.selected) && delivery.length) {

@@ -327,8 +327,25 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   font-size: clamp(1.25rem, 1rem + .8vw, 1.7rem); letter-spacing: 0;
 }
 .weekly { margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
+.class-list + .weekly { margin-top: clamp(2.5rem, 5vw, 4.5rem); }
 /* Un día con varias clases: el nombre del día solo en la primera fila */
 .class-row--same-day { border-top-style: dashed; }
+/* Talleres y fechas especiales con foto: la foto bajo la fecha */
+.class-row--photo { align-items: start; }
+.class-row--photo > :not(.class-row__date) { align-self: center; }
+.class-row__img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; margin-top: .9rem; background: var(--ivory); }
+/* Clase individual: una fila con los huecos de la semana como botones */
+.class-row--solo { grid-template-columns: 9rem 1fr 6.5rem; row-gap: 1.2rem; }
+.class-row--solo .class-row__times { grid-column: 2 / -1; }
+.class-row__times { display: flex; flex-wrap: wrap; gap: .5rem; }
+.class-time {
+  min-height: 2.6rem; padding: .5rem 1rem; border: 1px solid var(--ink); border-radius: 999px;
+  background: transparent; color: var(--ink); font: 400 var(--fs-label) / 1.2 var(--sans);
+  text-transform: uppercase; letter-spacing: .14em; cursor: pointer;
+  transition: background-color .3s, color .3s;
+}
+.class-time:hover, .class-time:focus-visible { background: var(--ink); color: var(--ivory); }
+.class-time:disabled { opacity: .35; cursor: not-allowed; text-decoration: line-through; background: transparent; color: var(--ink); }
 
 .class-float {
   position: fixed; left: 0; top: 0; z-index: 1;
@@ -416,6 +433,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .footer__big { font-family: var(--serif); font-size: var(--fs-big); line-height: 1.04; letter-spacing: -0.01em; margin-bottom: clamp(3rem, 1rem + 6vw, 6rem); max-width: 12ch; }
 .footer__big .char { display: inline-block; }
 .footer__cols { display: flex; gap: 6rem; }
+.footer__cols > div { max-width: 24rem; }
 .footer__bottom { margin-top: clamp(3rem, 2rem + 4vw, 5rem); display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem 2rem; }
 .footer__legal, .footer__credit { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .2em; color: var(--muted); }
 .footer__credit a { color: var(--ink); background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition: background-size .4s ease; }
@@ -426,6 +444,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .modal[hidden] { display: none; }
 .modal__box { position: relative; width: min(480px, 100%); height: 100%; background: var(--ivory); padding: 5rem 3rem; overflow: auto; overscroll-behavior: contain; }
 .modal__title { font-family: var(--serif); font-weight: 400; font-size: clamp(1.9rem, 1.5rem + 1.5vw, 2.4rem); line-height: 1.1; letter-spacing: 0; margin-bottom: 3rem; }
+.modal__title:has(+ .modal__meta:not([hidden])) { margin-bottom: .8rem; }
+.modal__meta { margin-bottom: 2.6rem; font-size: var(--fs-small); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); }
 .modal__close { position: absolute; top: 1.5rem; right: 1.8rem; font-size: 2rem; font-weight: 300; }
 
 /* ---------- Cursor ---------- */
@@ -489,7 +509,14 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .ed-item__img { overflow: hidden; background: var(--paper); }
 .ed-item__img img { transition: transform 1.4s cubic-bezier(.2,.7,.2,1); }
 .ed-item:hover .ed-item__img img { transform: scale(1.03); }
-.ed-item figcaption { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 1.2rem; margin-top: 1.1rem; }
+.ed-item figcaption { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: .4rem 1.2rem; margin-top: 1.1rem; }
+/* Foto estrecha (menos de 36rem): la técnica baja bajo el título para no partirlo palabra a palabra */
+.ed-item { container-type: inline-size; }
+@container (max-width: 36rem) {
+  .ed-item figcaption { grid-template-columns: auto 1fr; }
+  .ed-item figcaption .ed-item__meta { grid-column: 2; text-align: left; }
+  .ed-item figcaption .ed-item__status { grid-column: 2; }
+}
 .ed-item__num { font-size: var(--fs-label); letter-spacing: .2em; color: var(--muted); }
 .ed-item__title { font-family: var(--serif); font-size: clamp(1.4rem, 1rem + 1.6vw, 2.6rem); line-height: 1.1; letter-spacing: 0; }
 .ed-item__title em { font-style: italic; }
@@ -598,6 +625,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .class-row__price--month { align-items: flex-end; }
   .class-row .btn-primary { grid-area: btn; }
   .class-row:hover .class-row__name { transform: none; }
+  .class-row--solo { grid-template-columns: 1fr auto; grid-template-areas: "date price" "name name" "times times"; }
+  .class-row--solo .class-row__times { grid-area: times; grid-column: auto; }
+  .class-row--photo { grid-template-columns: 6.5rem 1fr auto; grid-template-areas: "date name name" "date meta price" "btn btn btn"; column-gap: 1.1rem; }
+  .class-row--photo .btn-primary { justify-self: stretch; margin-top: .6rem; }
 
   /* Clase privada: imagen arriba, formulario debajo */
   .private { flex-direction: column; gap: 3rem; }
@@ -1177,6 +1208,8 @@ html.consent-open { overflow: hidden; }
 .pdp__related-title { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 1.2rem + 3vw, 4.2rem); line-height: 1; letter-spacing: -0.01em; }
 .catalog--related { grid-template-columns: repeat(4, 1fr); padding: 0 0 var(--gap); }
 .catalog--related .product:nth-child(3n + 2) { margin-top: 0; }
+/* Cuatro por fila: el botón más compacto para que quepa «Añadir al carrito» entero */
+.catalog--related .product__add { gap: .6rem; padding-left: 1.1rem; letter-spacing: .12em; }
 .catalog--related .product:nth-child(2n) { margin-top: clamp(0rem, 5vw, 5rem); }
 
 .pdp-missing { min-height: 60vh; display: flex; flex-direction: column; align-items: flex-start; gap: 1.2rem; padding-bottom: var(--gap); }
