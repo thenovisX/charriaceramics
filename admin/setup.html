@@ -37,6 +37,8 @@
         <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="username"></label>
         <label class="field"><span>Contraseña</span><input type="password" name="password" minlength="10" required autocomplete="new-password"><small>Mínimo 10 caracteres. Guárdala bien.</small></label>
         <label class="check"><input type="checkbox" name="seed" checked> Cargar las piezas, clases y fotos que ya tiene la web</label>
+        <label class="check"><input type="checkbox" name="open"> Abrir la web a los visitantes al terminar</label>
+        <small class="muted">Si no la marcas, la web sigue enseñando «en obras» hasta que la abras desde el panel (Inicio → Web en obras).</small>
       </fieldset>
 
       <button class="btn" type="submit">Instalar la web</button>
@@ -47,6 +49,7 @@
       <p class="eyebrow">Listo</p>
       <h1 class="login__title">Web <span>instalada</span></h1>
       <p>Ya está todo creado. Último paso: entra en el panel y ve a <strong>Ajustes</strong> para poner las claves de Stripe (pagos) y Packlink (envíos).</p>
+      <p class="notice" data-works hidden>La web sigue <strong>«en obras»</strong> para los visitantes. Cuando esté lista, ábrela desde el panel: Inicio → interruptor «Web en obras».</p>
       <p class="notice" data-warn-config hidden>Tu hosting no permite guardar la configuración fuera de public_html, así que se ha guardado en la carpeta protegida <code>backend/</code>. Está bloqueada para el público, no tienes que hacer nada.</p>
       <a class="btn" href="./#ajustes">Ir al panel</a>
       <a class="login__back" href="../index.html">Ver la web →</a>
@@ -59,6 +62,6 @@
       <a class="btn" href="./">Ir al panel</a>
     </div>
   </main>
-  <script src="setup.js?v=3"></script>
+  <script src="setup.js?v=4"></script>
 </body>
 </html>

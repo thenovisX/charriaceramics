@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Charria Ceramics | Web en obras</title>
+  <meta name="description" content="Charria Ceramics · Cerámica hecha a mano en Tomiño. Estamos preparando la nueva web.">
+  <meta name="theme-color" content="#f5f1ea">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta property="og:title" content="Charria Ceramics · Web en obras">
+  <meta property="og:description" content="Cerámica hecha a mano en Tomiño. Estamos preparando la nueva web.">
+  <meta property="og:image" content="/assets/og-charria.jpg">
+  <link rel="preload" as="font" type="font/woff2" href="/assets/en-obras/bodoni-moda-latin-opsz-normal.woff2" crossorigin>
+  <link rel="preload" as="image" type="image/webp" imagesrcset="/assets/inicio-800.webp 800w, /assets/inicio-1195.webp 1195w" imagesizes="(min-width: 900px) 70vw, 100vw" fetchpriority="high">
+  <!--
+    Página «Web en obras». El panel (Inicio → «Web en obras») decide si los visitantes
+    ven esta página en lugar de la web: ver .htaccess y backend/src/Services/Maintenance.php.
+    Todo va dentro (CSS y JS) para que no dependa de style.css ni script.js de la web.
+  -->
+  <style>
+    @font-face { font-family: "Bodoni Moda"; font-style: normal; font-weight: 400 900; font-display: swap; src: url("/assets/en-obras/bodoni-moda-latin-opsz-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Bodoni Moda"; font-style: italic; font-weight: 400 900; font-display: swap; src: url("/assets/en-obras/bodoni-moda-latin-opsz-italic.woff2") format("woff2"); }
+    @font-face { font-family: "Montserrat"; font-style: normal; font-weight: 300; font-display: swap; src: url("/assets/en-obras/montserrat-latin-300-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Montserrat"; font-style: normal; font-weight: 400; font-display: swap; src: url("/assets/en-obras/montserrat-latin-400-normal.woff2") format("woff2"); }
+
+    :root {
+      --ivory: #f5f1ea; --paper: #ece6dc; --ink: #1a1816; --clay: #a67c5b; --clay-ink: #8a5f3e; --muted: #4d4740;
+      --line: rgba(26,24,22,.14);
+      --serif: "Bodoni Moda", "Didot", Georgia, serif;
+      --sans: "Montserrat", system-ui, sans-serif;
+      --side: max(1.25rem, env(safe-area-inset-left), min(4vw, 3.5rem));
+      --ease: cubic-bezier(.7,0,.2,1);
+      --out: cubic-bezier(.2,.8,.2,1);
+      --fs-body: clamp(.98rem, .94rem + .25vw, 1.1rem);
+      --fs-label: clamp(.7rem, .68rem + .12vw, .8rem);
+      --fs-big: clamp(2rem, 1rem + 5vw, 7rem);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+    body { background: var(--ivory); color: var(--ink); font-family: var(--sans); font-weight: 300;
+      font-size: var(--fs-body); letter-spacing: .03em; line-height: 1.7; overflow-x: hidden; }
+    img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    a { color: inherit; text-decoration: none; }
+    a:focus-visible { outline: 2px solid var(--clay); outline-offset: 4px; }
+
+    /* ---------- Móvil y tableta (por defecto): todo apilado ---------- */
+    .header { position: sticky; top: 0; z-index: 50; display: flex; justify-content: center;
+      padding: max(.9rem, env(safe-area-inset-top)) var(--side) .9rem; background: var(--ivory);
+      text-transform: uppercase; }
+    .logo { display: flex; flex-direction: column; align-items: center; font-family: var(--serif);
+      font-size: 1.05rem; line-height: 1.05; letter-spacing: .24em; padding-left: .24em; white-space: nowrap; }
+    .logo span { font-size: .5em; letter-spacing: .52em; padding-left: .52em; margin-top: .3rem; }
+
+    .hero { position: relative; color: var(--ink); }
+    .hero__media { position: relative; overflow: hidden; aspect-ratio: 1195 / 896; max-height: 52svh; width: 100%;
+      background: linear-gradient(90deg, #12212a, #081012); }
+    .hero__media picture { display: block; width: 100%; height: 100%; }
+    .hero__media img { object-position: 52% 62%; animation: zoom 2.4s var(--out) both; }
+    .hero__media::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, rgba(22,18,14,0) 70%, rgba(22,18,14,.14)); }
+    .hero__title { margin: clamp(1.2rem, 4vw, 2.4rem) var(--side) 0; font-family: var(--serif); font-weight: 400;
+      font-size: min(calc((100vw - 2 * var(--side)) / 4.75), 9rem); line-height: .82; letter-spacing: -.02em;
+      text-transform: uppercase; white-space: nowrap; }
+    .hero__title .l { display: inline-block; animation: rise 1.3s var(--out) both; animation-delay: calc(.15s + var(--i) * .06s); }
+    .hero__title .a { -webkit-text-stroke: max(.014em, 1.2px) currentColor; paint-order: stroke fill; }
+    .hero__sub { margin: 1rem var(--side) 0; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .25em;
+      color: var(--muted); animation: fade 1s .8s both; }
+    .hero__scroll { display: none; }
+
+    .works { padding: clamp(2.6rem, 8vw, 5rem) var(--side) clamp(3rem, 8vw, 5rem);
+      display: grid; gap: 2rem; }
+    .status { display: inline-flex; align-items: center; gap: .7rem; margin-bottom: 1.4rem;
+      padding: .5rem 1rem; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.35);
+      font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .22em; color: var(--ink); }
+    .status::before { content: ""; flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--clay);
+      animation: pulse 1.8s ease-in-out infinite; }
+    .works__title { font-family: var(--serif); font-weight: 400; font-size: var(--fs-big); line-height: 1.02;
+      letter-spacing: -.01em; text-wrap: balance; }
+    .works__title em { font-style: italic; color: var(--clay-ink); }
+    .works__text { color: var(--muted); max-width: 34rem; }
+    .works__text p + p { margin-top: 1rem; }
+    .contact { list-style: none; margin-top: 1.8rem; display: grid; gap: .2rem; border-top: 1px solid var(--line); }
+    .contact a, .contact span { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      min-height: 3.1rem; padding: .7rem 0; border-bottom: 1px solid var(--line); color: var(--ink);
+      font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .18em; overflow-wrap: anywhere; }
+    .contact small { font-size: 1em; color: var(--muted); letter-spacing: .1em; text-transform: none; text-align: right; }
+    .contact a::after { content: "→"; font-family: var(--sans); letter-spacing: 0; transition: transform .4s var(--out); }
+    .contact a:hover::after { transform: translateX(4px); }
+    .contact a small { margin-left: auto; }
+
+    .foot { border-top: 1px solid var(--line); margin: 0 var(--side); padding: 1.4rem 0 max(2rem, env(safe-area-inset-bottom));
+      display: flex; justify-content: space-between; gap: .6rem 1.5rem; flex-wrap: wrap;
+      font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .2em; color: var(--muted); }
+
+    @keyframes rise { from { transform: translateY(.35em); opacity: 0; } }
+    @keyframes fade { from { opacity: 0; transform: translateY(12px); } }
+    @keyframes zoom { from { transform: scale(1.08); } }
+    @keyframes pulse { 50% { opacity: .25; } }
+
+    /* Móviles muy estrechos (iPhone SE y similares) */
+    @media (max-width: 360px) {
+      .status { letter-spacing: .16em; }
+      .contact a, .contact span { letter-spacing: .12em; }
+    }
+
+    /* Tableta en vertical: algo más de foto y el texto en dos columnas */
+    @media (min-width: 640px) {
+      .hero__media { max-height: 58svh; }
+      .works { grid-template-columns: minmax(0, 1fr) minmax(0, 24rem); gap: 2.5rem 5vw; align-items: end; }
+    }
+
+    /* Móvil en horizontal: foto a la izquierda y nombre a la derecha, sin que se tapen */
+    @media (orientation: landscape) and (max-height: 560px) {
+      .header { position: relative; padding-top: .7rem; padding-bottom: .7rem; }
+      .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center;
+        gap: 0 var(--side); padding: 0 var(--side) 0 0; }
+      .hero__media { aspect-ratio: auto; height: min(78svh, 380px); max-height: none; padding-left: env(safe-area-inset-left); }
+      .hero__title { margin: 0; font-size: min(calc((45vw - var(--side)) / 4.9), 7rem); }
+      .hero__sub { margin: .8rem 0 0; }
+      .hero > div { min-width: 0; }
+    }
+
+    /* ---------- Ordenador: portada a pantalla completa, como la web ---------- */
+    @media (min-width: 900px) and (min-height: 561px) and (min-aspect-ratio: 1/1) {
+      .header { position: fixed; inset: 0 0 auto 0; padding: 1.6rem var(--side); background: none; color: #fff;
+        mix-blend-mode: difference; }
+      .logo { flex-direction: row; align-items: baseline; font-size: 1.6rem; letter-spacing: .3em; }
+      .logo span { font-size: .62em; letter-spacing: .35em; margin: 0 0 0 .6rem; }
+      .hero { height: 100vh; height: 100svh; min-height: 600px; overflow: hidden; color: var(--ivory); }
+      .hero__media { position: absolute; inset: 0; aspect-ratio: auto; max-height: none;
+        background: linear-gradient(180deg, rgba(96,114,126,0) 79%, rgba(96,114,126,.85) 82%, rgba(150,166,180,.9) 100%),
+                    linear-gradient(90deg, #12212a, #081012); }
+      .hero__media::after { background: linear-gradient(180deg, rgba(8,14,17,.4) 0%, rgba(8,14,17,0) 22%); }
+      .hero__media picture { width: auto; height: 100%; aspect-ratio: 1195 / 896; margin: 0 auto;
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
+      .hero__media img { object-position: 56% 50%; }
+      .hero__title { position: absolute; z-index: 2; left: var(--side); top: clamp(5.5rem, 11vh, 8rem); margin: 0;
+        font-size: min(clamp(4.5rem, 17vw, 19rem), 21vh);
+        text-shadow: 0 2px 40px rgba(22,18,14,.35), 0 1px 3px rgba(22,18,14,.2); }
+      .hero__sub { position: absolute; z-index: 2; right: var(--side); top: 42vh; max-width: 15rem; margin: 0; text-align: right;
+        color: var(--ivory); text-shadow: 0 1px 18px rgba(22,18,14,.55), 0 1px 2px rgba(22,18,14,.35); }
+      .hero__scroll { position: absolute; z-index: 2; left: 50%; bottom: 2rem; transform: translateX(-50%);
+        font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .25em; color: var(--ivory);
+        display: flex; flex-direction: column; align-items: center; gap: .7rem; animation: fade 1s 1.4s both; }
+      .hero__scroll i { display: block; width: 1px; height: 2.6rem; background: currentColor; transform-origin: top;
+        animation: drip 2.2s var(--ease) infinite; }
+      .works { padding: clamp(5rem, 2rem + 10vw, 11rem) var(--side) clamp(4rem, 2rem + 7vw, 8rem);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 26rem); gap: 3rem 6vw; }
+      .status { margin-bottom: 2rem; }
+    }
+    /* Ordenador estrecho (portátil pequeño, ventana a medias): el nombre no pisa la frase */
+    @media (min-width: 900px) and (max-width: 1180px) and (min-height: 561px) and (min-aspect-ratio: 1/1) {
+      .hero__sub { left: var(--side); right: auto; text-align: left;
+        top: calc(clamp(5.5rem, 11vh, 8rem) + min(clamp(4.5rem, 17vw, 19rem), 21vh) * .82 + 1.8rem); }
+    }
+    @keyframes drip { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body data-en-obras>
+
+  <header class="header">
+    <span class="logo">Charria <span>Ceramics</span></span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero__media">
+        <picture>
+          <source type="image/webp" srcset="/assets/inicio-800.webp 800w, /assets/inicio-1195.webp 1195w" sizes="(min-width: 900px) 70vw, 100vw">
+          <img src="/assets/inicio-1195.jpg" srcset="/assets/inicio-800.jpg 800w, /assets/inicio-1195.jpg 1195w" sizes="(min-width: 900px) 70vw, 100vw"
+               width="1195" height="896" alt="Jarrón, botella y vaso de cerámica veteada hechos a mano, sobre una mesa clara y fondo azul petróleo">
+        </picture>
+      </div>
+      <div>
+        <h1 class="hero__title" aria-label="Charria"><span aria-hidden="true"><span class="l" style="--i:0">C</span><span class="l" style="--i:1">h</span><span class="l a" style="--i:2">a</span><span class="l" style="--i:3">r</span><span class="l" style="--i:4">r</span><span class="l" style="--i:5">i</span><span class="l a" style="--i:6">a</span></span></h1>
+        <p class="hero__sub">Cerámica hecha a mano · Estudio y tienda</p>
+      </div>
+      <span class="hero__scroll" aria-hidden="true">Desliza<i></i></span>
+    </section>
+
+    <section class="works" aria-labelledby="works-title">
+      <div>
+        <span class="status">Web en obras</span>
+        <h2 class="works__title" id="works-title">Estamos dando forma <em>a la nueva web</em></h2>
+      </div>
+      <div class="works__text">
+        <p>Como una pieza en el torno, la web necesita su tiempo. Muy pronto podrás ver aquí la tienda, las clases en grupo y privadas y la galería del taller.</p>
+        <p>Mientras tanto, síguenos en Instagram para ver las últimas piezas o escríbenos para reservar tu clase.</p>
+        <ul class="contact" data-contact>
+          <li><a href="https://www.instagram.com/ch.ceramics/" target="_blank" rel="noopener" data-c="instagram">Instagram <small>@ch.ceramics</small></a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>© <span data-year>2026</span> Charria Ceramics</span>
+    <span data-city>Tomiño · Pontevedra</span>
+  </footer>
+
+  <script>
+    // Datos de contacto del panel (Ajustes → Datos de la web), si la web ya está instalada.
+    (function () {
+      document.querySelector("[data-year]").textContent = new Date().getFullYear();
+      if (!window.fetch) return;
+      fetch("/api/site", { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (s) {
+          if (!s) return;
+          var list = document.querySelector("[data-contact]");
+          var esc = function (t) { var d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
+          var tel = function (p) { return String(p).replace(/[^\d+]/g, ""); };
+          var rows = [];
+          if (s.instagram) {
+            var handle = (s.instagram.match(/instagram\.com\/([^/?#]+)/i) || [])[1];
+            rows.push(["Instagram", s.instagram, handle ? "@" + handle : "", true]);
+          } else {
+            rows.push(["Instagram", "https://www.instagram.com/ch.ceramics/", "@ch.ceramics", true]);
+          }
+          if (s.whatsapp) rows.push(["WhatsApp", "https://wa.me/" + tel(s.whatsapp).replace("+", ""), s.whatsapp, true]);
+          if (s.phone) rows.push(["Teléfono", "tel:" + tel(s.phone), s.phone]);
+          if (s.email) rows.push(["Email", "mailto:" + s.email, s.email]);
+          if (s.address || s.city) rows.push(["Estudio", s.maps_url || "", [s.address, s.city].filter(Boolean).join(", "), !!s.maps_url]);
+          list.innerHTML = rows.map(function (r) {
+            var inner = esc(r[0]) + (r[2] ? " <small>" + esc(r[2]) + "</small>" : "");
+            if (!r[1]) return "<li><span>" + inner + "</span></li>";
+            return '<li><a href="' + esc(r[1]) + '"' + (r[3] ? ' target="_blank" rel="noopener"' : "") + ">" + inner + "</a></li>";
+          }).join("");
+          if (s.city) document.querySelector("[data-city]").textContent = s.city;
+        })
+        .catch(function () { /* sin instalar: se queda Instagram */ });
+    })();
+  </script>
+</body>
+</html>

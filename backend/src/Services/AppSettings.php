@@ -207,6 +207,12 @@ final class AppSettings
      */
     public static function save(array $input, array $clear = []): void
     {
+        // «Web en obras» no va a la tabla settings: es un fichero que lee el .htaccess (ver Maintenance)
+        if (array_key_exists('SITE_MAINTENANCE', $input)) {
+            $raw = $input['SITE_MAINTENANCE'];
+            Maintenance::set($raw === true || $raw === 'true' || $raw === 1 || $raw === '1');
+            unset($input['SITE_MAINTENANCE']);
+        }
         $errors = [];
         $toSave = [];
         foreach ($input as $key => $raw) {

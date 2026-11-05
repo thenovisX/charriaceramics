@@ -74,12 +74,13 @@ final class AuthController
             'password' => $v->string('password', true, 200, 10),
         ];
         $seed = $v->bool('seed') ?? false;
+        $open = $v->bool('open') ?? false; // abrir la web al terminar (si no, sigue «en obras»)
         $v->check();
         if (Installer::isInstalled()) {
             throw new HttpError(409, 'already_installed', 'La web ya está instalada. Entra en el panel con tu usuario.');
         }
         try {
-            return Response::created(Installer::install($db, $admin, $seed, $r));
+            return Response::created(Installer::install($db, $admin, $seed, $r, $open));
         } catch (HttpError $e) {
             throw $e;
         } catch (\Throwable $e) {

@@ -52,7 +52,7 @@ final class Installer
         return $missing;
     }
 
-    public static function install(array $db, array $admin, bool $seed, Request $request): array
+    public static function install(array $db, array $admin, bool $seed, Request $request, bool $open = false): array
     {
         if (Env::get('DB_NAME')) {
             // Ya hay configuración: solo se acepta si los datos coinciden (p. ej. .env subido a mano sin admin)
@@ -82,9 +82,13 @@ final class Installer
             $conn->runSqlFile(BACKEND_DIR . '/database/seed.sql');
             $seeded = true;
         }
+        if ($open) {
+            Maintenance::set(false);
+        }
         return [
             'installed' => true,
             'seeded' => $seeded,
+            'maintenance' => Maintenance::on(),
             'config_outside_public_html' => $written && !str_starts_with(realpath($written) ?: $written, realpath(PUBLIC_DIR) . '/'),
         ];
     }

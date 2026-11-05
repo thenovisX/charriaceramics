@@ -18,6 +18,15 @@ if (str_starts_with($path, '/uploads/') && preg_match('/\.php\d?$/i', $path)) {
     http_response_code(403);
     exit('Forbidden');
 }
+// Web en obras (igual que el .htaccess de la raíz)
+if (preg_match('#^/(?!(?:en-obras|404)\.html$)(?:[^/]+\.html)?$#', $path)
+    && !is_file(__DIR__ . '/storage/web-abierta')
+    && ($_COOKIE['charria_vista'] ?? '') !== 'web') {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-cache');
+    readfile(__DIR__ . '/../en-obras.html');
+    return true;
+}
 if ($path === '/admin' ) {
     header('Location: /admin/');
     return true;
