@@ -39,6 +39,13 @@ final class Auth
             $db->exec('UPDATE admins SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $admin['id']]);
         }
 
+        // ¿Ya se había entrado desde esta conexión en el último mes? Si no, se avisa por email
+        // al administrador: si no has sido tú, sabrás enseguida que alguien tiene tu contraseña.
+        $knownIp = (bool) $db->value(
+            'SELECT 1 FROM admin_sessions WHERE admin_id = ? AND ip = ? LIMIT 1',
+            [$admin['id'], substr($request->ip, 0, 45)]
+        );
+
         $token = bin2hex(random_bytes(32));
         $hours = max(1, Env::int('SESSION_TTL_HOURS', 12));
         $expires = date('Y-m-d H:i:s', time() + $hours * 3600);
@@ -50,7 +57,16 @@ final class Auth
             'expires_at' => $expires,
         ]);
         $db->exec('UPDATE admins SET last_login_at = NOW() WHERE id = ?', [$admin['id']]);
-        $db->exec('DELETE FROM admin_sessions WHERE expires_at < NOW()');
+        // Las sesiones caducadas ya no sirven para entrar (requireAdmin mira expires_at),
+        // pero se guardan 30 días para reconocer desde dónde sueles conectarte
+        $db->exec('DELETE FROM admin_sessions WHERE expires_at < (NOW() - INTERVAL 30 DAY)');
+        if (!$knownIp) {
+            Mailer::send($admin['email'], 'Nuevo inicio de sesión en el panel · Charria Ceramics',
+                "Hola,\n\nAlguien ha entrado en el panel de la web con tu usuario ({$admin['email']}) desde una conexión nueva.\n\n"
+                . 'Fecha: ' . date('d/m/Y H:i') . "\nIP: {$request->ip}\nNavegador: " . substr($request->header('user-agent') ?? '', 0, 160) . "\n\n"
+                . "Si has sido tú, no tienes que hacer nada.\n"
+                . "Si no has sido tú, entra en el panel, cambia la contraseña en «Cuenta» (eso cierra las demás sesiones).\n");
+        }
 
         return [
             'token' => $token,
@@ -80,7 +96,8 @@ final class Auth
 
     public static function logout(Request $request): void
     {
-        Database::get()->exec('DELETE FROM admin_sessions WHERE id = ?', [$request->admin['session_id']]);
+        // Se marca como caducada (no se borra) para seguir reconociendo esta conexión
+        Database::get()->exec('UPDATE admin_sessions SET expires_at = NOW() WHERE id = ?', [$request->admin['session_id']]);
     }
 
     public static function createAdmin(string $email, string $password, string $name = ''): int
