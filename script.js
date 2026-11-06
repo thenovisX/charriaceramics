@@ -1389,4 +1389,23 @@ function initPage() {
       contactForm.reset();
     });
   }
+
+  // Team building: se envía como mensaje de contacto con el motivo «Team building para empresas»
+  const teamForm = $("[data-team-form]");
+  if (teamForm) {
+    sendForm(teamForm, async (f) => {
+      requireCheck(f.privacy, "Para pedir el presupuesto tienes que aceptar la política de privacidad.");
+      const lines = [
+        ["Empresa o grupo", f.empresa.value],
+        ["Personas", f.personas.value],
+        ["Fecha o época", f.fecha.value],
+        ["Teléfono", f.telefono.value],
+      ].filter(([, v]) => v.trim()).map(([k, v]) => `${k}: ${v.trim()}`);
+      const idea = f.mensaje.value.trim();
+      if (idea) lines.push("", "Qué les gustaría:", idea);
+      await apiPost("contact", { name: f.nombre.value, email: f.email.value, reason: "Team building para empresas", message: lines.join("\n"), consents: { privacy: true } });
+      formMessage(teamForm, "Gracias. Te enviaremos la propuesta por email en 24–48 h.");
+      teamForm.reset();
+    });
+  }
 }

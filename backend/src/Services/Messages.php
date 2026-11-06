@@ -16,7 +16,7 @@ final class Messages
     public const RETENTION_DAYS = 365;
 
     /** Motivos del formulario de contacto que se guardan como petición (encargo). */
-    private const REQUEST_REASONS = ['Encargo personalizado'];
+    private const REQUEST_REASONS = ['Encargo personalizado', 'Team building para empresas'];
 
     public static function typeForReason(string $reason): string
     {
