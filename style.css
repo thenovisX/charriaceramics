@@ -1346,3 +1346,53 @@ html.consent-open { overflow: hidden; }
 
 /* Enlace a la política de cancelación bajo los botones de reserva */
 .form__note a { text-decoration: underline; text-underline-offset: .2em; }
+
+/* ---------- Team building para empresas (team-building.html y aviso en la portada) ---------- */
+.team-teaser { padding: var(--gap) var(--side); border-top: 1px solid rgba(26,24,22,.12); display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 1.6rem clamp(2rem, 6vw, 7rem); align-items: end; }
+.team-teaser .eyebrow { grid-column: 1 / -1; margin: 0; }
+.team-teaser__title { font-family: var(--serif); font-weight: 400; font-size: clamp(2.4rem, 1.2rem + 5vw, 7rem); line-height: .95; letter-spacing: -0.01em; grid-row: 2 / span 2; }
+.team-teaser__title em { font-style: italic; }
+.team-teaser__text { color: var(--muted); max-width: 30rem; }
+.team-teaser .btn-primary { justify-self: start; }
+
+.team { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(2.5rem, 1rem + 6vw, 8rem); align-items: start; padding: 0 var(--side) var(--gap); }
+.team__media { aspect-ratio: 4 / 5; overflow: hidden; background: var(--paper); position: sticky; top: 6rem; }
+.team__media picture { display: block; width: 100%; height: 100%; }
+.team__media img { width: 100%; height: 100%; object-fit: cover; }
+.team__title { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 1.2rem + 3.4vw, 4.6rem); line-height: 1.05; margin-bottom: 1.6rem; }
+.team__text { max-width: 34rem; color: var(--muted); }
+.team__facts { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem 2.4rem; margin: clamp(2rem, 1rem + 3vw, 3.2rem) 0; }
+.team__facts div { border-top: 1px solid rgba(26,24,22,.15); padding-top: .9rem; }
+.team__facts dt { font-size: var(--fs-label); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: .3rem; }
+.team__facts dd { font-family: var(--serif); font-size: 1.3rem; margin: 0; }
+.team__sub { font-family: var(--serif); font-weight: 400; font-size: 1.5rem; margin: 2.4rem 0 1rem; }
+.team__list, .team__ideas { list-style: none; display: grid; gap: .8rem; max-width: 36rem; }
+.team__list li { padding-left: 1.4rem; position: relative; color: var(--muted); }
+.team__list li::before { content: ""; position: absolute; left: 0; top: .75em; width: .6rem; height: 1px; background: var(--ink); }
+.team__ideas li { border-top: 1px solid rgba(26,24,22,.12); padding-top: .8rem; color: var(--muted); }
+.team__ideas strong { font-weight: 500; color: var(--ink); }
+
+.team-steps { padding: var(--gap) var(--side); border-top: 1px solid rgba(26,24,22,.12); }
+.team-steps .section-head__title { margin-bottom: clamp(2rem, 1rem + 3vw, 3.6rem); }
+.team-steps ol { list-style: none; counter-reset: paso; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2rem 2.4rem; }
+.team-steps li { counter-increment: paso; border-top: 1px solid rgba(26,24,22,.15); padding-top: 1rem; }
+.team-steps li::before { content: "0" counter(paso); display: block; font-size: var(--fs-label); letter-spacing: .12em; color: var(--muted); margin-bottom: .6rem; }
+.team-steps h3 { font-family: var(--serif); font-weight: 400; font-size: 1.35rem; margin: 0 0 .4rem; }
+.team-steps p { font-size: var(--fs-small); color: var(--muted); }
+
+.team-form { border-top: 1px solid rgba(26,24,22,.12); padding-top: var(--gap); }
+.team-form .contact__info .section-head__title { margin: 1rem 0 2rem; }
+.team-form .contact__lead a { border-bottom: 1px solid rgba(26,24,22,.25); }
+
+@media (max-width: 900px) {
+  .team-steps ol { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 767px) {
+  .team-teaser { grid-template-columns: 1fr; }
+  .team-teaser__title { grid-row: auto; }
+  .team { grid-template-columns: 1fr; }
+  .team__media { position: relative; top: 0; aspect-ratio: 4 / 3; }
+  .team__facts { grid-template-columns: 1fr; gap: 1rem; }
+  .team-steps ol { grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+}
+.page-head__title--team { font-size: clamp(2.8rem, 1rem + 7vw, 9rem); max-width: 11ch; }
