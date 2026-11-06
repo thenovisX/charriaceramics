@@ -354,26 +354,57 @@ function renderNonShop() {
     SLOTS = slots;
     const weeklyBox = $("[data-weekly]");
     const byId = new Map(CLASSES.group.map((c) => [c.id, c]));
-    const weeklyRows = (CLASSES.weekly || []).flatMap((day) => day.slots.map((w, i) => {
-      const c = byId.get(w.class_id);
-      const slot = slots.get(`w${w.id}`);
-      if (!c || !slot) return "";
-      slot.weekly = w;
-      const s = slot.sessions.find((x) => x.seats_left > 0) || slot.sessions[0];
-      const free = slot.sessions.some((x) => x.seats_left > 0);
-      const next = free ? `Próxima: ${s.date.getDate()} ${s.date.toLocaleDateString("es-ES", { month: "short" }).replace(".", "")} · ${plazasOf(s.seats_left)}` : "Completo";
-      const monthly = w.price_period === "month";
-      return `<li class="class-row${i ? " class-row--same-day" : ""}" data-img="${esc(c.image?.url || "")}">
-        <span class="class-row__date">${i ? "" : esc(day.name)}</span>
-        <span class="class-row__name">${esc(c.title)}</span>
-        <span class="class-row__meta">${esc(w.time)} · ${hours(c.duration_minutes)} · ${next}</span>
-        <span class="class-row__price class-row__price--month">${euros(w.price_cents)}<small class="class-row__period">${monthly ? "por mes" : "por clase"}</small></span>
-        <button class="btn-primary" type="button" data-book="${s.id}" data-slot="w${w.id}" data-seats="${s.seats_left}" data-title="${esc(c.title)} · ${esc(day.name.toLowerCase())} ${esc(w.time)}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
+    // Semanales: un desplegable por día de la semana (Lunes, Martes…) con la hora bien visible;
+    // se abre solo el próximo día con clase, el resto se despliega al tocarlo
+    const endOf = (time, min) => {
+      const [h, m] = time.split(":").map(Number);
+      const t = h * 60 + m + (min || 0);
+      return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+    };
+    const today = (new Date().getDay() + 6) % 7 + 1; // 1 = lunes … 7 = domingo, como el panel
+    const weekDays = (CLASSES.weekly || []).map((day) => {
+      const rowsOfDay = day.slots.map((w) => {
+        const c = byId.get(w.class_id);
+        const slot = slots.get(`w${w.id}`);
+        if (!c || !slot) return "";
+        slot.weekly = w;
+        const s = slot.sessions.find((x) => x.seats_left > 0) || slot.sessions[0];
+        const free = slot.sessions.some((x) => x.seats_left > 0);
+        const next = free ? `Próxima: ${weekday(s.date).toLowerCase()} ${s.date.getDate()} ${s.date.toLocaleDateString("es-ES", { month: "short" }).replace(".", "")} · ${plazasOf(s.seats_left)}` : "Completo";
+        const monthly = w.price_period === "month";
+        return { time: w.time, title: c.title, html: `<li class="class-row class-row--weekly" data-img="${esc(c.image?.url || "")}">
+          <span class="class-row__date class-row__time">${esc(w.time)}<small>a ${endOf(w.time, c.duration_minutes)}</small></span>
+          <span class="class-row__name">${esc(c.title)}</span>
+          <span class="class-row__meta">${hours(c.duration_minutes)} · ${next}</span>
+          <span class="class-row__price class-row__price--month">${euros(w.price_cents)}<small class="class-row__period">${monthly ? "por mes" : "por clase"}</small></span>
+          <button class="btn-primary" type="button" data-book="${s.id}" data-slot="w${w.id}" data-seats="${s.seats_left}" data-title="${esc(c.title)} · ${esc(day.name.toLowerCase())} ${esc(w.time)}" ${free ? "" : "disabled"}>${free ? "Reservar" : "Completo"}</button>
+        </li>` };
+      }).filter(Boolean);
+      return { ...day, rows: rowsOfDay };
+    }).filter((d) => d.rows.length);
+    const openDay = (weekDays.find((d) => d.weekday >= today) || weekDays[0])?.weekday;
+    const weeklyRows = weekDays.map((d) => {
+      const n = d.rows.length;
+      const names = [...new Set(d.rows.map((r) => r.title))];
+      return `<li class="weekday">
+        <details class="weekday__box"${d.weekday === openDay ? " open" : ""}>
+          <summary class="weekday__head">
+            <span class="weekday__name">${esc(d.name)}${d.weekday === today ? '<small class="weekday__today">Hoy</small>' : ""}</span>
+            <span class="weekday__info">
+              <span class="weekday__times">${d.rows.map((r) => `<span>${esc(r.time)}</span>`).join("")}</span>
+              <span class="weekday__classes">${names.map(esc).join(" · ")} · ${n} ${n === 1 ? "clase" : "clases"}</span>
+            </span>
+            <span class="weekday__icon" aria-hidden="true"></span>
+          </summary>
+          <ul class="weekday__rows">${d.rows.map((r) => r.html).join("")}</ul>
+        </details>
       </li>`;
-    })).filter(Boolean);
+    });
     if (weeklyBox) {
       weeklyBox.hidden = !weeklyRows.length;
       $(".weekly__list", weeklyBox).innerHTML = weeklyRows.join("");
+      // Al abrir o cerrar un día cambia el alto de la página: que GSAP recoloque sus animaciones
+      $$(".weekday__box", weeklyBox).forEach((box) => box.addEventListener("toggle", () => { if (hasGsap) ScrollTrigger.refresh(); }));
     }
     const rows = [...slots.values()]
       .filter((x) => !x.key.startsWith("w"))
@@ -949,7 +980,8 @@ function initPage() {
         });
       }
       if ($(".class-list")) {
-        gsap.from(".class-row", {
+        // Las filas de Semanales van dentro de los desplegables: se anima cada día, no sus filas
+        gsap.from(".weekday, .class-list .class-row", {
           opacity: 0, y: 40, stagger: 0.1, duration: 1, ease: "power3.out",
           // .classes y no .class-list: arriba puede estar «Semanales» o solo las fechas especiales
           scrollTrigger: { trigger: ".classes", start: "top 55%" },
