@@ -49,7 +49,7 @@ final class AuthController
         $db = Database::get();
         $db->exec('UPDATE admins SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $r->admin['id']]);
         // Cierra el resto de sesiones abiertas
-        $db->exec('DELETE FROM admin_sessions WHERE admin_id = ? AND id <> ?', [$r->admin['id'], $r->admin['session_id']]);
+        $db->exec('UPDATE admin_sessions SET expires_at = NOW() WHERE admin_id = ? AND id <> ? AND expires_at > NOW()', [$r->admin['id'], $r->admin['session_id']]);
         return Response::noContent();
     }
 
@@ -93,8 +93,13 @@ final class AuthController
     /** GET /setup — ¿hace falta instalar? (lo usa setup.html) */
     public function setupStatus(Request $r): Response
     {
+        $installed = Installer::isInstalled();
+        // Ya instalada: no se cuenta a desconocidos qué versión de PHP o qué extensiones tiene el servidor
+        if ($installed === true) {
+            return Response::json(['installed' => true, 'configured' => true]);
+        }
         return Response::json([
-            'installed' => Installer::isInstalled(),
+            'installed' => $installed,
             'configured' => Env::get('DB_NAME') !== null,
             'php' => PHP_VERSION,
             'missing' => Installer::missingRequirements(),

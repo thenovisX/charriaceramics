@@ -17,7 +17,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 $db = Charria\Database::get();
 $orders = $db->exec("UPDATE orders SET status = 'cancelled' WHERE status = 'pending' AND expires_at < NOW() - INTERVAL 1 HOUR");
 $bookings = $db->exec("UPDATE bookings SET status = 'cancelled' WHERE status = 'pending_payment' AND expires_at < NOW() - INTERVAL 1 HOUR");
-$db->exec('DELETE FROM admin_sessions WHERE expires_at < NOW()');
+$db->exec('DELETE FROM admin_sessions WHERE expires_at < (NOW() - INTERVAL 30 DAY)');
 $db->exec('DELETE FROM rate_limits WHERE created_at < NOW() - INTERVAL 1 DAY');
 $anon = Charria\Services\Privacy::anonymizeExpired();
 echo "Pedidos caducados: $orders · Reservas caducadas: $bookings · Anonimizados: {$anon['orders']} pedidos, {$anon['bookings']} reservas\n";

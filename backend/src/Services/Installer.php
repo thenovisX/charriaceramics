@@ -65,6 +65,7 @@ final class Installer
             }
             $written = Env::file();
         } else {
+            self::assertLocalHost($db['host']);
             self::testConnection($db);
             $written = self::writeEnv($db, $request);
             Env::load([$written]);
@@ -91,6 +92,26 @@ final class Installer
             'maintenance' => Maintenance::on(),
             'config_outside_public_html' => $written && !str_starts_with(realpath($written) ?: $written, realpath(PUBLIC_DIR) . '/'),
         ];
+    }
+
+    /**
+     * Antes de instalar cualquiera puede abrir setup.html. Si se aceptara un servidor
+     * MySQL cualquiera, un desconocido podría «instalar» la web contra una base de datos
+     * suya y quedarse con el panel. En Hostinger MySQL siempre está en este mismo
+     * servidor, así que solo se admite localhost (CHARRIA_ALLOW_REMOTE_DB=1 lo permite
+     * en otros hostings, como variable del servidor, no del formulario).
+     */
+    private static function assertLocalHost(string $host): void
+    {
+        $host = strtolower(trim($host));
+        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true) || getenv('CHARRIA_ALLOW_REMOTE_DB') === '1') {
+            return;
+        }
+        sleep(1);
+        throw HttpError::validation(
+            ['db.host' => 'Por seguridad solo se admite «localhost» (en Hostinger MySQL está en el mismo servidor)'],
+            'No se pudo conectar con la base de datos. Revisa los datos.'
+        );
     }
 
     private static function testConnection(array $db): void
