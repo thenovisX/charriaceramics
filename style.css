@@ -508,12 +508,15 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 /* ==========================================================
    Páginas interiores: productos.html y galeria.html
    ========================================================== */
-.page-head { padding: clamp(8rem, 5rem + 12vw, 15rem) var(--side) clamp(3rem, 1rem + 6vw, 6rem); display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 2rem; }
+.page-head { padding: clamp(8rem, 5rem + 12vw, 15rem) var(--side) clamp(3rem, 1rem + 6vw, 6rem); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 2rem; }
+/* Título y entradilla en fila; si el título no cabe entero (tablet, portátil pequeño), la entradilla baja a la línea siguiente en vez de cortar el título */
+.page-head__title { flex: 0 1 auto; max-width: 100%; }
+.page-head__desc { flex: 0 1 24rem; }
 .page-head__title { font-family: var(--serif); font-weight: 400; font-size: clamp(3rem, 1.5rem + 9vw, 12rem); line-height: .92; letter-spacing: -0.02em; overflow: hidden; }
 .page-head__title .char { display: inline-block; }
 .page-head__title em { font-style: italic; }
 .page-head__desc { max-width: 24rem; color: var(--muted); }
-.page-head .eyebrow { grid-column: 1 / -1; margin: 0; }
+.page-head .eyebrow { flex: 0 0 100%; margin: 0; }
 
 /* Página 404: "4 · cuenco agrietado · 4" */
 .notfound { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: clamp(7rem, 5rem + 8vw, 11rem) var(--side) clamp(4rem, 2rem + 6vw, 8rem); }
@@ -532,6 +535,12 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .btn-primary--ghost .btn-primary__icon { background: var(--ink); color: var(--ivory); }
 @media (hover: hover) { .btn-primary--ghost:hover { color: var(--ivory); } }
 @media (max-width: 600px) { .notfound__actions .btn-primary { width: 100%; } }
+/* Móviles estrechos (≤ 400 px): textos largos como «Ver todos los productos» no caben en una línea
+   con tanto espaciado; se aprieta un poco y, si aun así no cabe, el texto pasa a dos líneas en vez de cortarse */
+@media (max-width: 400px) {
+  .btn-primary { max-width: 100%; gap: .8rem; padding-left: 1.25rem; letter-spacing: .13em; }
+  .btn-primary__label { min-width: 0; white-space: normal; }
+}
 
 /* Filtros del catálogo */
 .filters { display: flex; flex-wrap: wrap; gap: .4rem 1.8rem; padding: 0 var(--side) 1.4rem; margin-bottom: clamp(2.5rem, 1rem + 4vw, 4.5rem); border-bottom: 1px solid rgba(26,24,22,.15); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .2em; }
@@ -773,7 +782,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .footer__cols { flex-direction: column; gap: 2rem; }
   .modal__box { width: 100%; }
 
-  .page-head { grid-template-columns: 1fr; gap: 1.2rem; }
+  .page-head { flex-direction: column; align-items: flex-start; gap: 1.2rem; }
+  .page-head__desc { flex: none; }
   .filters { gap: .2rem 1.3rem; }
   .filters__count { width: 100%; margin: 0; }
   /* Catálogo: dos columnas compactas para no alargar el scroll */
@@ -812,6 +822,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   transform: translateX(100%); transition: transform .7s var(--ease);
   box-shadow: -20px 0 60px rgba(26,24,22,.12);
 }
+/* Cerrada: oculta del todo (si no, su sombra asoma como una franja gris en el borde derecho
+   y en iPhone el panel fuera de pantalla deja desplazar la web de lado) */
+.cart { overflow: hidden; visibility: hidden; transition: visibility 0s .7s; }
+.cart.is-open { visibility: visible; transition-delay: 0s; }
 .cart.is-open { pointer-events: auto; }
 .cart.is-open .cart__backdrop { opacity: 1; }
 .cart.is-open .cart__panel { transform: none; }
@@ -1136,6 +1150,8 @@ html.consent-open { overflow: hidden; }
   transform: translateX(-100%); transition: transform .7s var(--ease);
   box-shadow: 20px 0 60px rgba(26,24,22,.12);
 }
+.sheet { overflow: hidden; visibility: hidden; transition: visibility 0s .7s; }
+.sheet.is-open { visibility: visible; transition-delay: 0s; }
 .sheet.is-open { pointer-events: auto; }
 .sheet.is-open .sheet__backdrop { opacity: 1; }
 .sheet.is-open .sheet__panel { transform: none; }
