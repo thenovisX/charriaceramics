@@ -330,6 +330,72 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 /* Un día con varias clases: el nombre del día solo en la primera fila */
 .class-row--same-day { border-top-style: dashed; }
 
+/* «Cada semana»: un desplegable por día; al abrirlo, las clases de ese día con la hora delante */
+.classes__hint {
+  display: block; margin-top: .35rem; font-family: var(--sans); font-size: var(--fs-label);
+  text-transform: uppercase; letter-spacing: .2em; color: var(--muted);
+}
+.weekday { border-top: 1px solid rgba(26,24,22,.15); position: relative; z-index: 2; }
+.weekday:last-child { border-bottom: 1px solid rgba(26,24,22,.15); }
+.weekday__head {
+  display: grid; grid-template-columns: 11rem 1fr auto; align-items: center; gap: 1.5rem;
+  padding: 1.7rem 0; cursor: pointer; list-style: none;
+}
+.weekday__head::-webkit-details-marker { display: none; }
+.weekday__head:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.weekday__name {
+  display: flex; align-items: center; gap: .8rem;
+  font-family: var(--serif); font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.5rem); line-height: 1.1;
+  transition: transform .6s cubic-bezier(.2,.7,.2,1);
+}
+.weekday__today {
+  padding: .22rem .6rem; border-radius: 999px; background: var(--clay); color: var(--ivory);
+  font-family: var(--sans); font-size: .68rem; text-transform: uppercase; letter-spacing: .16em; line-height: 1.2;
+}
+.weekday__info { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.weekday__times { display: flex; flex-wrap: wrap; gap: .45rem; }
+.weekday__times span {
+  padding: .3rem .75rem; border: 1px solid rgba(26,24,22,.35); border-radius: 999px;
+  font-size: var(--fs-small); font-variant-numeric: tabular-nums; letter-spacing: .04em;
+}
+.weekday__classes { font-size: var(--fs-small); color: var(--muted); }
+/* Icono +/−: la raya vertical desaparece al abrir */
+.weekday__icon { position: relative; width: 2.6rem; height: 2.6rem; border: 1px solid rgba(26,24,22,.35); border-radius: 50%; transition: background-color .3s, border-color .3s; }
+.weekday__icon::before, .weekday__icon::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: .9rem; height: 1px; background: currentColor;
+  transform: translate(-50%, -50%); transition: transform .4s var(--ease), background-color .3s;
+}
+.weekday__icon::after { transform: translate(-50%, -50%) rotate(90deg); }
+.weekday__box[open] .weekday__icon { background: var(--ink); border-color: var(--ink); color: var(--ivory); }
+.weekday__box[open] .weekday__icon::after { transform: translate(-50%, -50%) rotate(0deg); }
+@media (hover: hover) {
+  .weekday__head:hover .weekday__name { transform: translateX(.8rem); font-style: italic; }
+  .weekday__head:hover .weekday__icon { border-color: var(--ink); }
+}
+.weekday__rows { list-style: none; padding: 0 0 1.4rem; }
+.weekday__box[open] .weekday__rows { animation: weekday-in .45s cubic-bezier(.2,.7,.2,1); }
+@keyframes weekday-in { from { opacity: 0; transform: translateY(-.6rem); } }
+.weekday__rows .class-row { padding: 1.4rem 1.2rem; border-top: 1px dashed rgba(26,24,22,.2); background: rgba(245,241,234,.55); }
+.weekday__rows .class-row:last-child { border-bottom: 0; }
+.weekday__rows .class-row__name { font-size: clamp(1.25rem, 1rem + 1vw, 1.9rem); }
+/* La hora, grande y delante: es lo primero que se lee de cada clase */
+.class-row__time {
+  font-family: var(--serif); font-size: clamp(1.5rem, 1.2rem + 1vw, 2.1rem); letter-spacing: 0; text-transform: none;
+  color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1;
+}
+.class-row__time small {
+  display: block; margin-top: .4rem; font-family: var(--sans); font-size: var(--fs-label);
+  text-transform: uppercase; letter-spacing: .18em; color: var(--muted);
+}
+@media (max-width: 1024px) {
+  .weekday__head { grid-template-columns: 1fr auto; grid-template-areas: "name icon" "info info"; gap: .9rem 1rem; padding: 1.4rem 0; }
+  .weekday__name { grid-area: name; }
+  .weekday__info { grid-area: info; }
+  .weekday__icon { grid-area: icon; }
+  .weekday__rows .class-row { padding: 1.3rem 1rem; }
+  .class-row__time small { display: inline; margin: 0 0 0 .5rem; }
+}
+
 .class-float {
   position: fixed; left: 0; top: 0; z-index: 1;
   width: 260px; height: 340px; overflow: hidden;
@@ -995,6 +1061,10 @@ html.consent-open { overflow: hidden; }
   background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; border: 0; padding: 0; cursor: pointer; transition: background-size .4s ease;
 }
 .footer__links a:hover, .footer__links button:hover, .footer__links a:focus-visible, .footer__links button:focus-visible { background-size: 100% 1px; }
+/* «Contacta con nosotros»: el primero del pie, siempre subrayado y con flecha para que se vea como acción */
+.footer__links .footer__contact { font-weight: 600; background-size: 100% 1px; }
+.footer__links .footer__contact::after { content: " →"; display: inline-block; transition: transform .4s var(--ease); }
+.footer__links .footer__contact:hover::after, .footer__links .footer__contact:focus-visible::after { transform: translateX(.3rem); }
 
 /* Páginas legales */
 .legal { display: grid; grid-template-columns: minmax(12rem, 18rem) minmax(0, 46rem); gap: clamp(2rem, 1rem + 5vw, 7rem); padding: 0 var(--side) var(--gap); }
